@@ -55,26 +55,29 @@ export default function CheckoutPage() {
   const storeName = settings?.store_name ?? 'EdgeShop'
   const cartTotal = totalAmount()
   const shippingAmount = shippingResult?.shipping_amount ?? 0
-  const total = cartTotal - (discountResult?.discount_amount ?? 0) + shippingAmount
-
-  async function calculateShipping(country: string) {
-    try {
-      const res = await fetch('/api/shipping/calculate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cart_total: cartTotal, country }),
-      })
-      if (res.ok) {
-        const data = await res.json() as { shipping_amount: number; rate_name: string }
-        setShippingResult(data)
-      }
-    } catch {
-      // Shipping calculation failing should not block checkout
-    }
-  }
+  const total = Math.max(0, cartTotal - (discountResult?.discount_amount ?? 0) + shippingAmount)
 
   useEffect(() => {
-    calculateShipping(form.country)
+    setShippingResult(null)
+    if (!form.country) return
+    let cancelled = false
+    async function run() {
+      try {
+        const res = await fetch('/api/shipping/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cart_total: cartTotal, country: form.country }),
+        })
+        if (res.ok && !cancelled) {
+          const data = await res.json() as { shipping_amount: number; rate_name: string }
+          setShippingResult(data)
+        }
+      } catch {
+        // Shipping calculation failing should not block checkout
+      }
+    }
+    run()
+    return () => { cancelled = true }
   }, [form.country, cartTotal])
 
   if (items.length === 0) {
