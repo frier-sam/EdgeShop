@@ -121,3 +121,22 @@ export function abandonedCartHtml(data: {
     </html>
   `
 }
+
+export function contactFormHtml(data: {
+  name: string
+  email: string
+  message: string
+}): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1A1A1A">
+      <h2 style="margin-bottom:8px">New Contact Form Submission</h2>
+      <p><strong>Name:</strong> ${escapeHtml(data.name)}</p>
+      <p><strong>Email:</strong> ${escapeHtml(data.email)}</p>
+      <p><strong>Message:</strong></p>
+      <div style="background:#f5f5f5;padding:16px;border-radius:4px;white-space:pre-wrap">${escapeHtml(data.message)}</div>
+    </body>
+    </html>
+  `
+}

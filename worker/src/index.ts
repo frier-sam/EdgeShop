@@ -29,6 +29,7 @@ import blog from './routes/blog'
 import adminBlog from './routes/admin/blog'
 import analytics from './routes/admin/analytics'
 import abandonedCart from './routes/abandonedCart'
+import contact from './routes/contact'
 import { sendEmail } from './lib/email'
 import { abandonedCartHtml } from './lib/emailTemplates'
 
@@ -75,6 +76,7 @@ app.route('/api/blog', blog)
 app.route('/api/admin/blog', adminBlog)
 app.route('/api/admin/analytics', analytics)
 app.route('/api/cart', abandonedCart)
+app.route('/api/contact', contact)
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {

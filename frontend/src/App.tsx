@@ -26,6 +26,7 @@ import SearchPage from './pages/SearchPage'
 import BlogListPage from './pages/BlogListPage'
 import BlogPostPage from './pages/BlogPostPage'
 import NotFoundPage from './pages/NotFoundPage'
+import ContactPage from './pages/ContactPage'
 
 const queryClient = new QueryClient()
 
@@ -61,6 +62,7 @@ export default function App() {
               <Route path="discounts" element={<AdminDiscounts />} />
               <Route path="analytics" element={<AdminAnalytics />} />
             </Route>
+            <Route path="/contact" element={<ContactPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
