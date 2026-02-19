@@ -41,13 +41,6 @@ CREATE TABLE IF NOT EXISTS product_collections (
   PRIMARY KEY (product_id, collection_id)
 );
 
--- FTS5 virtual table for product search
-CREATE VIRTUAL TABLE IF NOT EXISTS products_fts USING fts5(
-  name, description, tags,
-  content=products,
-  content_rowid=id
-);
-
 -- Customers (registered storefront users)
 CREATE TABLE IF NOT EXISTS customers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,7 +134,8 @@ CREATE TABLE IF NOT EXISTS reviews (
 );
 
 -- Extend products table with v2 columns
--- Note: SQLite ALTER TABLE ADD COLUMN does not support CHECK constraints
+-- Note: SQLite ALTER TABLE ADD COLUMN does not support CHECK constraints.
+-- App layer must validate status IN ('active', 'draft') and product_type IN ('physical', 'digital')
 ALTER TABLE products ADD COLUMN compare_price REAL DEFAULT NULL;
 ALTER TABLE products ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
 ALTER TABLE products ADD COLUMN tags TEXT DEFAULT '';
@@ -150,6 +144,14 @@ ALTER TABLE products ADD COLUMN digital_file_key TEXT DEFAULT '';
 ALTER TABLE products ADD COLUMN weight REAL DEFAULT 0;
 ALTER TABLE products ADD COLUMN seo_title TEXT DEFAULT '';
 ALTER TABLE products ADD COLUMN seo_description TEXT DEFAULT '';
+
+-- FTS5 virtual table for product search
+-- Placed after ALTER TABLE products so the tags column exists when triggers fire
+CREATE VIRTUAL TABLE IF NOT EXISTS products_fts USING fts5(
+  name, description, tags,
+  content=products,
+  content_rowid=id
+);
 
 -- Extend orders table with v2 columns
 ALTER TABLE orders ADD COLUMN discount_code TEXT DEFAULT '';
@@ -172,8 +174,7 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('announcement_bar_text', ''),
   ('announcement_bar_enabled', 'false'),
   ('announcement_bar_color', '#1A1A1A'),
-  ('theme_overrides_json', '{}'),
-  ('jwt_secret', '');
+  ('theme_overrides_json', '{}');
 
 -- Default shipping data
 INSERT OR IGNORE INTO shipping_zones (id, name, countries_json) VALUES (1, 'India', '["India"]');
@@ -192,3 +193,7 @@ END;
 CREATE TRIGGER IF NOT EXISTS products_ad AFTER DELETE ON products BEGIN
   INSERT INTO products_fts(products_fts, rowid, name, description, tags) VALUES ('delete', old.id, old.name, old.description, old.tags);
 END;
+
+-- Backfill existing products into FTS index (for migrations on existing data)
+INSERT INTO products_fts(rowid, name, description, tags)
+  SELECT id, name, COALESCE(description, ''), COALESCE(tags, '') FROM products;
