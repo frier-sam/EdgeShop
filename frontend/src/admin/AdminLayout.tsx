@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Outlet, NavLink, Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Outlet, NavLink, Link, useLocation } from 'react-router-dom'
 
 interface NavSection {
   title: string
@@ -80,6 +80,11 @@ function SidebarSection({ section, defaultOpen = true }: { section: NavSection; 
 
 export default function AdminLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const location = useLocation()
+
+  useEffect(() => {
+    setDrawerOpen(false)
+  }, [location.pathname])
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-gray-50">
