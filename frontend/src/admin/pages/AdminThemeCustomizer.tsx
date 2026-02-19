@@ -44,6 +44,7 @@ export default function AdminThemeCustomizer() {
     { key: '--color-text', label: 'Text Color', type: 'color' },
     { key: '--font-heading', label: 'Heading Font', type: 'text' },
     { key: '--font-body', label: 'Body Font', type: 'text' },
+    { key: '--tagline', label: 'Tagline', type: 'text' },
     { key: '--logo-url', label: 'Logo URL', type: 'text' },
     { key: '--hero-image', label: 'Hero Image URL', type: 'text' },
   ] as const
