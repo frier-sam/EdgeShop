@@ -10,6 +10,8 @@ import AdminProducts from './admin/pages/AdminProducts'
 import AdminOrders from './admin/pages/AdminOrders'
 import AdminSettings from './admin/pages/AdminSettings'
 import AdminThemeCustomizer from './admin/pages/AdminThemeCustomizer'
+import AdminAppearance from './admin/pages/AdminAppearance'
+import AdminFooter from './admin/pages/AdminFooter'
 import StaticPage from './pages/StaticPage'
 import AdminPages from './admin/pages/AdminPages'
 import AdminNavigation from './admin/pages/AdminNavigation'
@@ -58,7 +60,9 @@ export default function App() {
               <Route path="orders" element={<AdminOrders />} />
               <Route path="orders/:id" element={<AdminOrderDetail />} />
               <Route path="settings" element={<AdminSettings />} />
-              <Route path="theme" element={<AdminThemeCustomizer />} />
+              <Route path="theme" element={<Navigate to="/admin/appearance" replace />} />
+              <Route path="appearance" element={<AdminAppearance />} />
+              <Route path="footer" element={<AdminFooter />} />
               <Route path="collections" element={<AdminCollections />} />
               <Route path="pages" element={<AdminPages />} />
               <Route path="navigation" element={<AdminNavigation />} />
