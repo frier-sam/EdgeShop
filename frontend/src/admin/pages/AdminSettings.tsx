@@ -201,6 +201,7 @@ export default function AdminSettings() {
               />
               <span className="text-sm text-gray-500 font-mono">{form.announcement_bar_color}</span>
             </div>
+            <p className="text-xs text-gray-400">Text is always white — choose a dark color for best readability.</p>
           </div>
         </div>
 
