@@ -19,6 +19,7 @@ import AdminDiscounts from './admin/pages/AdminDiscounts'
 import AdminAnalytics from './admin/pages/AdminAnalytics'
 import AdminBlog from './admin/pages/AdminBlog'
 import AdminOrderDetail from './admin/pages/AdminOrderDetail'
+import AdminShipping from './admin/pages/AdminShipping'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
@@ -63,6 +64,7 @@ export default function App() {
               <Route path="discounts" element={<AdminDiscounts />} />
               <Route path="analytics" element={<AdminAnalytics />} />
               <Route path="blog" element={<AdminBlog />} />
+              <Route path="shipping" element={<AdminShipping />} />
             </Route>
             <Route path="/contact" element={<ContactPage />} />
             <Route path="*" element={<NotFoundPage />} />
