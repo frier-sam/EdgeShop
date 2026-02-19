@@ -7,8 +7,8 @@ function toBase64URL(str: string): string {
 }
 
 function fromBase64URL(str: string): string {
-  // pad to multiple of 4 before decoding
-  const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - str.length % 4) % 4)
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = b64 + '='.repeat((4 - b64.length % 4) % 4)
   return atob(padded)
 }
 
