@@ -16,9 +16,10 @@ shippingRates.post('/calculate', async (c) => {
     return c.json({ error: 'cart_total must be a non-negative number' }, 400)
   }
 
+  const safeCountry = (country ?? 'India').replace(/%/g, '\\%').replace(/_/g, '\\_')
   const zone = await c.env.DB.prepare(
-    "SELECT sz.id FROM shipping_zones sz WHERE sz.countries_json LIKE ?"
-  ).bind(`%${country ?? 'India'}%`).first<{ id: number }>()
+    "SELECT sz.id FROM shipping_zones sz WHERE sz.countries_json LIKE ? ESCAPE '\\'"
+  ).bind(`%"${safeCountry}"%`).first<{ id: number }>()
 
   if (!zone) return c.json({ shipping_amount: 0, rate_name: 'Free Shipping' })
 

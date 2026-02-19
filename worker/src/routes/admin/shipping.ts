@@ -23,8 +23,11 @@ adminShipping.post('/zones', async (c) => {
   const { name, countries_json } = body
   if (typeof name !== 'string' || !name.trim()) return c.json({ error: 'name is required' }, 400)
   if (typeof countries_json !== 'string') return c.json({ error: 'countries_json is required' }, 400)
-  // validate JSON
-  try { JSON.parse(countries_json) } catch { return c.json({ error: 'countries_json must be valid JSON' }, 400) }
+  // validate JSON array
+  try {
+    const parsed = JSON.parse(countries_json)
+    if (!Array.isArray(parsed)) return c.json({ error: 'countries_json must be a JSON array' }, 400)
+  } catch { return c.json({ error: 'countries_json must be valid JSON' }, 400) }
 
   const result = await c.env.DB.prepare(
     'INSERT INTO shipping_zones (name, countries_json) VALUES (?, ?)'
@@ -34,6 +37,7 @@ adminShipping.post('/zones', async (c) => {
 
 adminShipping.put('/zones/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
   let body: { name?: string; countries_json?: string }
   try {
     body = await c.req.json()
@@ -49,7 +53,10 @@ adminShipping.put('/zones/:id', async (c) => {
   }
   if (body.countries_json !== undefined) {
     if (typeof body.countries_json !== 'string') return c.json({ error: 'countries_json must be a string' }, 400)
-    try { JSON.parse(body.countries_json) } catch { return c.json({ error: 'countries_json must be valid JSON' }, 400) }
+    try {
+      const parsed = JSON.parse(body.countries_json)
+      if (!Array.isArray(parsed)) return c.json({ error: 'countries_json must be a JSON array' }, 400)
+    } catch { return c.json({ error: 'countries_json must be valid JSON' }, 400) }
     updates.push('countries_json = ?'); values.push(body.countries_json)
   }
   if (!updates.length) return c.json({ error: 'Nothing to update' }, 400)
@@ -63,6 +70,7 @@ adminShipping.put('/zones/:id', async (c) => {
 
 adminShipping.delete('/zones/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
   const result = await c.env.DB.prepare('DELETE FROM shipping_zones WHERE id = ?').bind(id).run()
   if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
   return c.json({ ok: true })
@@ -72,6 +80,7 @@ adminShipping.delete('/zones/:id', async (c) => {
 
 adminShipping.get('/zones/:id/rates', async (c) => {
   const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM shipping_rates WHERE zone_id = ? ORDER BY price ASC'
   ).bind(id).all<ShippingRate>()
@@ -80,6 +89,7 @@ adminShipping.get('/zones/:id/rates', async (c) => {
 
 adminShipping.post('/zones/:id/rates', async (c) => {
   const zone_id = Number(c.req.param('id'))
+  if (isNaN(zone_id)) return c.json({ error: 'Invalid id' }, 400)
   let body: { name: string; min_weight: number; max_weight: number; price: number; free_above_cart_total?: number }
   try {
     body = await c.req.json()
@@ -92,6 +102,9 @@ adminShipping.post('/zones/:id/rates', async (c) => {
   if (typeof max_weight !== 'number' || max_weight < min_weight) return c.json({ error: 'max_weight must be >= min_weight' }, 400)
   if (typeof price !== 'number' || price < 0) return c.json({ error: 'price must be a non-negative number' }, 400)
 
+  const zoneExists = await c.env.DB.prepare('SELECT id FROM shipping_zones WHERE id = ?').bind(zone_id).first()
+  if (!zoneExists) return c.json({ error: 'Zone not found' }, 404)
+
   const result = await c.env.DB.prepare(
     'INSERT INTO shipping_rates (zone_id, name, min_weight, max_weight, price, free_above_cart_total) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(zone_id, name.trim(), min_weight, max_weight, price, free_above_cart_total).run()
@@ -100,6 +113,7 @@ adminShipping.post('/zones/:id/rates', async (c) => {
 
 adminShipping.put('/rates/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
   let body: Record<string, unknown>
   try {
     body = await c.req.json()
@@ -118,6 +132,12 @@ adminShipping.put('/rates/:id', async (c) => {
     }
   }
 
+  const newMin = 'min_weight' in body ? (body.min_weight as number) : undefined
+  const newMax = 'max_weight' in body ? (body.max_weight as number) : undefined
+  if (newMin !== undefined && newMax !== undefined && newMax < newMin) {
+    return c.json({ error: 'max_weight must be >= min_weight' }, 400)
+  }
+
   const result = await c.env.DB.prepare(
     `UPDATE shipping_rates SET ${entries.map(([k]) => `${k} = ?`).join(', ')} WHERE id = ?`
   ).bind(...entries.map(([, v]) => v), id).run()
@@ -127,6 +147,7 @@ adminShipping.put('/rates/:id', async (c) => {
 
 adminShipping.delete('/rates/:id', async (c) => {
   const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
   const result = await c.env.DB.prepare('DELETE FROM shipping_rates WHERE id = ?').bind(id).run()
   if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
   return c.json({ ok: true })
