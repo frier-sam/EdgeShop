@@ -59,10 +59,13 @@ export default function AdminBlog() {
     enabled: !!editing,
   })
 
+  // Fix 1: also sync slug and author from the full post response
   useEffect(() => {
     if (fullPost && fullPost.id === editing?.id) {
       setForm(f => ({
         ...f,
+        slug: fullPost.slug,
+        author: fullPost.author ?? '',
         content_html: fullPost.content_html ?? '',
         cover_image: fullPost.cover_image ?? '',
         tags: fullPost.tags ?? '',
@@ -114,13 +117,17 @@ export default function AdminBlog() {
     },
   })
 
+  // Fix 3: reset saveMutation error state when opening the create modal
   function openCreate() {
+    saveMutation.reset()
     setEditing(null)
     setForm(emptyForm)
     setModal('create')
   }
 
+  // Fix 2 + Fix 3: use local-time formatting for datetime-local input and reset mutation
   function openEdit(post: BlogPostSummary) {
+    saveMutation.reset()
     setEditing(post)
     setForm({
       slug: post.slug,
@@ -130,7 +137,11 @@ export default function AdminBlog() {
       cover_image: '',
       tags: '',
       published_at: post.published_at
-        ? new Date(post.published_at).toISOString().slice(0, 16)
+        ? (() => {
+            const d = new Date(post.published_at)
+            const pad = (n: number) => String(n).padStart(2, '0')
+            return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+          })()
         : '',
       seo_title: '',
       seo_description: '',
