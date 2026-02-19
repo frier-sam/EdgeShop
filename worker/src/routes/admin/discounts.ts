@@ -90,8 +90,27 @@ adminDiscounts.put('/:id', async (c) => {
         return c.json({ error: `${k} must be a valid number` }, 400)
       }
       validated[k] = num
+    } else if (k === 'expires_at') {
+      if (v != null && (typeof v !== 'string' || isNaN(new Date(v as string).getTime()))) {
+        return c.json({ error: 'expires_at must be a valid date string' }, 400)
+      }
+      validated[k] = v ?? null
     } else {
       validated[k] = v
+    }
+  }
+
+  // If type or value changed, enforce positivity for percent/fixed
+  const effectiveType = validated.type ?? undefined
+  const effectiveValue = validated.value ?? undefined
+  if (effectiveType !== undefined || effectiveValue !== undefined) {
+    const finalType = (effectiveType ?? null) as DiscountType | null
+    const finalValue = effectiveValue as number | undefined
+    if (
+      finalType !== null && finalType !== 'free_shipping' &&
+      finalValue !== undefined && (finalValue as number) <= 0
+    ) {
+      return c.json({ error: 'value must be a positive number for percent and fixed discount types' }, 400)
     }
   }
 
