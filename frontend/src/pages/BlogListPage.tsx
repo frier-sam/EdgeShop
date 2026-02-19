@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
 import { useCartStore } from '../store/cartStore'
@@ -10,13 +10,13 @@ interface BlogPost {
   title: string
   cover_image: string
   author: string
-  published_at: string
+  tags: string
+  published_at: string | null
   seo_title: string
   seo_description: string
 }
 
 export default function BlogListPage() {
-  const navigate = useNavigate()
   const { theme, isLoading: themeLoading, navItems, settings } = useTheme()
   const totalItems = useCartStore((s) => s.totalItems)
 
@@ -83,7 +83,9 @@ export default function BlogListPage() {
                 )}
                 <div className="p-4">
                   <p className="text-xs text-gray-400 mb-1">
-                    {new Date(post.published_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    {post.published_at
+                      ? new Date(post.published_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })
+                      : 'Draft'}
                     {post.author && ` · ${post.author}`}
                   </p>
                   <h2 className="font-semibold text-gray-900 group-hover:text-gray-600 transition-colors line-clamp-2">{post.title}</h2>

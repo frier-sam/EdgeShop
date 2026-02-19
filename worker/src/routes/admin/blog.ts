@@ -50,22 +50,27 @@ adminBlog.post('/', async (c) => {
     }
   }
 
-  const result = await c.env.DB.prepare(`
-    INSERT INTO blog_posts (slug, title, content_html, cover_image, author, tags, published_at, seo_title, seo_description)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    body.slug.trim(),
-    body.title.trim(),
-    body.content_html,
-    body.cover_image ?? '',
-    body.author ?? '',
-    body.tags ?? '',
-    body.published_at ?? null,
-    body.seo_title ?? '',
-    body.seo_description ?? ''
-  ).run()
-
-  return c.json({ id: result.meta.last_row_id }, 201)
+  try {
+    const result = await c.env.DB.prepare(`
+      INSERT INTO blog_posts (slug, title, content_html, cover_image, author, tags, published_at, seo_title, seo_description)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      body.slug.trim(),
+      body.title.trim(),
+      body.content_html,
+      body.cover_image ?? '',
+      body.author ?? '',
+      body.tags ?? '',
+      body.published_at ?? null,
+      body.seo_title ?? '',
+      body.seo_description ?? ''
+    ).run()
+    return c.json({ id: result.meta.last_row_id }, 201)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : ''
+    if (msg.includes('UNIQUE constraint failed')) return c.json({ error: 'slug already exists' }, 409)
+    throw err
+  }
 })
 
 // PUT /:id — update a post
@@ -103,12 +108,17 @@ adminBlog.put('/:id', async (c) => {
   const setClauses = entries.map(([k]) => `${k} = ?`).join(', ')
   const values = entries.map(([, v]) => v)
 
-  const result = await c.env.DB.prepare(
-    `UPDATE blog_posts SET ${setClauses} WHERE id = ?`
-  ).bind(...values, id).run()
-
-  if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
-  return c.json({ ok: true })
+  try {
+    const result = await c.env.DB.prepare(
+      `UPDATE blog_posts SET ${setClauses} WHERE id = ?`
+    ).bind(...values, id).run()
+    if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
+    return c.json({ ok: true })
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : ''
+    if (msg.includes('UNIQUE constraint failed')) return c.json({ error: 'slug already exists' }, 409)
+    throw err
+  }
 })
 
 // DELETE /:id

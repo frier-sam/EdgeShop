@@ -12,9 +12,9 @@ interface BlogPost {
   cover_image: string
   author: string
   tags: string
-  published_at: string
-  seo_title: string | null
-  seo_description: string | null
+  published_at: string | null
+  seo_title: string
+  seo_description: string
 }
 
 export default function BlogPostPage() {
@@ -74,7 +74,9 @@ export default function BlogPostPage() {
             )}
             <div className="mb-6">
               <p className="text-xs text-gray-400 mb-2">
-                {new Date(post.published_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                {post.published_at
+                  ? new Date(post.published_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })
+                  : 'Draft'}
                 {post.author && ` · ${post.author}`}
               </p>
               <h1 className="text-3xl font-bold text-gray-900">{post.title}</h1>
