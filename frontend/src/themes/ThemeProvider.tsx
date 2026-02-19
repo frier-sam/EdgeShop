@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
 import AnnouncementBar from '../components/AnnouncementBar'
 import { useQuery } from '@tanstack/react-query'
-import type { Theme, ThemeOverrides, NavItem } from './types'
+import type { Theme, ThemeOverrides, NavItem, FooterData } from './types'
 import { themes } from './index'
 
 interface ThemeContextValue {
@@ -9,6 +9,7 @@ interface ThemeContextValue {
   isLoading: boolean
   activeThemeId: string
   navItems: NavItem[]
+  footerData: FooterData
   settings: Record<string, string>
 }
 
@@ -17,6 +18,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   isLoading: true,
   activeThemeId: 'jewellery',
   navItems: [],
+  footerData: {},
   settings: {},
 })
 
@@ -33,14 +35,16 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const navItems = useMemo<NavItem[]>(() => {
     if (!settings.navigation_json) return []
-    try {
-      return JSON.parse(settings.navigation_json) as NavItem[]
-    } catch {
-      return []
-    }
+    try { return JSON.parse(settings.navigation_json) as NavItem[] }
+    catch { return [] }
   }, [settings.navigation_json])
 
-  // Inject CSS custom properties: merge theme defaults with merchant overrides from D1
+  const footerData = useMemo<FooterData>(() => {
+    if (!settings.footer_json) return {}
+    try { return JSON.parse(settings.footer_json) as FooterData }
+    catch { return {} }
+  }, [settings.footer_json])
+
   useEffect(() => {
     if (!theme) return
     let overrides: ThemeOverrides = {}
@@ -48,9 +52,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       try {
         const allOverrides = JSON.parse(settings.theme_overrides_json)
         overrides = allOverrides[activeThemeId] ?? {}
-      } catch {
-        // ignore malformed JSON
-      }
+      } catch { /* ignore */ }
     }
     const merged = { ...theme.defaultCssVars, ...overrides }
     const root = document.documentElement
@@ -64,7 +66,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const announcementColor = settings.announcement_bar_color ?? '#1A1A1A'
 
   return (
-    <ThemeContext.Provider value={{ theme, isLoading, activeThemeId, navItems, settings }}>
+    <ThemeContext.Provider value={{ theme, isLoading, activeThemeId, navItems, footerData, settings }}>
       {announcementEnabled && announcementText && (
         <AnnouncementBar text={announcementText} color={announcementColor} />
       )}
