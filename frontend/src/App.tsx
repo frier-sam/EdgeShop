@@ -17,6 +17,8 @@ import AdminDashboard from './admin/pages/AdminDashboard'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
+import CollectionPage from './pages/CollectionPage'
+import SearchPage from './pages/SearchPage'
 
 const queryClient = new QueryClient()
 
@@ -34,6 +36,8 @@ export default function App() {
             <Route path="/account/login" element={<LoginPage />} />
             <Route path="/account/register" element={<RegisterPage />} />
             <Route path="/account/orders" element={<AccountOrdersPage />} />
+            <Route path="/collections/:slug" element={<CollectionPage />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/products" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
