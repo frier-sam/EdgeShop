@@ -14,6 +14,9 @@ import StaticPage from './pages/StaticPage'
 import AdminPages from './admin/pages/AdminPages'
 import AdminNavigation from './admin/pages/AdminNavigation'
 import AdminDashboard from './admin/pages/AdminDashboard'
+import LoginPage from './pages/account/LoginPage'
+import RegisterPage from './pages/account/RegisterPage'
+import AccountOrdersPage from './pages/account/AccountOrdersPage'
 
 const queryClient = new QueryClient()
 
@@ -28,6 +31,9 @@ export default function App() {
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/order-success" element={<OrderSuccessPage />} />
             <Route path="/pages/:slug" element={<StaticPage />} />
+            <Route path="/account/login" element={<LoginPage />} />
+            <Route path="/account/register" element={<RegisterPage />} />
+            <Route path="/account/orders" element={<AccountOrdersPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/products" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
