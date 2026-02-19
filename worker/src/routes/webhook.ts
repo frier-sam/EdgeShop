@@ -78,45 +78,49 @@ webhook.post('/razorpay', async (c) => {
         ).bind(order.discount_code).run()
       }
 
-      const emailRows = await c.env.DB.prepare(
-        "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address','merchant_email')"
-      ).all<{ key: string; value: string }>()
-      const eCfg: Record<string, string> = {}
-      for (const row of emailRows.results) eCfg[row.key] = row.value
+      try {
+        const emailRows = await c.env.DB.prepare(
+          "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address','merchant_email')"
+        ).all<{ key: string; value: string }>()
+        const eCfg: Record<string, string> = {}
+        for (const row of emailRows.results) eCfg[row.key] = row.value
 
-      // Confirmation to customer
-      await sendEmail(
-        {
-          to: order.customer_email,
-          subject: `Order ${order.id} Confirmed`,
-          html: orderConfirmationHtml({
-            id: order.id,
-            customer_name: order.customer_name,
-            items_json: order.items_json,
-            total_amount: order.total_amount,
-            payment_method: order.payment_method,
-            shipping_address: order.shipping_address,
-          }),
-        },
-        { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
-      )
-
-      // Alert to merchant
-      if (eCfg.merchant_email) {
+        // Confirmation to customer
         await sendEmail(
           {
-            to: eCfg.merchant_email,
-            subject: `New Order: ${order.id}`,
-            html: newOrderAlertHtml({
+            to: order.customer_email,
+            subject: `Order ${order.id} Confirmed`,
+            html: orderConfirmationHtml({
               id: order.id,
               customer_name: order.customer_name,
-              customer_email: order.customer_email,
+              items_json: order.items_json,
               total_amount: order.total_amount,
               payment_method: order.payment_method,
+              shipping_address: order.shipping_address,
             }),
           },
           { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
         )
+
+        // Alert to merchant
+        if (eCfg.merchant_email) {
+          await sendEmail(
+            {
+              to: eCfg.merchant_email,
+              subject: `New Order: ${order.id}`,
+              html: newOrderAlertHtml({
+                id: order.id,
+                customer_name: order.customer_name,
+                customer_email: order.customer_email,
+                total_amount: order.total_amount,
+                payment_method: order.payment_method,
+              }),
+            },
+            { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
+          )
+        }
+      } catch (err) {
+        console.error('Webhook confirmation email failed:', err)
       }
     }
   }

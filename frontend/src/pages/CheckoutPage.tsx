@@ -219,7 +219,7 @@ export default function CheckoutPage() {
                 </span>
                 <button
                   type="button"
-                  onClick={() => { setDiscountResult(null); setDiscountCode('') }}
+                  onClick={() => { setDiscountResult(null); setDiscountCode(''); setDiscountError('') }}
                   className="text-xs text-gray-500 hover:text-gray-800 underline ml-4"
                 >
                   Remove
