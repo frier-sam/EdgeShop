@@ -4,15 +4,22 @@ import type { Env } from '../../index'
 const adminProducts = new Hono<{ Bindings: Env }>()
 
 adminProducts.get('/', async (c) => {
+  const VALID_PRODUCT_STATUSES = ['active', 'draft', 'archived']
   const q = (c.req.query('q') ?? '').trim()
-  const status = (c.req.query('status') ?? '').trim()
+  const rawStatus = (c.req.query('status') ?? '').trim()
+  const status = VALID_PRODUCT_STATUSES.includes(rawStatus) ? rawStatus : ''
   let sql = 'SELECT * FROM products WHERE 1=1'
   const params: (string | number)[] = []
   if (q) { sql += ' AND (name LIKE ? OR category LIKE ?)'; params.push(`%${q}%`, `%${q}%`) }
   if (status) { sql += ' AND status = ?'; params.push(status) }
   sql += ' ORDER BY created_at DESC LIMIT 200'
-  const { results } = await c.env.DB.prepare(sql).bind(...params).all()
-  return c.json({ products: results })
+  try {
+    const { results } = await c.env.DB.prepare(sql).bind(...params).all()
+    return c.json({ products: results })
+  } catch (err) {
+    console.error('Admin products list error:', err)
+    return c.json({ error: 'Failed to load products' }, 500)
+  }
 })
 
 adminProducts.post('/', async (c) => {

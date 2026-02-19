@@ -11,7 +11,8 @@ const adminOrders = new Hono<{ Bindings: Env }>()
 
 adminOrders.get('/', async (c) => {
   const q = (c.req.query('q') ?? '').trim()
-  const status = (c.req.query('status') ?? '').trim()
+  const rawStatus = (c.req.query('status') ?? '').trim()
+  const status = (VALID_ORDER_STATUSES as readonly string[]).includes(rawStatus) ? rawStatus : ''
   let sql = 'SELECT * FROM orders WHERE 1=1'
   const params: (string | number)[] = []
   if (q) {
@@ -20,8 +21,13 @@ adminOrders.get('/', async (c) => {
   }
   if (status) { sql += ' AND order_status = ?'; params.push(status) }
   sql += ' ORDER BY created_at DESC LIMIT 200'
-  const { results } = await c.env.DB.prepare(sql).bind(...params).all<Order>()
-  return c.json({ orders: results })
+  try {
+    const { results } = await c.env.DB.prepare(sql).bind(...params).all<Order>()
+    return c.json({ orders: results })
+  } catch (err) {
+    console.error('Admin orders list error:', err)
+    return c.json({ error: 'Failed to load orders' }, 500)
+  }
 })
 
 adminOrders.get('/:id', async (c) => {
