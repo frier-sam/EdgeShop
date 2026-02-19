@@ -53,10 +53,23 @@ export interface CartDrawerProps {
   onCheckout: () => void
 }
 
+export interface ThemeOverrides {
+  '--color-primary'?: string
+  '--color-accent'?: string
+  '--color-bg'?: string
+  '--color-text'?: string
+  '--font-heading'?: string
+  '--font-body'?: string
+  '--logo-url'?: string
+  '--tagline'?: string
+  '--hero-image'?: string
+}
+
 export interface Theme {
   id: string
   name: string
   description: string
+  defaultCssVars: ThemeOverrides
   components: {
     Header: ComponentType<HeaderProps>
     Footer: ComponentType<FooterProps>

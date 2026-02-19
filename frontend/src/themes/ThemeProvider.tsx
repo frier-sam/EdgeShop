@@ -1,33 +1,54 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { Theme } from './types'
+import type { Theme, ThemeOverrides } from './types'
 import { themes } from './index'
 
 interface ThemeContextValue {
   theme: Theme | null
   isLoading: boolean
   activeThemeId: string
+  settings: Record<string, string>
 }
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: null,
   isLoading: true,
   activeThemeId: 'jewellery',
+  settings: {},
 })
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const { data: settings, isLoading } = useQuery({
+  const { data: settings = {}, isLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: (): Promise<Record<string, string>> =>
       fetch('/api/settings').then((r) => r.json()),
     staleTime: 5 * 60 * 1000,
   })
 
-  const activeThemeId = settings?.active_theme ?? 'jewellery'
+  const activeThemeId = settings.active_theme ?? 'jewellery'
   const theme = themes[activeThemeId] ?? null
 
+  // Inject CSS custom properties: merge theme defaults with merchant overrides from D1
+  useEffect(() => {
+    if (!theme) return
+    let overrides: ThemeOverrides = {}
+    if (settings.theme_overrides_json) {
+      try {
+        const allOverrides = JSON.parse(settings.theme_overrides_json)
+        overrides = allOverrides[activeThemeId] ?? {}
+      } catch {
+        // ignore malformed JSON
+      }
+    }
+    const merged = { ...theme.defaultCssVars, ...overrides }
+    const root = document.documentElement
+    for (const [prop, value] of Object.entries(merged)) {
+      if (value) root.style.setProperty(prop, value)
+    }
+  }, [theme, settings, activeThemeId])
+
   return (
-    <ThemeContext.Provider value={{ theme, isLoading, activeThemeId }}>
+    <ThemeContext.Provider value={{ theme, isLoading, activeThemeId, settings }}>
       {children}
     </ThemeContext.Provider>
   )
