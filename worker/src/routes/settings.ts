@@ -3,7 +3,20 @@ import type { Env } from '../index'
 
 const settings = new Hono<{ Bindings: Env }>()
 
+const SENSITIVE_KEYS = new Set(['razorpay_key_secret', 'email_api_key', 'jwt_secret'])
+
 settings.get('/', async (c) => {
+  const rows = await c.env.DB.prepare('SELECT key, value FROM settings').all()
+  const result: Record<string, string> = {}
+  for (const row of rows.results as { key: string; value: string }[]) {
+    if (!SENSITIVE_KEYS.has(row.key)) {
+      result[row.key] = row.value
+    }
+  }
+  return c.json(result)
+})
+
+settings.get('/admin', async (c) => {
   const rows = await c.env.DB.prepare('SELECT key, value FROM settings').all()
   const result: Record<string, string> = {}
   for (const row of rows.results as { key: string; value: string }[]) {
@@ -14,7 +27,21 @@ settings.get('/', async (c) => {
 
 settings.put('/', async (c) => {
   const body = await c.req.json<Record<string, string>>()
-  const allowed = ['store_name', 'active_theme', 'cod_enabled', 'razorpay_key_id', 'razorpay_key_secret', 'currency']
+  const allowed = [
+    // v1 keys
+    'store_name', 'active_theme', 'cod_enabled',
+    'razorpay_key_id', 'razorpay_key_secret', 'currency',
+    // v2 email keys
+    'email_provider', 'email_api_key', 'email_from_name',
+    'email_from_address', 'merchant_email',
+    // v2 navigation + announcement bar
+    'navigation_json',
+    'announcement_bar_text', 'announcement_bar_enabled', 'announcement_bar_color',
+    // v2 theme customizer
+    'theme_overrides_json',
+    // v2 auth
+    'jwt_secret',
+  ]
   const stmts = Object.entries(body)
     .filter(([key]) => allowed.includes(key))
     .map(([key, value]) =>
