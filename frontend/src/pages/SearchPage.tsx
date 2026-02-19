@@ -9,6 +9,7 @@ interface Product {
   name: string
   price: number
   image_url: string
+  category: string
 }
 
 export default function SearchPage() {
