@@ -6,6 +6,9 @@ import ProductPage from './pages/ProductPage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
 import CheckoutPage from './pages/CheckoutPage'
 import AdminLayout from './admin/AdminLayout'
+import AdminProducts from './admin/pages/AdminProducts'
+import AdminOrders from './admin/pages/AdminOrders'
+import AdminSettings from './admin/pages/AdminSettings'
 
 const queryClient = new QueryClient()
 
@@ -21,9 +24,9 @@ export default function App() {
             <Route path="/order-success" element={<OrderSuccessPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/products" replace />} />
-              <Route path="products" element={<div>Products loading...</div>} />
-              <Route path="orders" element={<div>Orders loading...</div>} />
-              <Route path="settings" element={<div>Settings loading...</div>} />
+              <Route path="products" element={<AdminProducts />} />
+              <Route path="orders" element={<AdminOrders />} />
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
           </Routes>
         </BrowserRouter>
