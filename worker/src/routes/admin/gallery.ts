@@ -35,8 +35,9 @@ gallery.delete('/:imageId', async (c) => {
   const productId = Number(c.req.param('productId'))
   const imageId = Number(c.req.param('imageId'))
   if (isNaN(productId) || isNaN(imageId)) return c.json({ error: 'Invalid id' }, 400)
-  await c.env.DB.prepare('DELETE FROM product_images WHERE id = ? AND product_id = ?')
+  const result = await c.env.DB.prepare('DELETE FROM product_images WHERE id = ? AND product_id = ?')
     .bind(imageId, productId).run()
+  if (result.meta.changes === 0) return c.json({ error: 'Image not found' }, 404)
   return c.json({ ok: true })
 })
 
@@ -46,9 +47,15 @@ gallery.put('/reorder', async (c) => {
   if (isNaN(productId)) return c.json({ error: 'Invalid productId' }, 400)
   const { order } = await c.req.json<{ order: Array<{ id: number; sort_order: number }> }>()
   if (!Array.isArray(order) || order.length === 0) return c.json({ error: 'order array is required' }, 400)
+  // Validate each item has numeric id and sort_order
+  const isValid = order.every(item =>
+    typeof item === 'object' && item !== null &&
+    !isNaN(Number(item.id)) && !isNaN(Number(item.sort_order))
+  )
+  if (!isValid) return c.json({ error: 'Each order item must have numeric id and sort_order' }, 400)
   const stmts = order.map(({ id, sort_order }) =>
     c.env.DB.prepare('UPDATE product_images SET sort_order = ? WHERE id = ? AND product_id = ?')
-      .bind(sort_order, id, productId)
+      .bind(Number(sort_order), Number(id), productId)
   )
   await c.env.DB.batch(stmts)
   return c.json({ ok: true })

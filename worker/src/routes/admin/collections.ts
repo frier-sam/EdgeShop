@@ -41,8 +41,9 @@ adminCollections.put('/:id', async (c) => {
   const entries = Object.entries(body).filter(([k]) => allowed.includes(k))
   if (!entries.length) return c.json({ error: 'Nothing to update' }, 400)
   const fields = entries.map(([k]) => `${k} = ?`).join(', ')
-  await c.env.DB.prepare(`UPDATE collections SET ${fields} WHERE id = ?`)
+  const result = await c.env.DB.prepare(`UPDATE collections SET ${fields} WHERE id = ?`)
     .bind(...entries.map(([, v]) => v), id).run()
+  if (result.meta.changes === 0) return c.json({ error: 'Collection not found' }, 404)
   return c.json({ ok: true })
 })
 
@@ -50,7 +51,8 @@ adminCollections.put('/:id', async (c) => {
 adminCollections.delete('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
-  await c.env.DB.prepare('DELETE FROM collections WHERE id = ?').bind(id).run()
+  const result = await c.env.DB.prepare('DELETE FROM collections WHERE id = ?').bind(id).run()
+  if (result.meta.changes === 0) return c.json({ error: 'Collection not found' }, 404)
   return c.json({ ok: true })
 })
 
