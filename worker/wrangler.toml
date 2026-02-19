@@ -16,3 +16,14 @@ bucket_name = "edgeshop-images"
 RAZORPAY_WEBHOOK_SECRET = ""
 R2_PUBLIC_URL = "https://pub-REPLACE.r2.dev"
 FRONTEND_URL = "https://edgeshop.pages.dev"
+
+# Production deployment steps:
+# 1. npx wrangler d1 create edgeshop-db  (note the database_id)
+# 2. Replace placeholder-replace-after-creation with real ID above
+# 3. npx wrangler d1 execute edgeshop-db --file=migrations/0001_initial.sql
+# 4. Create R2 bucket: npx wrangler r2 bucket create edgeshop-images
+# 5. Enable public access on R2 bucket and update R2_PUBLIC_URL
+# 6. Set secrets: npx wrangler secret put RAZORPAY_WEBHOOK_SECRET
+# 7. Deploy worker: npx wrangler deploy
+# 8. Build frontend: cd ../frontend && npm run build
+# 9. Deploy frontend: npx wrangler pages deploy dist --project-name edgeshop
