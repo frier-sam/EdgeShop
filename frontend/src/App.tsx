@@ -9,6 +9,7 @@ import AdminLayout from './admin/AdminLayout'
 import AdminProducts from './admin/pages/AdminProducts'
 import AdminOrders from './admin/pages/AdminOrders'
 import AdminSettings from './admin/pages/AdminSettings'
+import AdminThemeCustomizer from './admin/pages/AdminThemeCustomizer'
 
 const queryClient = new QueryClient()
 
@@ -27,6 +28,7 @@ export default function App() {
               <Route path="products" element={<AdminProducts />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="settings" element={<AdminSettings />} />
+              <Route path="theme" element={<AdminThemeCustomizer />} />
             </Route>
           </Routes>
         </BrowserRouter>
