@@ -25,6 +25,8 @@ import shippingRates from './routes/shippingRates'
 import adminShipping from './routes/admin/shipping'
 import reviews from './routes/reviews'
 import adminReviews from './routes/admin/reviews'
+import blog from './routes/blog'
+import adminBlog from './routes/admin/blog'
 
 export type Env = {
   DB: D1Database
@@ -65,5 +67,7 @@ app.route('/api/shipping', shippingRates)
 app.route('/api/admin/shipping', adminShipping)
 app.route('/api/products', reviews)
 app.route('/api/admin/reviews', adminReviews)
+app.route('/api/blog', blog)
+app.route('/api/admin/blog', adminBlog)
 
 export default app

@@ -22,6 +22,8 @@ import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
 import CollectionPage from './pages/CollectionPage'
 import SearchPage from './pages/SearchPage'
+import BlogListPage from './pages/BlogListPage'
+import BlogPostPage from './pages/BlogPostPage'
 
 const queryClient = new QueryClient()
 
@@ -41,6 +43,8 @@ export default function App() {
             <Route path="/account/orders" element={<AccountOrdersPage />} />
             <Route path="/collections/:slug" element={<CollectionPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/blog" element={<BlogListPage />} />
+            <Route path="/blog/:slug" element={<BlogPostPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/products" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
