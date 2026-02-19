@@ -6,7 +6,7 @@ function toBase64URL(str: string): string {
   return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
 }
 
-function fromBase64URL(str: string): string {
+export function fromBase64URL(str: string): string {
   const b64 = str.replace(/-/g, '+').replace(/_/g, '/')
   const padded = b64 + '='.repeat((4 - b64.length % 4) % 4)
   return atob(padded)

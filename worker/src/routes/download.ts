@@ -1,12 +1,6 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
-
-// Decode Base64URL payload (mirrors toBase64URL in auth.ts)
-function fromBase64URL(str: string): string {
-  const b64 = str.replace(/-/g, '+').replace(/_/g, '/')
-  const padded = b64 + '='.repeat((4 - b64.length % 4) % 4)
-  return atob(padded)
-}
+import { fromBase64URL } from '../lib/auth'
 
 const download = new Hono<{ Bindings: Env }>()
 
