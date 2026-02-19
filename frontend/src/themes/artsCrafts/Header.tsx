@@ -10,16 +10,30 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
         </h1>
         {navItems.length > 0 && (
           <nav className="hidden sm:flex items-center gap-5">
-            {navItems.map(item => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className="text-xs font-bold tracking-wider uppercase transition-colors hover:opacity-70"
-                style={{ color: 'var(--color-primary)' }}
-              >
-                {item.label}
-              </Link>
-            ))}
+            {navItems.map(item => {
+              const isExternal = item.href.startsWith('http://') || item.href.startsWith('https://')
+              return isExternal ? (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-bold tracking-wider uppercase transition-colors hover:opacity-70"
+                  style={{ color: 'var(--color-primary)' }}
+                >
+                  {item.label}
+                </a>
+              ) : (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className="text-xs font-bold tracking-wider uppercase transition-colors hover:opacity-70"
+                  style={{ color: 'var(--color-primary)' }}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
           </nav>
         )}
         <button

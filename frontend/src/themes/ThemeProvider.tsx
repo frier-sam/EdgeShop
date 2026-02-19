@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { Theme, ThemeOverrides, NavItem } from './types'
 import { themes } from './index'
@@ -30,14 +30,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const activeThemeId = settings.active_theme ?? 'jewellery'
   const theme = themes[activeThemeId] ?? null
 
-  const navItems: NavItem[] = (() => {
+  const navItems = useMemo<NavItem[]>(() => {
     if (!settings.navigation_json) return []
     try {
       return JSON.parse(settings.navigation_json) as NavItem[]
     } catch {
       return []
     }
-  })()
+  }, [settings.navigation_json])
 
   // Inject CSS custom properties: merge theme defaults with merchant overrides from D1
   useEffect(() => {

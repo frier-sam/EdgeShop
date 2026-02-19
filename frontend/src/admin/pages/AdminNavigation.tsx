@@ -1,10 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-
-interface NavItem {
-  label: string
-  href: string
-}
+import type { NavItem } from '../../themes/types'
 
 export default function AdminNavigation() {
   const qc = useQueryClient()
@@ -89,19 +85,20 @@ export default function AdminNavigation() {
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => moveItem(i, 'up')}
-                disabled={i === 0}
+                disabled={i === 0 || saveMutation.isPending}
                 className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                 title="Move up"
               >↑</button>
               <button
                 onClick={() => moveItem(i, 'down')}
-                disabled={i === items.length - 1}
+                disabled={i === items.length - 1 || saveMutation.isPending}
                 className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30"
                 title="Move down"
               >↓</button>
               <button
                 onClick={() => removeItem(i)}
-                className="p-1 text-red-400 hover:text-red-600 ml-1"
+                disabled={saveMutation.isPending}
+                className="p-1 text-red-400 hover:text-red-600 ml-1 disabled:opacity-30"
                 title="Remove"
               >×</button>
             </div>
