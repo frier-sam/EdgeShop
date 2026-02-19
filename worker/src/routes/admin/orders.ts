@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import type { Env } from '../../index'
 import type { Order } from '../../types'
+import { sendEmail } from '../../lib/email'
+import { shippingUpdateHtml } from '../../lib/emailTemplates'
 
 const VALID_ORDER_STATUSES = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const
 const VALID_PAYMENT_STATUSES = ['pending', 'paid', 'refunded'] as const
@@ -79,6 +81,63 @@ adminOrders.patch('/:id/status', async (c) => {
   await c.env.DB.prepare(
     `UPDATE orders SET ${updates.join(', ')} WHERE id = ?`
   ).bind(...values, id).run()
+
+  return c.json({ ok: true })
+})
+
+adminOrders.patch('/:id/tracking', async (c) => {
+  const id = c.req.param('id')
+
+  let body: { tracking_number: string }
+  try {
+    body = await c.req.json<{ tracking_number: string }>()
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400)
+  }
+
+  const { tracking_number } = body
+  if (typeof tracking_number !== 'string' || !tracking_number.trim()) {
+    return c.json({ error: 'tracking_number is required' }, 400)
+  }
+
+  const result = await c.env.DB.prepare(
+    "UPDATE orders SET tracking_number = ?, order_status = 'shipped' WHERE id = ?"
+  ).bind(tracking_number, id).run()
+
+  if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
+
+  try {
+    const order = await c.env.DB.prepare(
+      'SELECT * FROM orders WHERE id = ?'
+    ).bind(id).first<Order>()
+
+    if (order) {
+      const emailRows = await c.env.DB.prepare(
+        "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address')"
+      ).all<{ key: string; value: string }>()
+      const eCfg: Record<string, string> = {}
+      for (const row of emailRows.results) eCfg[row.key] = row.value
+
+      await sendEmail(
+        {
+          to: order.customer_email,
+          subject: 'Your order has shipped',
+          html: shippingUpdateHtml({
+            id: order.id,
+            customer_name: order.customer_name,
+            tracking_number: order.tracking_number,
+          }),
+        },
+        {
+          email_api_key: eCfg.email_api_key ?? '',
+          email_from_name: eCfg.email_from_name ?? '',
+          email_from_address: eCfg.email_from_address ?? '',
+        }
+      )
+    }
+  } catch (err) {
+    console.error('Failed to send shipping email:', err)
+  }
 
   return c.json({ ok: true })
 })
