@@ -13,6 +13,12 @@ interface Product {
   created_at: string
 }
 
+function setMetaProperty(property: string, content: string) {
+  let el = document.querySelector(`meta[property="${property}"]`)
+  if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el) }
+  el.setAttribute('content', content)
+}
+
 export default function CollectionPage() {
   const { slug } = useParams<{ slug: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -44,10 +50,16 @@ export default function CollectionPage() {
     document.title = col.seo_title || col.name
     const meta = document.querySelector('meta[name="description"]')
     if (meta) meta.setAttribute('content', col.seo_description || col.description?.slice(0, 160) || '')
+    setMetaProperty('og:title', col.seo_title || col.name)
+    setMetaProperty('og:description', col.seo_description || col.description?.slice(0, 160) || '')
+    setMetaProperty('og:image', col.image_url || '')
     return () => {
       document.title = ''
       const m = document.querySelector('meta[name="description"]')
       if (m) m.setAttribute('content', '')
+      setMetaProperty('og:title', '')
+      setMetaProperty('og:description', '')
+      setMetaProperty('og:image', '')
     }
   }, [data])
 

@@ -30,6 +30,12 @@ interface Settings {
   [key: string]: string | undefined
 }
 
+function setMetaProperty(property: string, content: string) {
+  let el = document.querySelector(`meta[property="${property}"]`)
+  if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el) }
+  el.setAttribute('content', content)
+}
+
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -72,10 +78,16 @@ export default function ProductPage() {
     document.title = product.seo_title || product.name
     const meta = document.querySelector('meta[name="description"]')
     if (meta) meta.setAttribute('content', product.seo_description || product.description.slice(0, 160))
+    setMetaProperty('og:title', product.seo_title || product.name)
+    setMetaProperty('og:description', product.seo_description || product.description.slice(0, 160))
+    setMetaProperty('og:image', product.image_url)
     return () => {
       document.title = ''
       const m = document.querySelector('meta[name="description"]')
       if (m) m.setAttribute('content', '')
+      setMetaProperty('og:title', '')
+      setMetaProperty('og:description', '')
+      setMetaProperty('og:image', '')
     }
   }, [product])
 
