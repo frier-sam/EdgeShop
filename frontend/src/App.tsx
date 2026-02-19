@@ -15,6 +15,7 @@ import AdminPages from './admin/pages/AdminPages'
 import AdminNavigation from './admin/pages/AdminNavigation'
 import AdminCollections from './admin/pages/AdminCollections'
 import AdminDashboard from './admin/pages/AdminDashboard'
+import AdminDiscounts from './admin/pages/AdminDiscounts'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
@@ -49,6 +50,7 @@ export default function App() {
               <Route path="collections" element={<AdminCollections />} />
               <Route path="pages" element={<AdminPages />} />
               <Route path="navigation" element={<AdminNavigation />} />
+              <Route path="discounts" element={<AdminDiscounts />} />
             </Route>
           </Routes>
         </BrowserRouter>
