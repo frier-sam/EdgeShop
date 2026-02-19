@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 interface Collection {
@@ -49,6 +49,9 @@ export default function AdminCollections() {
   const [assignCollection, setAssignCollection] = useState<Collection | null>(null)
   const [selectedProductIds, setSelectedProductIds] = useState<Set<number>>(new Set())
 
+  // Delete error state
+  const [deleteError, setDeleteError] = useState('')
+
   // Fetch collections
   const { data, isLoading } = useQuery<{ collections: Collection[] }>({
     queryKey: ['admin-collections'],
@@ -75,7 +78,7 @@ export default function AdminCollections() {
     collection: Collection
     products: Product[]
   }>({
-    queryKey: ['collection-detail', assignCollection?.slug],
+    queryKey: ['collection-detail', assignCollection?.id],
     queryFn: () =>
       fetch(`/api/collections/${assignCollection!.slug}`).then(r => {
         if (!r.ok) throw new Error('Failed to load collection products')
@@ -120,6 +123,10 @@ export default function AdminCollections() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-collections'] })
       setDeleteId(null)
+      setDeleteError('')
+    },
+    onError: () => {
+      setDeleteError('Failed to delete. Please try again.')
     },
   })
 
@@ -136,7 +143,7 @@ export default function AdminCollections() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['admin-collections'] })
       if (assignCollection) {
-        qc.invalidateQueries({ queryKey: ['collection-detail', assignCollection.slug] })
+        qc.invalidateQueries({ queryKey: ['collection-detail', assignCollection.id] })
       }
       closeAssignModal()
     },
@@ -207,18 +214,13 @@ export default function AdminCollections() {
   }
 
   // When collection detail loads, seed selected product IDs
-  const assignedIds =
-    collectionDetail?.products?.map(p => p.id) ?? []
-  // We use a ref-like pattern: track if we've seeded for current assignCollection
-  const [seededFor, setSeededFor] = useState<number | null>(null)
-  if (
-    assignCollection &&
-    collectionDetail &&
-    seededFor !== assignCollection.id
-  ) {
-    setSeededFor(assignCollection.id)
-    setSelectedProductIds(new Set(assignedIds))
-  }
+  useEffect(() => {
+    if (assignCollection && collectionDetail) {
+      setSelectedProductIds(
+        new Set((collectionDetail.products ?? []).map((p: { id: number }) => p.id))
+      )
+    }
+  }, [assignCollection?.id, collectionDetail])
 
   if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
 
@@ -275,9 +277,13 @@ export default function AdminCollections() {
                   </button>
                   {deleteId === col.id ? (
                     <span className="text-xs">
+                      {deleteError && (
+                        <span className="text-red-600 mr-1">{deleteError}</span>
+                      )}
                       <button
                         onClick={() => deleteMutation.mutate(col.id)}
-                        className="text-red-600 hover:text-red-800 mr-1"
+                        disabled={deleteMutation.isPending}
+                        className="text-red-600 hover:text-red-800 mr-1 disabled:opacity-50"
                       >
                         Confirm
                       </button>
@@ -290,7 +296,7 @@ export default function AdminCollections() {
                     </span>
                   ) : (
                     <button
-                      onClick={() => setDeleteId(col.id)}
+                      onClick={() => { setDeleteId(col.id); setDeleteError('') }}
                       className="text-xs text-red-400 hover:text-red-600"
                     >
                       Delete
