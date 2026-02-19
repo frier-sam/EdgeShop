@@ -21,9 +21,18 @@ interface Settings {
   [key: string]: string | undefined
 }
 
+interface ProductsData {
+  products: Product[]
+  total: number
+  page: number
+  limit: number
+  pages: number
+}
+
 export default function HomePage() {
   const { theme, isLoading: themeLoading, navItems } = useTheme()
   const [cartOpen, setCartOpen] = useState(false)
+  const [page, setPage] = useState(1)
   const navigate = useNavigate()
   const addItem = useCartStore((s) => s.addItem)
   const updateQuantity = useCartStore((s) => s.updateQuantity)
@@ -36,9 +45,9 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const { data: productsData } = useQuery<{ products: Product[] }>({
-    queryKey: ['products'],
-    queryFn: () => fetch('/api/products').then((r) => r.json()),
+  const { data: productsData } = useQuery<ProductsData>({
+    queryKey: ['products', page],
+    queryFn: () => fetch(`/api/products?page=${page}&limit=12`).then((r) => r.json()),
   })
 
   const storeName = settings?.store_name ?? 'EdgeShop'
@@ -57,12 +66,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <Header
-        storeName={storeName}
-        cartCount={totalItems()}
-        onCartOpen={() => setCartOpen(true)}
-        navItems={navItems}
-      />
+      <Header storeName={storeName} cartCount={totalItems()} onCartOpen={() => setCartOpen(true)} navItems={navItems} />
       <main>
         <Hero storeName={storeName} tagline="Discover our collection" />
         <ProductGrid
@@ -71,28 +75,31 @@ export default function HomePage() {
           onAddToCart={(productId) => {
             const product = products.find((p) => p.id === productId)
             if (!product) return
-            addItem({
-              product_id: product.id,
-              name: product.name,
-              price: product.price,
-              quantity: 1,
-              image_url: product.image_url,
-            })
+            addItem({ product_id: product.id, name: product.name, price: product.price, quantity: 1, image_url: product.image_url })
           }}
         />
+        {productsData && productsData.pages > 1 && (
+          <div className="flex items-center justify-center gap-4 py-8">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+              className="px-4 py-2 text-sm border border-gray-300 rounded hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ← Prev
+            </button>
+            <span className="text-sm text-gray-500">Page {page} of {productsData.pages}</span>
+            <button
+              onClick={() => setPage(p => Math.min(productsData.pages, p + 1))}
+              disabled={page === productsData.pages}
+              className="px-4 py-2 text-sm border border-gray-300 rounded hover:border-gray-500 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
+          </div>
+        )}
       </main>
       <Footer storeName={storeName} />
-      <CartDrawer
-        isOpen={cartOpen}
-        items={items}
-        currency={currency}
-        onClose={() => setCartOpen(false)}
-        onUpdateQuantity={updateQuantity}
-        onCheckout={() => {
-          setCartOpen(false)
-          navigate('/checkout')
-        }}
-      />
+      <CartDrawer isOpen={cartOpen} items={items} currency={currency} onClose={() => setCartOpen(false)} onUpdateQuantity={updateQuantity} onCheckout={() => { setCartOpen(false); navigate('/checkout') }} />
     </div>
   )
 }

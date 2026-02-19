@@ -5,10 +5,22 @@ import type { Product, ProductVariant, ProductImage } from '../types'
 const products = new Hono<{ Bindings: Env }>()
 
 products.get('/', async (c) => {
+  const rawPage = Number(c.req.query('page') ?? 1)
+  const rawLimit = Number(c.req.query('limit') ?? 12)
+  const page = isNaN(rawPage) ? 1 : Math.max(1, rawPage)
+  const limit = isNaN(rawLimit) ? 12 : Math.min(48, Math.max(1, rawLimit))
+  const offset = (page - 1) * limit
+
+  const countRow = await c.env.DB.prepare(
+    'SELECT COUNT(*) as total FROM products WHERE status = ?'
+  ).bind('active').first<{ total: number }>()
+  const total = countRow?.total ?? 0
+
   const { results } = await c.env.DB.prepare(
-    "SELECT * FROM products WHERE status = 'active' ORDER BY created_at DESC"
-  ).all<Product>()
-  return c.json({ products: results })
+    'SELECT * FROM products WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+  ).bind('active', limit, offset).all<Product>()
+
+  return c.json({ products: results, total, page, limit, pages: Math.ceil(total / limit) })
 })
 
 products.get('/:id', async (c) => {
