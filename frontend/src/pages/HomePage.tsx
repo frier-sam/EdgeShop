@@ -30,7 +30,7 @@ interface ProductsData {
 }
 
 export default function HomePage() {
-  const { theme, isLoading: themeLoading, navItems } = useTheme()
+  const { theme, isLoading: themeLoading, navItems, footerData } = useTheme()
   const [cartOpen, setCartOpen] = useState(false)
   const [page, setPage] = useState(1)
   const navigate = useNavigate()
@@ -99,7 +99,7 @@ export default function HomePage() {
           </div>
         )}
       </main>
-      <Footer storeName={storeName} />
+      <Footer storeName={storeName} footerData={footerData} />
       <CartDrawer isOpen={cartOpen} items={items} currency={currency} onClose={() => setCartOpen(false)} onUpdateQuantity={updateQuantity} onCheckout={() => { setCartOpen(false); navigate('/checkout') }} />
     </div>
   )
