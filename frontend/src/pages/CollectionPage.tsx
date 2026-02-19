@@ -9,6 +9,7 @@ interface Product {
   name: string
   price: number
   image_url: string
+  category: string
   created_at: string
 }
 
@@ -28,7 +29,7 @@ export default function CollectionPage() {
   const storeName = settings.store_name ?? 'EdgeShop'
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['collection', slug, sort],
+    queryKey: ['collection', slug],
     queryFn: () =>
       fetch(`/api/collections/${slug}`).then((r) => {
         if (!r.ok) throw new Error('Collection not found')

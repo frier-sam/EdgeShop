@@ -25,10 +25,13 @@ export default function SearchPage() {
   const currency = settings.currency === 'INR' ? '₹' : (settings.currency ?? '₹')
   const storeName = settings.store_name ?? 'EdgeShop'
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ['search', q],
     queryFn: () =>
-      fetch(`/api/search?q=${encodeURIComponent(q)}`).then((r) => r.json()),
+      fetch(`/api/search?q=${encodeURIComponent(q)}`).then((r) => {
+        if (!r.ok) throw new Error('Search failed')
+        return r.json()
+      }),
     enabled: q.length > 0,
   })
 
@@ -65,6 +68,9 @@ export default function SearchPage() {
         )}
         {q && isLoading && (
           <p className="text-sm text-gray-400">Searching…</p>
+        )}
+        {q && isError && (
+          <p className="text-sm text-red-500">Search failed. Please try again.</p>
         )}
         {q && !isLoading && data && (
           <>
