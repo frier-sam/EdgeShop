@@ -14,6 +14,7 @@ import adminCollections from './routes/admin/collections'
 import search from './routes/search'
 import pages from './routes/pages'
 import adminPages from './routes/admin/pages'
+import dashboard from './routes/admin/dashboard'
 
 export type Env = {
   DB: D1Database
@@ -31,6 +32,7 @@ app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
 app.route('/api/settings', settings)
 app.route('/api/products', products)
+app.route('/api/admin/dashboard', dashboard)
 app.route('/api/admin/products', adminProducts)
 app.route('/api/admin/upload', upload)
 app.route('/api/checkout', checkout)

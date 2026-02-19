@@ -13,6 +13,7 @@ import AdminThemeCustomizer from './admin/pages/AdminThemeCustomizer'
 import StaticPage from './pages/StaticPage'
 import AdminPages from './admin/pages/AdminPages'
 import AdminNavigation from './admin/pages/AdminNavigation'
+import AdminDashboard from './admin/pages/AdminDashboard'
 
 const queryClient = new QueryClient()
 
@@ -29,6 +30,7 @@ export default function App() {
             <Route path="/pages/:slug" element={<StaticPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/products" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="products" element={<AdminProducts />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="settings" element={<AdminSettings />} />
