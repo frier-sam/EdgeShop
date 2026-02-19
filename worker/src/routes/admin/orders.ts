@@ -99,10 +99,11 @@ adminOrders.patch('/:id/tracking', async (c) => {
   if (typeof tracking_number !== 'string' || !tracking_number.trim()) {
     return c.json({ error: 'tracking_number is required' }, 400)
   }
+  const trimmedTracking = tracking_number.trim()
 
   const result = await c.env.DB.prepare(
     "UPDATE orders SET tracking_number = ?, order_status = 'shipped' WHERE id = ?"
-  ).bind(tracking_number, id).run()
+  ).bind(trimmedTracking, id).run()
 
   if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
 
@@ -121,11 +122,11 @@ adminOrders.patch('/:id/tracking', async (c) => {
       await sendEmail(
         {
           to: order.customer_email,
-          subject: 'Your order has shipped',
+          subject: `Your order ${id} has shipped!`,
           html: shippingUpdateHtml({
             id: order.id,
             customer_name: order.customer_name,
-            tracking_number: order.tracking_number,
+            tracking_number: trimmedTracking,
           }),
         },
         {
