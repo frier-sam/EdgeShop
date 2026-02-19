@@ -15,7 +15,7 @@ products.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
   const product = await c.env.DB.prepare(
-    'SELECT * FROM products WHERE id = ?'
+    "SELECT * FROM products WHERE id = ? AND status = 'active'"
   ).bind(id).first<Product>()
   if (!product) return c.json({ error: 'Not found' }, 404)
 
