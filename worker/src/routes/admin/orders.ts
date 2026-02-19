@@ -143,4 +143,24 @@ adminOrders.patch('/:id/tracking', async (c) => {
   return c.json({ ok: true })
 })
 
+adminOrders.patch('/:id/refund', async (c) => {
+  const id = c.req.param('id')
+
+  let notes: string | undefined
+  try {
+    const body = await c.req.json<{ notes?: string }>()
+    notes = body.notes
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400)
+  }
+
+  const result = await c.env.DB.prepare(
+    `UPDATE orders SET payment_status = 'refunded', internal_notes = ? WHERE id = ?`
+  ).bind(notes ?? '', id).run()
+
+  if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
+
+  return c.json({ ok: true })
+})
+
 export default adminOrders

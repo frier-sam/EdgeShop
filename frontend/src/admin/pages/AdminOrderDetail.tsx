@@ -93,6 +93,23 @@ export default function AdminOrderDetail() {
     }
   }, [order])
 
+  const refundMutation = useMutation({
+    mutationFn: async (payload: { notes: string }) => {
+      const r = await fetch(`/api/admin/orders/${id}/refund`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!r.ok) throw new Error('Refund failed')
+      return r.json()
+    },
+    onSuccess: () => {
+      qc.setQueryData(['admin-order', id], (old: Order | undefined) =>
+        old ? { ...old, payment_status: 'refunded' } : old
+      )
+    },
+  })
+
   const updateMutation = useMutation({
     mutationFn: async (update: Partial<Order>) => {
       const r = await fetch(`/api/admin/orders/${id}`, {
@@ -366,6 +383,27 @@ export default function AdminOrderDetail() {
             Save
           </button>
         </div>
+
+        {/* Refund */}
+        {order.payment_status !== 'refunded' && (
+          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
+            <label className="text-sm text-gray-600 w-32 shrink-0">Refund</label>
+            <button
+              onClick={() => {
+                if (window.confirm('Mark this order as refunded? This cannot be undone.')) {
+                  refundMutation.mutate({ notes: internalNotes })
+                }
+              }}
+              disabled={refundMutation.isPending}
+              className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {refundMutation.isPending ? 'Refunding...' : 'Mark as Refunded'}
+            </button>
+            {refundMutation.isError && (
+              <p className="text-xs text-red-500">Refund failed. Please try again.</p>
+            )}
+          </div>
+        )}
       </section>
     </div>
   )
