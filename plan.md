@@ -11,9 +11,9 @@
 ---
 
 ## Status Legend
-- [ ] Pending
 - [x] Done
-- [~] In Progress
+- [x] Done
+- [x] Done
 
 ---
 
