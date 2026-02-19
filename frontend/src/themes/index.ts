@@ -1,4 +1,6 @@
 import type { Theme } from './types'
+import jewellery from './jewellery'
 
-// Themes will be registered here as they are created
-export const themes: Record<string, Theme> = {}
+export const themes: Record<string, Theme> = {
+  jewellery,
+}
