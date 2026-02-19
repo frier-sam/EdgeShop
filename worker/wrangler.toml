@@ -17,6 +17,9 @@ RAZORPAY_WEBHOOK_SECRET = ""
 R2_PUBLIC_URL = "https://pub-REPLACE.r2.dev"
 FRONTEND_URL = "https://edgeshop.pages.dev"
 
+[triggers]
+crons = ["0 * * * *"]
+
 # Production deployment steps:
 # 1. npx wrangler d1 create edgeshop-db  (note the database_id)
 # 2. Replace placeholder-replace-after-creation with real ID above

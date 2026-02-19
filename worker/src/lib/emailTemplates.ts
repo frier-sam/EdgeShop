@@ -86,3 +86,38 @@ function escapeHtml(str: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 }
+
+export function abandonedCartHtml(data: {
+  email: string
+  items: Array<{ name: string; price: number; quantity: number; image_url?: string }>
+  frontendUrl: string
+}): string {
+  const itemRows = data.items
+    .map(i => `<tr><td style="padding:4px 8px">${escapeHtml(i.name)}</td><td style="padding:4px 8px;text-align:center">${i.quantity}</td><td style="padding:4px 8px;text-align:right">₹${i.price}</td></tr>`)
+    .join('')
+
+  const checkoutUrl = data.frontendUrl ? `${data.frontendUrl}/checkout` : '/checkout'
+
+  return `
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1A1A1A">
+      <h2>You left something behind! 🛒</h2>
+      <p>Hi, you added items to your cart but didn't complete your purchase.</p>
+      ${itemRows ? `
+      <table style="width:100%;border-collapse:collapse;margin:16px 0">
+        <thead>
+          <tr style="background:#f5f5f5">
+            <th style="padding:8px;text-align:left">Item</th>
+            <th style="padding:8px;text-align:center">Qty</th>
+            <th style="padding:8px;text-align:right">Price</th>
+          </tr>
+        </thead>
+        <tbody>${itemRows}</tbody>
+      </table>
+      ` : ''}
+      <a href="${escapeHtml(checkoutUrl)}" style="display:inline-block;margin-top:16px;padding:12px 24px;background:#1A1A1A;color:white;text-decoration:none;border-radius:4px">Complete Your Purchase</a>
+    </body>
+    </html>
+  `
+}

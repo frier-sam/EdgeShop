@@ -28,6 +28,9 @@ import adminReviews from './routes/admin/reviews'
 import blog from './routes/blog'
 import adminBlog from './routes/admin/blog'
 import analytics from './routes/admin/analytics'
+import abandonedCart from './routes/abandonedCart'
+import { sendEmail } from './lib/email'
+import { abandonedCartHtml } from './lib/emailTemplates'
 
 export type Env = {
   DB: D1Database
@@ -71,5 +74,52 @@ app.route('/api/admin/reviews', adminReviews)
 app.route('/api/blog', blog)
 app.route('/api/admin/blog', adminBlog)
 app.route('/api/admin/analytics', analytics)
+app.route('/api/cart', abandonedCart)
 
-export default app
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    return app.fetch(request, env, ctx)
+  },
+  async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
+    try {
+      const { results } = await env.DB.prepare(`
+        SELECT * FROM abandoned_carts
+        WHERE recovery_sent = 0
+          AND datetime(created_at, '+2 hours') <= datetime('now')
+      `).all<{ id: number; email: string; cart_json: string }>()
+
+      if (results.length === 0) return
+
+      // Fetch email settings
+      const emailRows = await env.DB.prepare(
+        "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address','frontend_url')"
+      ).all<{ key: string; value: string }>()
+      const eCfg: Record<string, string> = {}
+      for (const row of emailRows.results) eCfg[row.key] = row.value
+
+      for (const cart of results) {
+        let items: Array<{ name: string; price: number; quantity: number; image_url?: string }> = []
+        try { items = JSON.parse(cart.cart_json) } catch { /* skip malformed */ }
+
+        await sendEmail(
+          {
+            to: cart.email,
+            subject: 'You left something behind!',
+            html: abandonedCartHtml({ email: cart.email, items, frontendUrl: eCfg.frontend_url ?? '' }),
+          },
+          {
+            email_api_key: eCfg.email_api_key ?? '',
+            email_from_name: eCfg.email_from_name ?? '',
+            email_from_address: eCfg.email_from_address ?? '',
+          }
+        )
+
+        await env.DB.prepare(
+          'UPDATE abandoned_carts SET recovery_sent = 1 WHERE id = ?'
+        ).bind(cart.id).run()
+      }
+    } catch (err) {
+      console.error('Abandoned cart cron failed:', err)
+    }
+  },
+}
