@@ -6,9 +6,11 @@ const search = new Hono<{ Bindings: Env }>()
 
 search.get('/', async (c) => {
   const q = (c.req.query('q') ?? '').trim()
+  if (q.length > 200) return c.json({ error: 'Query too long' }, 400)
   const collection = c.req.query('collection') ?? ''
   const minPrice = Math.max(0, Number(c.req.query('min_price') ?? 0))
-  const maxPrice = Number(c.req.query('max_price') ?? 999999)
+  const rawMax = Number(c.req.query('max_price') ?? 999999)
+  const maxPrice = Number.isFinite(rawMax) && rawMax >= 0 ? rawMax : 999999
   const sortBy = c.req.query('sort') ?? 'newest' // newest | price_asc | price_desc
 
   const orderMap: Record<string, string> = {
@@ -22,7 +24,13 @@ search.get('/', async (c) => {
 
   if (q) {
     // FTS5 full-text search — use wildcard suffix match for partial queries
-    const ftsQuery = q.split(/\s+/).map(w => `${w}*`).join(' ')
+    const sanitiseToken = (w: string) => w.replace(/[^a-zA-Z0-9\u00C0-\u024F]/g, '').trim()
+    const tokens = q.split(/\s+/).map(sanitiseToken).filter(Boolean)
+    if (!tokens.length) {
+      // No valid tokens after sanitisation, fall through to browse mode
+      return c.json({ products: [], total: 0, query: q })
+    }
+    const ftsQuery = tokens.map(w => `${w}*`).join(' ')
 
     let sql = `
       SELECT p.* FROM products p
@@ -42,9 +50,16 @@ search.get('/', async (c) => {
       params.push(collection)
     }
 
+    // Note: sortBy is intentionally ignored in FTS mode; results are ordered by relevance (rank)
     sql += ` ORDER BY rank LIMIT 100`
-    const { results } = await c.env.DB.prepare(sql).bind(...params).all<Product>()
-    products = results
+    try {
+      const { results } = await c.env.DB.prepare(sql).bind(...params).all<Product>()
+      products = results
+    } catch (err) {
+      // FTS parse error — return empty results rather than 500
+      console.error('FTS search error:', err)
+      products = []
+    }
   } else {
     // Browse mode — filter + sort without FTS
     let sql = `SELECT DISTINCT p.* FROM products p`

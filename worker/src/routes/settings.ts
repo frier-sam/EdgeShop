@@ -16,6 +16,8 @@ settings.get('/', async (c) => {
   return c.json(result)
 })
 
+// TODO: This endpoint returns sensitive keys (razorpay_key_secret, email_api_key, jwt_secret).
+// It MUST be protected by Cloudflare Access or admin auth middleware (V2-18) before production use.
 settings.get('/admin', async (c) => {
   const rows = await c.env.DB.prepare('SELECT key, value FROM settings').all()
   const result: Record<string, string> = {}
@@ -39,8 +41,6 @@ settings.put('/', async (c) => {
     'announcement_bar_text', 'announcement_bar_enabled', 'announcement_bar_color',
     // v2 theme customizer
     'theme_overrides_json',
-    // v2 auth
-    'jwt_secret',
   ]
   const stmts = Object.entries(body)
     .filter(([key]) => allowed.includes(key))
