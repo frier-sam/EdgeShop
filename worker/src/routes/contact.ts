@@ -22,11 +22,14 @@ contact.post('/', async (c) => {
   if (!name) {
     return c.json({ error: 'Name is required' }, 400)
   }
-  if (!/.+@.+\..+/.test(email)) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return c.json({ error: 'A valid email address is required' }, 400)
   }
   if (!message) {
     return c.json({ error: 'Message is required' }, 400)
+  }
+  if (message.length > 5000) {
+    return c.json({ error: 'Message too long (max 5000 characters)' }, 400)
   }
 
   const { results } = await c.env.DB.prepare(
@@ -38,11 +41,14 @@ contact.post('/', async (c) => {
 
   const merchantEmail = cfg.merchant_email ?? ''
 
+  // Strip CR and LF from name to prevent email header injection via the subject line
+  const safeName = name.replace(/[\r\n]/g, '')
+
   if (merchantEmail) {
     await sendEmail(
       {
         to: merchantEmail,
-        subject: `Contact form: ${name}`,
+        subject: `Contact form: ${safeName}`,
         html: contactFormHtml({ name, email, message }),
       },
       {

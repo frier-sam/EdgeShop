@@ -118,6 +118,7 @@ export default function ContactPage() {
                 value={message}
                 onChange={e => setMessage(e.target.value)}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent resize-y"
+                maxLength={5000}
                 placeholder="How can we help you?"
               />
             </div>
