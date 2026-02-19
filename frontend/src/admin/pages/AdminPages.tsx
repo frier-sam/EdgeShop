@@ -38,14 +38,19 @@ export default function AdminPages() {
   // When editing, fetch full page content
   const { data: fullPage } = useQuery<Page>({
     queryKey: ['admin-page', editing?.id],
-    queryFn: () => fetch(`/api/admin/pages/${editing!.id}`).then(r => r.json()),
+    queryFn: () => fetch(`/api/admin/pages/${editing!.id}`).then(r => {
+      if (!r.ok) throw new Error('Failed to load page')
+      return r.json() as Promise<Page>
+    }),
     enabled: !!editing,
   })
 
   // Sync fullPage content into form when it loads
   useEffect(() => {
-    if (fullPage) setForm(f => ({ ...f, content_html: fullPage.content_html }))
-  }, [fullPage])
+    if (fullPage && fullPage.id === editing?.id) {
+      setForm(f => ({ ...f, content_html: fullPage.content_html }))
+    }
+  }, [fullPage, editing?.id])
 
   const saveMutation = useMutation({
     mutationFn: async (body: typeof emptyForm) => {
@@ -190,7 +195,7 @@ export default function AdminPages() {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">{modal === 'create' ? 'New Page' : 'Edit Page'}</h2>
-              <button onClick={() => { setModal(null); setEditing(null) }} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+              <button onClick={() => { setModal(null); setEditing(null); setForm(emptyForm); setDeleteId(null) }} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
             <form
               onSubmit={e => { e.preventDefault(); saveMutation.mutate(form) }}
@@ -260,7 +265,7 @@ export default function AdminPages() {
               <div className="flex justify-end gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => { setModal(null); setEditing(null) }}
+                  onClick={() => { setModal(null); setEditing(null); setForm(emptyForm); setDeleteId(null) }}
                   className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
                 >
                   Cancel

@@ -11,7 +11,7 @@ interface PageData {
 
 export default function StaticPage() {
   const { slug } = useParams<{ slug: string }>()
-  const { theme, settings } = useTheme()
+  const { theme, settings, isLoading: isThemeLoading } = useTheme()
 
   const { data: page, isLoading, error } = useQuery({
     queryKey: ['page', slug],
@@ -24,7 +24,7 @@ export default function StaticPage() {
 
   const storeName = settings.store_name ?? 'EdgeShop'
 
-  if (isLoading) return (
+  if (isThemeLoading || isLoading) return (
     <div className="min-h-screen flex items-center justify-center">
       <p className="text-gray-400">Loading…</p>
     </div>
