@@ -25,6 +25,7 @@ import CollectionPage from './pages/CollectionPage'
 import SearchPage from './pages/SearchPage'
 import BlogListPage from './pages/BlogListPage'
 import BlogPostPage from './pages/BlogPostPage'
+import NotFoundPage from './pages/NotFoundPage'
 
 const queryClient = new QueryClient()
 
@@ -46,6 +47,7 @@ export default function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/blog" element={<BlogListPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
+            <Route path="*" element={<NotFoundPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/products" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
