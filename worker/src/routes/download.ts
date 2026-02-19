@@ -1,6 +1,13 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
 
+// Decode Base64URL payload (mirrors toBase64URL in auth.ts)
+function fromBase64URL(str: string): string {
+  const b64 = str.replace(/-/g, '+').replace(/_/g, '/')
+  const padded = b64 + '='.repeat((4 - b64.length % 4) % 4)
+  return atob(padded)
+}
+
 const download = new Hono<{ Bindings: Env }>()
 
 download.get('/', async (c) => {
@@ -32,7 +39,7 @@ download.get('/', async (c) => {
 
   let payload: { orderId: string; productId: number; exp: number }
   try {
-    payload = JSON.parse(atob(data)) as { orderId: string; productId: number; exp: number }
+    payload = JSON.parse(fromBase64URL(data)) as { orderId: string; productId: number; exp: number }
   } catch {
     return c.json({ error: 'Invalid token' }, 401)
   }
@@ -47,12 +54,14 @@ download.get('/', async (c) => {
   const object = await c.env.BUCKET.get(product.digital_file_key)
   if (!object) return c.json({ error: 'File not found in storage' }, 404)
 
-  const filename = product.digital_file_key.split('/').pop() ?? 'download'
+  const rawName = product.digital_file_key.split('/').pop() ?? 'download'
+  const safeFilename = rawName.replace(/["\\\r\n]/g, '_')
 
   return new Response(object.body, {
     headers: {
       'Content-Type': object.httpMetadata?.contentType ?? 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': `attachment; filename="${safeFilename}"; filename*=UTF-8''${encodeURIComponent(rawName)}`,
+      'Content-Length': String(object.size),
     },
   })
 })

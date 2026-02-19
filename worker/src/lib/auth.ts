@@ -83,7 +83,7 @@ export async function createDownloadToken(
 ): Promise<string> {
   const payload = { orderId, productId, exp: Math.floor(Date.now() / 1000) + 3600 * 48 }
   const enc = new TextEncoder()
-  const data = btoa(JSON.stringify(payload))
+  const data = toBase64URL(JSON.stringify(payload))
   const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data))
   const sigHex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')

@@ -108,7 +108,9 @@ checkout.post('/', async (c) => {
 
     if (productIds.length > 0) {
       const secretRow = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").first<{ value: string }>()
-      if (secretRow?.value) {
+      if (!secretRow?.value) {
+        console.warn('jwt_secret not configured — digital download tokens not generated')
+      } else {
         for (const productId of productIds) {
           const product = await c.env.DB.prepare(
             "SELECT product_type FROM products WHERE id = ? AND product_type = 'digital'"
