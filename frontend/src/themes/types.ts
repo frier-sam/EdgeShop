@@ -1,0 +1,68 @@
+import type { ComponentType } from 'react'
+
+export interface ProductCardProps {
+  id: number
+  name: string
+  price: number
+  image_url: string
+  currency: string
+  onAddToCart: () => void
+}
+
+export interface HeaderProps {
+  storeName: string
+  cartCount: number
+  onCartOpen: () => void
+}
+
+export interface FooterProps {
+  storeName: string
+}
+
+export interface HeroProps {
+  storeName: string
+  tagline: string
+}
+
+export interface ProductGridProps {
+  products: Array<{
+    id: number
+    name: string
+    price: number
+    image_url: string
+    category: string
+  }>
+  currency: string
+  onAddToCart: (productId: number) => void
+}
+
+export interface CartItem {
+  product_id: number
+  name: string
+  price: number
+  quantity: number
+  image_url: string
+}
+
+export interface CartDrawerProps {
+  isOpen: boolean
+  items: CartItem[]
+  currency: string
+  onClose: () => void
+  onUpdateQuantity: (productId: number, quantity: number) => void
+  onCheckout: () => void
+}
+
+export interface Theme {
+  id: string
+  name: string
+  description: string
+  components: {
+    Header: ComponentType<HeaderProps>
+    Footer: ComponentType<FooterProps>
+    Hero: ComponentType<HeroProps>
+    ProductCard: ComponentType<ProductCardProps>
+    ProductGrid: ComponentType<ProductGridProps>
+    CartDrawer: ComponentType<CartDrawerProps>
+  }
+}
