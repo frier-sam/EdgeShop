@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
@@ -56,6 +56,7 @@ export default function ProductPage() {
 
   const [reviewForm, setReviewForm] = useState({ customer_name: '', rating: 5, body: '' })
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
+  const reviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { data: reviewsData } = useQuery<{ reviews: Review[] }>({
     queryKey: ['reviews', id],
@@ -78,6 +79,12 @@ export default function ProductPage() {
     }
   }, [product])
 
+  useEffect(() => {
+    return () => {
+      if (reviewTimerRef.current) clearTimeout(reviewTimerRef.current)
+    }
+  }, [])
+
   const submitReviewMutation = useMutation({
     mutationFn: (reviewData: { customer_name: string; rating: number; body: string }) =>
       fetch(`/api/products/${id}/reviews`, {
@@ -94,7 +101,7 @@ export default function ProductPage() {
       setReviewSubmitted(true)
       setReviewForm({ customer_name: '', rating: 5, body: '' })
       queryClient.invalidateQueries({ queryKey: ['reviews', id] })
-      setTimeout(() => setReviewSubmitted(false), 5000)
+      reviewTimerRef.current = setTimeout(() => setReviewSubmitted(false), 5000)
     },
   })
 
@@ -177,7 +184,7 @@ export default function ProductPage() {
               <h3 className="text-sm font-medium text-gray-800">Write a Review</h3>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Your Name *</label>
-                <input required value={reviewForm.customer_name} onChange={e => setReviewForm(f => ({ ...f, customer_name: e.target.value }))}
+                <input required maxLength={100} value={reviewForm.customer_name} onChange={e => setReviewForm(f => ({ ...f, customer_name: e.target.value }))}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
               </div>
               <div>
@@ -193,7 +200,7 @@ export default function ProductPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Review *</label>
-                <textarea required rows={3} value={reviewForm.body} onChange={e => setReviewForm(f => ({ ...f, body: e.target.value }))}
+                <textarea required maxLength={2000} rows={3} value={reviewForm.body} onChange={e => setReviewForm(f => ({ ...f, body: e.target.value }))}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
               </div>
               {submitReviewMutation.isError && <p className="text-xs text-red-500">{(submitReviewMutation.error as Error)?.message ?? 'Failed to submit review'}</p>}
