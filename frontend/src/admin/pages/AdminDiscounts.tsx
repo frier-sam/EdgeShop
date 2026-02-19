@@ -51,7 +51,7 @@ export default function AdminDiscounts() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [deleteError, setDeleteError] = useState('')
 
-  const { data, isLoading } = useQuery<{ discounts: DiscountCode[] }>({
+  const { data, isLoading, isError } = useQuery<{ discounts: DiscountCode[] }>({
     queryKey: ['admin-discounts'],
     queryFn: () =>
       fetch('/api/admin/discounts').then(r => {
@@ -137,6 +137,7 @@ export default function AdminDiscounts() {
   }
 
   if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
+  if (isError) return <p className="text-sm text-red-500">Failed to load discount codes. Please refresh.</p>
 
   const discounts = data?.discounts ?? []
 
