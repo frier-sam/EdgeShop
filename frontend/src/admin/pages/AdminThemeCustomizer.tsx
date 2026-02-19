@@ -79,7 +79,7 @@ export default function AdminThemeCustomizer() {
                 type={type}
                 value={form[key] ?? ''}
                 onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                placeholder={defaultVal}
+                {...(type === 'text' ? { placeholder: defaultVal } : {})}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
               />
               {defaultVal && (
