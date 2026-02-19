@@ -1,5 +1,7 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
+import { sendEmail } from '../lib/email'
+import { orderConfirmationHtml, newOrderAlertHtml } from '../lib/emailTemplates'
 
 const webhook = new Hono<{ Bindings: Env }>()
 
@@ -58,6 +60,57 @@ webhook.post('/razorpay', async (c) => {
       SET payment_status = 'paid', razorpay_payment_id = ?
       WHERE razorpay_order_id = ?
     `).bind(payment_id, order_id).run()
+
+    // Fetch order for email
+    const order = await c.env.DB.prepare(
+      'SELECT * FROM orders WHERE razorpay_order_id = ?'
+    ).bind(order_id).first<{
+      id: string; customer_name: string; customer_email: string;
+      items_json: string; total_amount: number; shipping_address: string; payment_method: string
+    }>()
+
+    if (order) {
+      const emailRows = await c.env.DB.prepare(
+        "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address','merchant_email')"
+      ).all<{ key: string; value: string }>()
+      const eCfg: Record<string, string> = {}
+      for (const row of emailRows.results) eCfg[row.key] = row.value
+
+      // Confirmation to customer
+      await sendEmail(
+        {
+          to: order.customer_email,
+          subject: `Order ${order.id} Confirmed`,
+          html: orderConfirmationHtml({
+            id: order.id,
+            customer_name: order.customer_name,
+            items_json: order.items_json,
+            total_amount: order.total_amount,
+            payment_method: order.payment_method,
+            shipping_address: order.shipping_address,
+          }),
+        },
+        { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
+      )
+
+      // Alert to merchant
+      if (eCfg.merchant_email) {
+        await sendEmail(
+          {
+            to: eCfg.merchant_email,
+            subject: `New Order: ${order.id}`,
+            html: newOrderAlertHtml({
+              id: order.id,
+              customer_name: order.customer_name,
+              customer_email: order.customer_email,
+              total_amount: order.total_amount,
+              payment_method: order.payment_method,
+            }),
+          },
+          { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
+        )
+      }
+    }
   }
 
   return c.json({ ok: true })

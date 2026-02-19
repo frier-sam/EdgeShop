@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
 import type { OrderItem } from '../types'
+import { sendEmail } from '../lib/email'
+import { orderConfirmationHtml, newOrderAlertHtml } from '../lib/emailTemplates'
 
 const checkout = new Hono<{ Bindings: Env }>()
 
@@ -40,6 +42,48 @@ checkout.post('/', async (c) => {
       body.total_amount,
       JSON.stringify(body.items)
     ).run()
+
+    // Fetch email settings
+    const emailRows = await c.env.DB.prepare(
+      "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address','merchant_email')"
+    ).all<{ key: string; value: string }>()
+    const eCfg: Record<string, string> = {}
+    for (const row of emailRows.results) eCfg[row.key] = row.value
+
+    // Send order confirmation to customer
+    await sendEmail(
+      {
+        to: body.customer_email,
+        subject: `Order ${orderId} Confirmed`,
+        html: orderConfirmationHtml({
+          id: orderId,
+          customer_name: body.customer_name,
+          items_json: JSON.stringify(body.items),
+          total_amount: body.total_amount,
+          payment_method: 'cod',
+          shipping_address: body.shipping_address,
+        }),
+      },
+      { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
+    )
+
+    // Send new order alert to merchant
+    if (eCfg.merchant_email) {
+      await sendEmail(
+        {
+          to: eCfg.merchant_email,
+          subject: `New Order: ${orderId}`,
+          html: newOrderAlertHtml({
+            id: orderId,
+            customer_name: body.customer_name,
+            customer_email: body.customer_email,
+            total_amount: body.total_amount,
+            payment_method: 'cod',
+          }),
+        },
+        { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
+      )
+    }
 
     return c.json({ order_id: orderId, payment_method: 'cod' }, 201)
   }
