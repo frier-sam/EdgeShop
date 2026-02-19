@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { themes } from '../../themes'
 
 interface Settings {
   store_name: string
@@ -8,7 +7,6 @@ interface Settings {
   cod_enabled: string
   razorpay_key_id: string
   razorpay_key_secret: string
-  active_theme: string
   [key: string]: string
 }
 
@@ -27,7 +25,6 @@ export default function AdminSettings() {
     cod_enabled: 'true',
     razorpay_key_id: '',
     razorpay_key_secret: '',
-    active_theme: 'jewellery',
     announcement_bar_enabled: 'false',
     announcement_bar_text: '',
     announcement_bar_color: '#1A1A1A',
@@ -117,56 +114,6 @@ export default function AdminSettings() {
             />
           </div>
           <p className="text-xs text-gray-400">Keys are stored securely in D1 and read server-side only.</p>
-        </div>
-
-        {/* Theme Selector */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
-          <h2 className="font-medium text-gray-800 mb-4">Storefront Theme</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {Object.values(themes).map((t) => (
-              <label
-                key={t.id}
-                className={`cursor-pointer border-2 rounded-lg p-4 transition-colors ${
-                  form.active_theme === t.id
-                    ? 'border-gray-900 bg-gray-50'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="active_theme"
-                  value={t.id}
-                  checked={form.active_theme === t.id}
-                  onChange={() => setForm({ ...form, active_theme: t.id })}
-                  className="sr-only"
-                />
-                <div className="flex items-start justify-between mb-2">
-                  <p className="font-semibold text-sm text-gray-900">{t.name}</p>
-                  {form.active_theme === t.id && (
-                    <span className="text-xs bg-gray-900 text-white px-2 py-0.5 rounded-full">Active</span>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500">{t.description}</p>
-                {/* Colour swatches */}
-                <div className="flex gap-1 mt-3">
-                  {t.id === 'jewellery' && (
-                    <>
-                      <div className="w-4 h-4 rounded-full bg-[#FAFAF8] border border-gray-200" title="Background" />
-                      <div className="w-4 h-4 rounded-full bg-[#1A1A1A]" title="Text" />
-                      <div className="w-4 h-4 rounded-full bg-[#C9A96E]" title="Accent" />
-                    </>
-                  )}
-                  {t.id === 'artsCrafts' && (
-                    <>
-                      <div className="w-4 h-4 rounded-full bg-[#F5F0E8] border border-gray-200" title="Background" />
-                      <div className="w-4 h-4 rounded-full bg-[#2C2416]" title="Text" />
-                      <div className="w-4 h-4 rounded-full bg-[#C4622D]" title="Accent" />
-                    </>
-                  )}
-                </div>
-              </label>
-            ))}
-          </div>
         </div>
 
         {/* Announcement Bar */}
