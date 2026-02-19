@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
 import { useCartStore } from '../store/cartStore'
 
@@ -37,6 +37,7 @@ export default function ProductPage() {
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const addItem = useCartStore((s) => s.addItem)
+  const queryClient = useQueryClient()
 
   const { data: settings } = useQuery<Settings>({
     queryKey: ['settings'],
@@ -54,11 +55,9 @@ export default function ProductPage() {
   })
 
   const [reviewForm, setReviewForm] = useState({ customer_name: '', rating: 5, body: '' })
-  const [reviewSubmitting, setReviewSubmitting] = useState(false)
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
-  const [reviewError, setReviewError] = useState('')
 
-  const { data: reviewsData, refetch: refetchReviews } = useQuery<{ reviews: Review[] }>({
+  const { data: reviewsData } = useQuery<{ reviews: Review[] }>({
     queryKey: ['reviews', id],
     queryFn: () => fetch(`/api/products/${id}/reviews`).then(r => r.json()),
     enabled: !!id,
@@ -79,30 +78,25 @@ export default function ProductPage() {
     }
   }, [product])
 
-  async function submitReview(e: React.FormEvent) {
-    e.preventDefault()
-    setReviewSubmitting(true)
-    setReviewError('')
-    try {
-      const res = await fetch(`/api/products/${id}/reviews`, {
+  const submitReviewMutation = useMutation({
+    mutationFn: (reviewData: { customer_name: string; rating: number; body: string }) =>
+      fetch(`/api/products/${id}/reviews`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reviewForm),
-      })
-      if (res.ok) {
-        setReviewSubmitted(true)
-        setReviewForm({ customer_name: '', rating: 5, body: '' })
-        refetchReviews()
-      } else {
-        const err = await res.json() as { error?: string }
-        setReviewError(err.error ?? 'Failed to submit review')
-      }
-    } catch {
-      setReviewError('Failed to submit review')
-    } finally {
-      setReviewSubmitting(false)
-    }
-  }
+        body: JSON.stringify(reviewData),
+      }).then(async res => {
+        if (!res.ok) {
+          const err = await res.json() as { error?: string }
+          throw new Error(err.error ?? 'Failed to submit review')
+        }
+      }),
+    onSuccess: () => {
+      setReviewSubmitted(true)
+      setReviewForm({ customer_name: '', rating: 5, body: '' })
+      queryClient.invalidateQueries({ queryKey: ['reviews', id] })
+      setTimeout(() => setReviewSubmitted(false), 5000)
+    },
+  })
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Loading...</p></div>
   if (error || !product) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-red-400">Product not found. <Link to="/" className="underline">Go back</Link></p></div>
@@ -179,7 +173,7 @@ export default function ProductPage() {
           {reviewSubmitted ? (
             <p className="text-sm text-green-600">Thank you! Your review has been submitted for moderation.</p>
           ) : (
-            <form onSubmit={submitReview} className="space-y-3 border border-gray-200 rounded-lg p-4">
+            <form onSubmit={e => { e.preventDefault(); submitReviewMutation.mutate(reviewForm) }} className="space-y-3 border border-gray-200 rounded-lg p-4">
               <h3 className="text-sm font-medium text-gray-800">Write a Review</h3>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Your Name *</label>
@@ -202,10 +196,10 @@ export default function ProductPage() {
                 <textarea required rows={3} value={reviewForm.body} onChange={e => setReviewForm(f => ({ ...f, body: e.target.value }))}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
               </div>
-              {reviewError && <p className="text-xs text-red-500">{reviewError}</p>}
-              <button type="submit" disabled={reviewSubmitting}
+              {submitReviewMutation.isError && <p className="text-xs text-red-500">{(submitReviewMutation.error as Error)?.message ?? 'Failed to submit review'}</p>}
+              <button type="submit" disabled={submitReviewMutation.isPending}
                 className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50">
-                {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+                {submitReviewMutation.isPending ? 'Submitting...' : 'Submit Review'}
               </button>
             </form>
           )}

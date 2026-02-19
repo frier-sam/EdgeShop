@@ -7,6 +7,9 @@ const adminReviews = new Hono<{ Bindings: Env }>()
 // GET / — list all pending (unapproved) reviews
 adminReviews.get('/', async (c) => {
   const status = c.req.query('status') ?? 'pending'
+  if (status !== 'pending' && status !== 'approved') {
+    return c.json({ error: "status must be 'pending' or 'approved'" }, 400)
+  }
   const isApproved = status === 'approved' ? 1 : 0
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM reviews WHERE is_approved = ? ORDER BY created_at DESC'

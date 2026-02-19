@@ -33,11 +33,17 @@ reviews.post('/:id/reviews', async (c) => {
   if (typeof customer_name !== 'string' || !customer_name.trim()) {
     return c.json({ error: 'customer_name is required' }, 400)
   }
+  if (customer_name.trim().length > 100) {
+    return c.json({ error: 'customer_name must be 100 characters or fewer' }, 400)
+  }
   if (typeof rating !== 'number' || rating < 1 || rating > 5 || !Number.isInteger(rating)) {
     return c.json({ error: 'rating must be an integer between 1 and 5' }, 400)
   }
   if (typeof reviewBody !== 'string' || !reviewBody.trim()) {
     return c.json({ error: 'body is required' }, 400)
+  }
+  if (reviewBody.trim().length > 2000) {
+    return c.json({ error: 'body must be 2000 characters or fewer' }, 400)
   }
 
   // Verify product exists
