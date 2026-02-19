@@ -11,12 +11,8 @@ interface RevenueResponse {
   data: RevenueDay[]
 }
 
-function formatDate(dateStr: string, days: number): string {
+function formatDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
-  if (days <= 30) {
-    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
-  }
-  // For 90d view, show shorter label to avoid crowding
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
 }
 
@@ -104,7 +100,7 @@ export default function AdminAnalytics() {
                 >
                   {rows.map((row) => {
                     const heightPct = maxRevenue > 0 ? (row.revenue / maxRevenue) * 100 : 0
-                    const label = formatDate(row.day, days)
+                    const label = formatDate(row.day)
                     const tooltip = `${row.day}\n${formatRupees(row.revenue)}\n${row.orders} order${row.orders !== 1 ? 's' : ''}`
                     return (
                       <div
@@ -148,7 +144,7 @@ export default function AdminAnalytics() {
                             className="text-gray-400 leading-tight"
                             style={{ fontSize: '9px', whiteSpace: 'nowrap' }}
                           >
-                            {formatDate(row.day, days)}
+                            {formatDate(row.day)}
                           </p>
                         )}
                       </div>
@@ -168,7 +164,7 @@ export default function AdminAnalytics() {
               <div className="divide-y divide-gray-100">
                 {[...rows].reverse().map((row) => (
                   <div key={row.day} className="px-4 py-2.5 flex items-center justify-between">
-                    <p className="text-sm text-gray-700">{formatDate(row.day, days)}</p>
+                    <p className="text-sm text-gray-700">{formatDate(row.day)}</p>
                     <div className="flex gap-6 text-right">
                       <div>
                         <p className="text-xs text-gray-400">Orders</p>
