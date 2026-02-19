@@ -14,11 +14,14 @@ auth.post('/register', async (c) => {
 
   const { email, password, name, phone } = body as { email?: string; password?: string; name?: string; phone?: string }
 
-  if (typeof email !== 'string' || !email.includes('@')) {
+  if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return c.json({ error: 'Valid email required' }, 400)
   }
   if (typeof password !== 'string' || password.length < 8) {
     return c.json({ error: 'Password must be at least 8 characters' }, 400)
+  }
+  if (password.length > 1024) {
+    return c.json({ error: 'Password must be at most 1024 characters' }, 400)
   }
 
   const existing = await c.env.DB.prepare('SELECT id FROM customers WHERE email = ?').bind(email.toLowerCase()).first()
@@ -29,11 +32,18 @@ auth.post('/register', async (c) => {
     'INSERT INTO customers (email, password_hash, name, phone) VALUES (?, ?, ?, ?)'
   ).bind(email.toLowerCase(), password_hash, name ?? '', phone ?? '').run()
 
+  if (!result.meta.last_row_id) {
+    return c.json({ error: 'Registration failed' }, 500)
+  }
+
   const secretRow = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").first<{ value: string }>()
-  const secret = secretRow?.value || 'default-change-me'
+  if (!secretRow?.value) {
+    return c.json({ error: 'Auth service not configured' }, 500)
+  }
+  const secret = secretRow.value
   const token = await createJWT({ sub: result.meta.last_row_id, email: email.toLowerCase() }, secret)
 
-  return c.json({ token, customer_id: result.meta.last_row_id }, 201)
+  return c.json({ token, customer_id: result.meta.last_row_id, name: (name as string) ?? '' }, 201)
 })
 
 auth.post('/login', async (c) => {
@@ -51,7 +61,7 @@ auth.post('/login', async (c) => {
   }
 
   const customer = await c.env.DB.prepare(
-    'SELECT * FROM customers WHERE email = ?'
+    'SELECT id, email, password_hash, name FROM customers WHERE email = ?'
   ).bind(email.toLowerCase()).first<{ id: number; email: string; password_hash: string; name: string }>()
   if (!customer) return c.json({ error: 'Invalid credentials' }, 401)
 
@@ -59,7 +69,10 @@ auth.post('/login', async (c) => {
   if (!valid) return c.json({ error: 'Invalid credentials' }, 401)
 
   const secretRow = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").first<{ value: string }>()
-  const secret = secretRow?.value || 'default-change-me'
+  if (!secretRow?.value) {
+    return c.json({ error: 'Auth service not configured' }, 500)
+  }
+  const secret = secretRow.value
   const token = await createJWT({ sub: customer.id, email: customer.email }, secret)
 
   return c.json({ token, customer_id: customer.id, name: customer.name })

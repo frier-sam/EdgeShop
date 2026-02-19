@@ -2,6 +2,16 @@
 
 const PBKDF2_ITERATIONS = 100_000
 
+function toBase64URL(str: string): string {
+  return btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')
+}
+
+function fromBase64URL(str: string): string {
+  // pad to multiple of 4 before decoding
+  const padded = str.replace(/-/g, '+').replace(/_/g, '/') + '=='.slice(0, (4 - str.length % 4) % 4)
+  return atob(padded)
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const enc = new TextEncoder()
   const salt = crypto.getRandomValues(new Uint8Array(16))
@@ -41,12 +51,12 @@ export async function verifyPassword(password: string, stored: string): Promise<
 
 export async function createJWT(payload: Record<string, unknown>, secret: string): Promise<string> {
   const enc = new TextEncoder()
-  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
-  const body = btoa(JSON.stringify({ ...payload, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 86400 * 30 }))
+  const header = toBase64URL(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+  const body = toBase64URL(JSON.stringify({ ...payload, iat: Math.floor(Date.now() / 1000), exp: Math.floor(Date.now() / 1000) + 86400 * 30 }))
   const data = `${header}.${body}`
   const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
   const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data))
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
+  const sigB64 = toBase64URL(String.fromCharCode(...new Uint8Array(sig)))
   return `${data}.${sigB64}`
 }
 
@@ -57,10 +67,10 @@ export async function verifyJWT(token: string, secret: string): Promise<Record<s
     const enc = new TextEncoder()
     const data = `${header}.${body}`
     const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify'])
-    const sigBytes = Uint8Array.from(atob(sig), c => c.charCodeAt(0))
+    const sigBytes = Uint8Array.from(fromBase64URL(sig), c => c.charCodeAt(0))
     const valid = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(data))
     if (!valid) return null
-    const payload = JSON.parse(atob(body)) as Record<string, unknown>
+    const payload = JSON.parse(fromBase64URL(body)) as Record<string, unknown>
     if ((payload.exp as number) < Math.floor(Date.now() / 1000)) return null
     return payload
   } catch {
