@@ -1,10 +1,11 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from './themes/ThemeProvider'
 import HomePage from './pages/HomePage'
 import ProductPage from './pages/ProductPage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
 import CheckoutPage from './pages/CheckoutPage'
+import AdminLayout from './admin/AdminLayout'
 
 const queryClient = new QueryClient()
 
@@ -18,7 +19,12 @@ export default function App() {
             <Route path="/product/:id" element={<ProductPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             <Route path="/order-success" element={<OrderSuccessPage />} />
-            <Route path="/admin/*" element={<div>Admin</div>} />
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="/admin/products" replace />} />
+              <Route path="products" element={<div>Products loading...</div>} />
+              <Route path="orders" element={<div>Orders loading...</div>} />
+              <Route path="settings" element={<div>Settings loading...</div>} />
+            </Route>
           </Routes>
         </BrowserRouter>
       </ThemeProvider>
