@@ -9,9 +9,32 @@ export interface ProductCardProps {
   onAddToCart: () => void
 }
 
+export interface FooterLink {
+  label: string
+  href: string
+}
+
+export interface FooterColumn {
+  title: string
+  links: FooterLink[]
+}
+
+export interface FooterData {
+  tagline?: string
+  columns?: FooterColumn[]
+  socials?: {
+    instagram?: string
+    facebook?: string
+    whatsapp?: string
+  }
+  copyright?: string
+}
+
 export interface NavItem {
   label: string
   href: string
+  type?: 'link' | 'collection' | 'page'
+  children?: NavItem[]
 }
 
 export interface HeaderProps {
@@ -23,6 +46,7 @@ export interface HeaderProps {
 
 export interface FooterProps {
   storeName: string
+  footerData?: FooterData
 }
 
 export interface HeroProps {
