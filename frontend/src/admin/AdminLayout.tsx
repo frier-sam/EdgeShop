@@ -10,6 +10,7 @@ const navItems = [
   { to: '/admin/pages', label: 'Pages' },
   { to: '/admin/navigation', label: 'Navigation' },
   { to: '/admin/discounts', label: 'Discounts' },
+  { to: '/admin/analytics', label: 'Analytics' },
 ]
 
 export default function AdminLayout() {
