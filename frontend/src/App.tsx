@@ -16,6 +16,7 @@ import AdminNavigation from './admin/pages/AdminNavigation'
 import AdminCollections from './admin/pages/AdminCollections'
 import AdminDashboard from './admin/pages/AdminDashboard'
 import AdminDiscounts from './admin/pages/AdminDiscounts'
+import AdminOrderDetail from './admin/pages/AdminOrderDetail'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="products" element={<AdminProducts />} />
               <Route path="orders" element={<AdminOrders />} />
+              <Route path="orders/:id" element={<AdminOrderDetail />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="theme" element={<AdminThemeCustomizer />} />
               <Route path="collections" element={<AdminCollections />} />

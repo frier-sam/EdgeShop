@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 
 interface Order {
   id: string
@@ -72,6 +73,7 @@ export default function AdminOrders() {
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Pay Status</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Order Status</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Date</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -105,6 +107,14 @@ export default function AdminOrders() {
                     </select>
                   </td>
                   <td className="px-4 py-3 text-gray-400 text-xs hidden lg:table-cell">{formatDate(order.created_at)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <Link
+                      to={`/admin/orders/${order.id}`}
+                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                    >
+                      View
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
