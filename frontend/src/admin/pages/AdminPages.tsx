@@ -32,7 +32,10 @@ export default function AdminPages() {
 
   const { data, isLoading } = useQuery<{ pages: Page[] }>({
     queryKey: ['admin-pages'],
-    queryFn: () => fetch('/api/admin/pages').then(r => r.json()),
+    queryFn: () => fetch('/api/admin/pages').then(r => {
+      if (!r.ok) throw new Error('Failed to load pages')
+      return r.json() as Promise<{ pages: Page[] }>
+    }),
   })
 
   // When editing, fetch full page content
