@@ -20,6 +20,7 @@ import adminDiscounts from './routes/admin/discounts'
 import auth from './routes/auth'
 import account from './routes/account'
 import download from './routes/download'
+import sitemap from './routes/sitemap'
 
 export type Env = {
   DB: D1Database
@@ -55,5 +56,6 @@ app.route('/api/admin/discounts', adminDiscounts)
 app.route('/api/auth', auth)
 app.route('/api/account', account)
 app.route('/api/download', download)
+app.route('/sitemap.xml', sitemap)
 
 export default app
