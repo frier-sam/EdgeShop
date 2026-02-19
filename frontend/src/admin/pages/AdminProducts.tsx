@@ -35,10 +35,13 @@ export default function AdminProducts() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [form, setForm] = useState<ProductForm>(emptyForm)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [q, setQ] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   const { data, isLoading } = useQuery<{ products: Product[] }>({
-    queryKey: ['admin-products'],
-    queryFn: () => fetch('/api/products').then((r) => r.json()),
+    queryKey: ['admin-products', q, statusFilter],
+    queryFn: () =>
+      fetch('/api/admin/products?' + new URLSearchParams({ ...(q && { q }), ...(statusFilter && { status: statusFilter }) })).then((r) => r.json()),
   })
 
   const createMutation = useMutation({
@@ -123,6 +126,26 @@ export default function AdminProducts() {
         <button onClick={openAdd} className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 transition-colors">
           + Add Product
         </button>
+      </div>
+
+      <div className="flex gap-3 mb-4">
+        <input
+          type="search"
+          placeholder="Search products..."
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:border-gray-500"
+        />
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+        >
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="draft">Draft</option>
+          <option value="archived">Archived</option>
+        </select>
       </div>
 
       {isLoading ? (

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 
@@ -28,10 +29,13 @@ const statusColors: Record<string, string> = {
 
 export default function AdminOrders() {
   const qc = useQueryClient()
+  const [q, setQ] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
 
   const { data, isLoading } = useQuery<{ orders: Order[] }>({
-    queryKey: ['admin-orders'],
-    queryFn: () => fetch('/api/admin/orders').then((r) => r.json()),
+    queryKey: ['admin-orders', q, statusFilter],
+    queryFn: () =>
+      fetch('/api/admin/orders?' + new URLSearchParams({ ...(q && { q }), ...(statusFilter && { status: statusFilter }) })).then((r) => r.json()),
     refetchInterval: 30_000, // refresh every 30s
   })
 
@@ -54,6 +58,28 @@ export default function AdminOrders() {
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-6">Orders</h1>
+
+      <div className="flex gap-3 mb-4">
+        <input
+          type="search"
+          placeholder="Search by name, email, or order ID..."
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:border-gray-500"
+        />
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+        >
+          <option value="">All statuses</option>
+          <option value="placed">Placed</option>
+          <option value="confirmed">Confirmed</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+      </div>
 
       {isLoading ? (
         <p className="text-sm text-gray-400">Loading...</p>

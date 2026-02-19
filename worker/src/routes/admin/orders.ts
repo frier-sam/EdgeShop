@@ -10,9 +10,17 @@ const VALID_PAYMENT_STATUSES = ['pending', 'paid', 'refunded'] as const
 const adminOrders = new Hono<{ Bindings: Env }>()
 
 adminOrders.get('/', async (c) => {
-  const { results } = await c.env.DB.prepare(
-    'SELECT * FROM orders ORDER BY created_at DESC'
-  ).all<Order>()
+  const q = (c.req.query('q') ?? '').trim()
+  const status = (c.req.query('status') ?? '').trim()
+  let sql = 'SELECT * FROM orders WHERE 1=1'
+  const params: (string | number)[] = []
+  if (q) {
+    sql += ' AND (customer_name LIKE ? OR customer_email LIKE ? OR id LIKE ?)'
+    params.push(`%${q}%`, `%${q}%`, `%${q}%`)
+  }
+  if (status) { sql += ' AND order_status = ?'; params.push(status) }
+  sql += ' ORDER BY created_at DESC LIMIT 200'
+  const { results } = await c.env.DB.prepare(sql).bind(...params).all<Order>()
   return c.json({ orders: results })
 })
 

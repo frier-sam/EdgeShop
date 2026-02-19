@@ -3,6 +3,18 @@ import type { Env } from '../../index'
 
 const adminProducts = new Hono<{ Bindings: Env }>()
 
+adminProducts.get('/', async (c) => {
+  const q = (c.req.query('q') ?? '').trim()
+  const status = (c.req.query('status') ?? '').trim()
+  let sql = 'SELECT * FROM products WHERE 1=1'
+  const params: (string | number)[] = []
+  if (q) { sql += ' AND (name LIKE ? OR category LIKE ?)'; params.push(`%${q}%`, `%${q}%`) }
+  if (status) { sql += ' AND status = ?'; params.push(status) }
+  sql += ' ORDER BY created_at DESC LIMIT 200'
+  const { results } = await c.env.DB.prepare(sql).bind(...params).all()
+  return c.json({ products: results })
+})
+
 adminProducts.post('/', async (c) => {
   const body = await c.req.json<{
     name: string
