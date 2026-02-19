@@ -1749,6 +1749,12 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 | 2026-02-19 | ImageUploader validates file.type before processing (not just accept attr) | Browser accept attr is advisory only; explicit type check prevents Canvas errors from non-image files dragged in |
 | 2026-02-19 | AdminSettings useEffect uses functional form of setForm to avoid stale closure | Avoids the eslint exhaustive-deps footgun; settings query data initialises form once on load without re-running on form changes |
 | 2026-02-19 | AdminOrders auto-refetches every 30s via refetchInterval | Keeps orders list fresh for a merchant watching incoming orders without requiring a manual reload |
+| 2026-02-20 | AdminLayout rewritten with grouped collapsible sidebar + mobile hamburger drawer | 13-item flat list was too long for a mobile tab bar; grouped sections (Catalog/Sales/Content/Store) with collapsible toggle are navigable at any screen size |
+| 2026-02-20 | Theme selector + CSS variable customizer merged into AdminAppearance (/admin/appearance) | Decouples visual configuration from store settings; a single focused page for all theme/style choices; /admin/theme now redirects to /admin/appearance |
+| 2026-02-20 | AdminFooter added as dedicated CMS page (/admin/footer) | Footer content (tagline, socials, link columns, copyright) is distinct enough from settings to warrant its own editor; stored as footer_json in D1 settings |
+| 2026-02-20 | AdminNavigation upgraded with nested items + type dialog (collection/page/custom link) | Allows building dropdown nav without manually typing slugs; collection and page dropdowns auto-populate label+href; one level of children supported |
+| 2026-02-20 | AdminSettings stripped of theme selector (moved to AdminAppearance) | Settings page now contains only operational settings (store info, Razorpay, announcement bar); theme concerns belong in Appearance |
+| 2026-02-20 | AdminNavigation fetches pages from /api/pages (public endpoint) | Public pages endpoint returns page titles+slugs, which is sufficient for building nav links; no sensitive data on pages |
 
 ---
 
