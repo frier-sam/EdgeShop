@@ -9,10 +9,16 @@ export interface ProductCardProps {
   onAddToCart: () => void
 }
 
+export interface NavItem {
+  label: string
+  href: string
+}
+
 export interface HeaderProps {
   storeName: string
   cartCount: number
   onCartOpen: () => void
+  navItems: NavItem[]
 }
 
 export interface FooterProps {

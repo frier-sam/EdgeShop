@@ -22,7 +22,7 @@ interface Settings {
 }
 
 export default function HomePage() {
-  const { theme, isLoading: themeLoading } = useTheme()
+  const { theme, isLoading: themeLoading, navItems } = useTheme()
   const [cartOpen, setCartOpen] = useState(false)
   const navigate = useNavigate()
   const addItem = useCartStore((s) => s.addItem)
@@ -61,6 +61,7 @@ export default function HomePage() {
         storeName={storeName}
         cartCount={totalItems()}
         onCartOpen={() => setCartOpen(true)}
+        navItems={navItems}
       />
       <main>
         <Hero storeName={storeName} tagline="Discover our collection" />

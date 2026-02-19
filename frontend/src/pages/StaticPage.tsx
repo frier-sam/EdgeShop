@@ -11,7 +11,7 @@ interface PageData {
 
 export default function StaticPage() {
   const { slug } = useParams<{ slug: string }>()
-  const { theme, settings, isLoading: isThemeLoading } = useTheme()
+  const { theme, settings, isLoading: isThemeLoading, navItems } = useTheme()
 
   const { data: page, isLoading, error } = useQuery({
     queryKey: ['page', slug],
@@ -40,7 +40,7 @@ export default function StaticPage() {
 
   return (
     <div>
-      <Header storeName={storeName} cartCount={0} onCartOpen={() => {}} />
+      <Header storeName={storeName} cartCount={0} onCartOpen={() => {}} navItems={navItems} />
       <main className="max-w-3xl mx-auto px-4 py-12">
         <h1 className="text-3xl font-bold mb-8">{page.title}</h1>
         <div

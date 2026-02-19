@@ -12,6 +12,7 @@ import AdminSettings from './admin/pages/AdminSettings'
 import AdminThemeCustomizer from './admin/pages/AdminThemeCustomizer'
 import StaticPage from './pages/StaticPage'
 import AdminPages from './admin/pages/AdminPages'
+import AdminNavigation from './admin/pages/AdminNavigation'
 
 const queryClient = new QueryClient()
 
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="settings" element={<AdminSettings />} />
               <Route path="theme" element={<AdminThemeCustomizer />} />
               <Route path="pages" element={<AdminPages />} />
+              <Route path="navigation" element={<AdminNavigation />} />
             </Route>
           </Routes>
         </BrowserRouter>

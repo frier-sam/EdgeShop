@@ -1,12 +1,13 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import type { Theme, ThemeOverrides } from './types'
+import type { Theme, ThemeOverrides, NavItem } from './types'
 import { themes } from './index'
 
 interface ThemeContextValue {
   theme: Theme | null
   isLoading: boolean
   activeThemeId: string
+  navItems: NavItem[]
   settings: Record<string, string>
 }
 
@@ -14,6 +15,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   theme: null,
   isLoading: true,
   activeThemeId: 'jewellery',
+  navItems: [],
   settings: {},
 })
 
@@ -27,6 +29,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const activeThemeId = settings.active_theme ?? 'jewellery'
   const theme = themes[activeThemeId] ?? null
+
+  const navItems: NavItem[] = (() => {
+    if (!settings.navigation_json) return []
+    try {
+      return JSON.parse(settings.navigation_json) as NavItem[]
+    } catch {
+      return []
+    }
+  })()
 
   // Inject CSS custom properties: merge theme defaults with merchant overrides from D1
   useEffect(() => {
@@ -48,7 +59,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, [theme, settings, activeThemeId])
 
   return (
-    <ThemeContext.Provider value={{ theme, isLoading, activeThemeId, settings }}>
+    <ThemeContext.Provider value={{ theme, isLoading, activeThemeId, navItems, settings }}>
       {children}
     </ThemeContext.Provider>
   )
