@@ -176,7 +176,7 @@ git commit -m "chore: scaffold worker package with Hono skeleton"
 
 ---
 
-### Task 3: Scaffold Frontend package
+### Task 3: Scaffold Frontend package [x] Done
 
 **Files:**
 - Create: `frontend/` (via Vite scaffold, then customise)
@@ -1735,3 +1735,5 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 | 2026-02-19 | Razorpay webhook uses Web Crypto API (crypto.subtle) | Node-specific `crypto.createHmac` not available in Workers runtime |
 | 2026-02-19 | Cloudflare Access protects /admin (no React auth code needed) | Zero-trust at edge layer is more secure and simpler |
 | 2026-02-19 | TanStack Query with 5-min staleTime for settings | Avoids re-fetching theme config on every render; settings change rarely |
+| 2026-02-19 | allowImportingTsExtensions + noEmit in frontend tsconfig | Required for Vite projects — tsc type-checks only, Vite handles transpilation; avoids TS5097 error on .tsx imports |
+| 2026-02-19 | Frontend scaffold done manually (not via npm create vite) | TTY unavailable in non-interactive shell; all scaffold files created by hand to identical spec |
