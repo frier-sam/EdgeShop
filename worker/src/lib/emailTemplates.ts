@@ -16,7 +16,7 @@ export function orderConfirmationHtml(order: {
   }
 
   const itemRows = items
-    .map(i => `<tr><td style="padding:4px 8px">${i.name}</td><td style="padding:4px 8px;text-align:center">${i.quantity}</td><td style="padding:4px 8px;text-align:right">₹${i.price}</td></tr>`)
+    .map(i => `<tr><td style="padding:4px 8px">${escapeHtml(i.name)}</td><td style="padding:4px 8px;text-align:center">${i.quantity}</td><td style="padding:4px 8px;text-align:right">₹${i.price}</td></tr>`)
     .join('')
 
   return `
@@ -36,7 +36,7 @@ export function orderConfirmationHtml(order: {
         <tbody>${itemRows}</tbody>
       </table>
       <p><strong>Total: ₹${order.total_amount}</strong></p>
-      <p>Payment: ${order.payment_method.toUpperCase()}</p>
+      <p>Payment: ${escapeHtml(order.payment_method).toUpperCase()}</p>
       <p>Shipping to: ${escapeHtml(order.shipping_address)}</p>
     </body>
     </html>
@@ -56,7 +56,7 @@ export function newOrderAlertHtml(order: {
     <body style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1A1A1A">
       <h2>New Order Received 🛍️</h2>
       <p>Order <strong>${escapeHtml(order.id)}</strong> from ${escapeHtml(order.customer_name)} (${escapeHtml(order.customer_email)})</p>
-      <p><strong>Total: ₹${order.total_amount}</strong> — ${order.payment_method.toUpperCase()}</p>
+      <p><strong>Total: ₹${order.total_amount}</strong> — ${escapeHtml(order.payment_method).toUpperCase()}</p>
     </body>
     </html>
   `

@@ -15,25 +15,29 @@ export async function sendEmail(
     return
   }
 
-  const from = `${settings.email_from_name} <${settings.email_from_address}>`
+  const fromName = settings.email_from_name || settings.email_from_address
+  const from = `${fromName} <${settings.email_from_address}>`
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${settings.email_api_key}`,
-    },
-    body: JSON.stringify({
-      from,
-      to: [options.to],
-      subject: options.subject,
-      html: options.html,
-    }),
-  })
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${settings.email_api_key}`,
+      },
+      body: JSON.stringify({
+        from,
+        to: [options.to],
+        subject: options.subject,
+        html: options.html,
+      }),
+    })
 
-  if (!res.ok) {
-    const error = await res.text()
-    console.error('Resend API error:', res.status, error)
-    // Don't throw — email failure shouldn't break the order flow
+    if (!res.ok) {
+      const error = await res.text()
+      console.error('Resend API error:', res.status, error)
+    }
+  } catch (err) {
+    console.error('Resend fetch failed:', err)
   }
 }
