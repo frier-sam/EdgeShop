@@ -48,6 +48,7 @@ export default function HomePage() {
   const { data: productsData } = useQuery<ProductsData>({
     queryKey: ['products', page],
     queryFn: () => fetch(`/api/products?page=${page}&limit=12`).then((r) => r.json()),
+    staleTime: 60 * 1000,
   })
 
   const storeName = settings?.store_name ?? 'EdgeShop'

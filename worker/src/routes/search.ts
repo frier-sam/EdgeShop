@@ -15,8 +15,8 @@ search.get('/', async (c) => {
 
   const rawPage = Number(c.req.query('page') ?? 1)
   const rawLimit = Number(c.req.query('limit') ?? 12)
-  const page = isNaN(rawPage) ? 1 : Math.max(1, rawPage)
-  const limit = isNaN(rawLimit) ? 12 : Math.min(48, Math.max(1, rawLimit))
+  const page = isNaN(rawPage) ? 1 : Math.max(1, Math.floor(rawPage))
+  const limit = isNaN(rawLimit) ? 12 : Math.min(48, Math.max(1, Math.floor(rawLimit)))
   const offset = (page - 1) * limit
 
   const orderMap: Record<string, string> = {
@@ -97,7 +97,7 @@ search.get('/', async (c) => {
     products = results
   }
 
-  return c.json({ products, total, page, limit, pages: Math.ceil(total / limit), query: q })
+  return c.json({ products, total, page, limit, pages: limit > 0 ? Math.ceil(total / limit) : 0, query: q })
 })
 
 export default search

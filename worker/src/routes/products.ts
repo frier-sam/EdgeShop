@@ -7,20 +7,25 @@ const products = new Hono<{ Bindings: Env }>()
 products.get('/', async (c) => {
   const rawPage = Number(c.req.query('page') ?? 1)
   const rawLimit = Number(c.req.query('limit') ?? 12)
-  const page = isNaN(rawPage) ? 1 : Math.max(1, rawPage)
-  const limit = isNaN(rawLimit) ? 12 : Math.min(48, Math.max(1, rawLimit))
+  const page = isNaN(rawPage) ? 1 : Math.max(1, Math.floor(rawPage))
+  const limit = isNaN(rawLimit) ? 12 : Math.min(48, Math.max(1, Math.floor(rawLimit)))
   const offset = (page - 1) * limit
 
-  const countRow = await c.env.DB.prepare(
-    'SELECT COUNT(*) as total FROM products WHERE status = ?'
-  ).bind('active').first<{ total: number }>()
-  const total = countRow?.total ?? 0
+  try {
+    const countRow = await c.env.DB.prepare(
+      'SELECT COUNT(*) as total FROM products WHERE status = ?'
+    ).bind('active').first<{ total: number }>()
+    const total = countRow?.total ?? 0
 
-  const { results } = await c.env.DB.prepare(
-    'SELECT * FROM products WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
-  ).bind('active', limit, offset).all<Product>()
+    const { results } = await c.env.DB.prepare(
+      'SELECT * FROM products WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
+    ).bind('active', limit, offset).all<Product>()
 
-  return c.json({ products: results, total, page, limit, pages: Math.ceil(total / limit) })
+    return c.json({ products: results, total, page, limit, pages: limit > 0 ? Math.ceil(total / limit) : 0 })
+  } catch (err) {
+    console.error('Products list error:', err)
+    return c.json({ error: 'Failed to load products' }, 500)
+  }
 })
 
 products.get('/:id', async (c) => {
