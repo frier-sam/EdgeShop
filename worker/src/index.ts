@@ -7,6 +7,7 @@ import upload from './routes/admin/upload'
 import checkout from './routes/checkout'
 import webhook from './routes/webhook'
 import adminOrders from './routes/admin/orders'
+import variants from './routes/admin/variants'
 
 export type Env = {
   DB: D1Database
@@ -29,5 +30,6 @@ app.route('/api/admin/upload', upload)
 app.route('/api/checkout', checkout)
 app.route('/api/webhook', webhook)
 app.route('/api/admin/orders', adminOrders)
+app.route('/api/admin/products/:productId/variants', variants)
 
 export default app
