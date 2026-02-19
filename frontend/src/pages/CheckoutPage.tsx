@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useCartStore } from '../store/cartStore'
@@ -35,6 +35,7 @@ export default function CheckoutPage() {
     customer_email: '',
     customer_phone: '',
     shipping_address: '',
+    country: 'India',
   })
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod')
   const [submitting, setSubmitting] = useState(false)
@@ -45,12 +46,36 @@ export default function CheckoutPage() {
   } | null>(null)
   const [discountError, setDiscountError] = useState('')
   const [applyingDiscount, setApplyingDiscount] = useState(false)
+  const [shippingResult, setShippingResult] = useState<{
+    shipping_amount: number; rate_name: string
+  } | null>(null)
 
   const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
   const codEnabled = settings?.cod_enabled !== 'false'
   const storeName = settings?.store_name ?? 'EdgeShop'
   const cartTotal = totalAmount()
-  const total = cartTotal - (discountResult?.discount_amount ?? 0)
+  const shippingAmount = shippingResult?.shipping_amount ?? 0
+  const total = cartTotal - (discountResult?.discount_amount ?? 0) + shippingAmount
+
+  async function calculateShipping(country: string) {
+    try {
+      const res = await fetch('/api/shipping/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cart_total: cartTotal, country }),
+      })
+      if (res.ok) {
+        const data = await res.json() as { shipping_amount: number; rate_name: string }
+        setShippingResult(data)
+      }
+    } catch {
+      // Shipping calculation failing should not block checkout
+    }
+  }
+
+  useEffect(() => {
+    calculateShipping(form.country)
+  }, [form.country, cartTotal])
 
   if (items.length === 0) {
     return (
@@ -102,6 +127,7 @@ export default function CheckoutPage() {
           total_amount: total,
           discount_code: discountResult?.code ?? '',
           discount_amount: discountResult?.discount_amount ?? 0,
+          shipping_amount: shippingAmount,
         }),
       })
 
@@ -176,6 +202,18 @@ export default function CheckoutPage() {
                 <span>-{currency}{discountResult.discount_amount.toFixed(2)}</span>
               </div>
             )}
+            {shippingResult && shippingResult.shipping_amount > 0 && (
+              <div className="flex justify-between text-sm text-gray-600 mt-3">
+                <span>Shipping ({shippingResult.rate_name})</span>
+                <span>{currency}{shippingResult.shipping_amount.toFixed(2)}</span>
+              </div>
+            )}
+            {shippingResult && shippingResult.shipping_amount === 0 && (
+              <div className="flex justify-between text-sm text-green-700 mt-3">
+                <span>Shipping ({shippingResult.rate_name})</span>
+                <span>Free</span>
+              </div>
+            )}
             <div className="border-t border-gray-100 mt-4 pt-3 flex justify-between font-semibold text-gray-900">
               <span>Total</span>
               <span>{currency}{total.toFixed(2)}</span>
@@ -206,6 +244,15 @@ export default function CheckoutPage() {
               <label className="block text-xs text-gray-500 mb-1">Shipping Address *</label>
               <textarea required rows={3} value={form.shipping_address} onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Country</label>
+              <input
+                value={form.country}
+                onChange={(e) => setForm({ ...form, country: e.target.value })}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                placeholder="India"
+              />
             </div>
           </div>
 
