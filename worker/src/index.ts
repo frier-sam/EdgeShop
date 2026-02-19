@@ -4,6 +4,7 @@ import settings from './routes/settings'
 import products from './routes/products'
 import adminProducts from './routes/admin/products'
 import upload from './routes/admin/upload'
+import checkout from './routes/checkout'
 
 export type Env = {
   DB: D1Database
@@ -23,5 +24,6 @@ app.route('/api/settings', settings)
 app.route('/api/products', products)
 app.route('/api/admin/products', adminProducts)
 app.route('/api/admin/upload', upload)
+app.route('/api/checkout', checkout)
 
 export default app
