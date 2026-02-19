@@ -17,6 +17,7 @@ import adminPages from './routes/admin/pages'
 import dashboard from './routes/admin/dashboard'
 import validateDiscount from './routes/validateDiscount'
 import adminDiscounts from './routes/admin/discounts'
+import auth from './routes/auth'
 
 export type Env = {
   DB: D1Database
@@ -49,5 +50,6 @@ app.route('/api/pages', pages)
 app.route('/api/admin/pages', adminPages)
 app.route('/api/discount/validate', validateDiscount)
 app.route('/api/admin/discounts', adminDiscounts)
+app.route('/api/auth', auth)
 
 export default app
