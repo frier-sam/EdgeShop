@@ -28,6 +28,9 @@ export default function AdminSettings() {
     razorpay_key_id: '',
     razorpay_key_secret: '',
     active_theme: 'jewellery',
+    announcement_bar_enabled: 'false',
+    announcement_bar_text: '',
+    announcement_bar_color: '#1A1A1A',
   })
 
   useEffect(() => {
@@ -163,6 +166,41 @@ export default function AdminSettings() {
                 </div>
               </label>
             ))}
+          </div>
+        </div>
+
+        {/* Announcement Bar */}
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+          <h2 className="font-medium text-gray-800">Announcement Bar</h2>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.announcement_bar_enabled === 'true'}
+              onChange={(e) => setForm({ ...form, announcement_bar_enabled: e.target.checked ? 'true' : 'false' })}
+              className="w-4 h-4 rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700">Enable Announcement Bar</span>
+          </label>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Message Text</label>
+            <input
+              value={form.announcement_bar_text}
+              onChange={(e) => setForm({ ...form, announcement_bar_text: e.target.value })}
+              placeholder="Free shipping on orders over ₹500!"
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Bar Color</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={form.announcement_bar_color}
+                onChange={(e) => setForm({ ...form, announcement_bar_color: e.target.value })}
+                className="w-8 h-8 rounded border border-gray-300 cursor-pointer p-0.5"
+              />
+              <span className="text-sm text-gray-500 font-mono">{form.announcement_bar_color}</span>
+            </div>
           </div>
         </div>
 

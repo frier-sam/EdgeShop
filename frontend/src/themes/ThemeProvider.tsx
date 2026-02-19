@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
+import AnnouncementBar from '../components/AnnouncementBar'
 import { useQuery } from '@tanstack/react-query'
 import type { Theme, ThemeOverrides, NavItem } from './types'
 import { themes } from './index'
@@ -58,8 +59,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [theme, settings, activeThemeId])
 
+  const announcementEnabled = settings.announcement_bar_enabled === 'true'
+  const announcementText = settings.announcement_bar_text ?? ''
+  const announcementColor = settings.announcement_bar_color ?? '#1A1A1A'
+
   return (
     <ThemeContext.Provider value={{ theme, isLoading, activeThemeId, navItems, settings }}>
+      {announcementEnabled && announcementText && (
+        <AnnouncementBar text={announcementText} color={announcementColor} />
+      )}
       {children}
     </ThemeContext.Provider>
   )
