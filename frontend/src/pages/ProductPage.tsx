@@ -4,16 +4,31 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
 import { useCartStore } from '../store/cartStore'
 
+interface ProductVariant {
+  id: number
+  product_id: number
+  name: string
+  options_json: string  // JSON string e.g. '{"Size":"M","Color":"Red"}'
+  price: number
+  stock_count: number
+  image_url: string
+  sku: string
+}
+
 interface Product {
   id: number
   name: string
   description: string
   price: number
+  compare_price: number | null
   image_url: string
   stock_count: number
   category: string
+  product_type: 'physical' | 'digital'
+  digital_file_key: string
   seo_title: string | null
   seo_description: string | null
+  variants?: ProductVariant[]
 }
 
 interface Review {
@@ -36,12 +51,33 @@ function setMetaProperty(property: string, content: string) {
   el.setAttribute('content', content)
 }
 
+// Parse options_json from a variant into a key-value map
+function parseOptions(optionsJson: string): Record<string, string> {
+  try { return JSON.parse(optionsJson) as Record<string, string> }
+  catch { return {} }
+}
+
+// Group variants by option key to build picker UI
+function buildOptionGroups(variants: ProductVariant[]): Map<string, string[]> {
+  const groups = new Map<string, string[]>()
+  for (const v of variants) {
+    const opts = parseOptions(v.options_json)
+    for (const [key, val] of Object.entries(opts)) {
+      if (!groups.has(key)) groups.set(key, [])
+      const existing = groups.get(key)!
+      if (!existing.includes(val)) existing.push(val)
+    }
+  }
+  return groups
+}
+
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { theme } = useTheme()
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
   const addItem = useCartStore((s) => s.addItem)
   const queryClient = useQueryClient()
 
@@ -72,6 +108,34 @@ export default function ProductPage() {
   const reviewsList = reviewsData?.reviews ?? []
 
   const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
+
+  // Initialize default selected options when product loads
+  useEffect(() => {
+    if (!product?.variants?.length) return
+    const groups = buildOptionGroups(product.variants)
+    const defaults: Record<string, string> = {}
+    for (const [key, vals] of groups.entries()) {
+      defaults[key] = vals[0]
+    }
+    setSelectedOptions(defaults)
+  }, [product])
+
+  // Find the matching variant for current selections
+  const variants = product?.variants ?? []
+  const optionGroups = variants.length > 0 ? buildOptionGroups(variants) : new Map<string, string[]>()
+
+  const selectedVariant = variants.length > 0
+    ? variants.find(v => {
+        const opts = parseOptions(v.options_json)
+        return Object.entries(selectedOptions).every(([k, val]) => opts[k] === val)
+      }) ?? null
+    : null
+
+  const displayPrice = selectedVariant ? selectedVariant.price : (product?.price ?? 0)
+  const displayStock = selectedVariant ? selectedVariant.stock_count : (product?.stock_count ?? 0)
+  const displayImage = (selectedVariant?.image_url || product?.image_url) ?? ''
+
+  const isDigital = product?.product_type === 'digital'
 
   useEffect(() => {
     if (!product) return
@@ -117,64 +181,250 @@ export default function ProductPage() {
     },
   })
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Loading...</p></div>
-  if (error || !product) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-red-400">Product not found. <Link to="/" className="underline">Go back</Link></p></div>
+  function handleAddToCart() {
+    if (!product) return
+    addItem({
+      product_id: product.id,
+      name: product.name,
+      price: displayPrice,
+      quantity: qty,
+      image_url: displayImage,
+    })
+    setAdded(true)
+    setTimeout(() => setAdded(false), 2000)
+  }
 
-  // Use theme-neutral styling for product detail page (works with any theme)
+  // Suppress unused variable warning — theme is available for future conditional styling
+  void theme
+
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg)' }}>
+      <p className="text-sm" style={{ color: 'var(--color-accent)' }}>Loading...</p>
+    </div>
+  )
+  if (error || !product) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg)' }}>
+      <p className="text-sm" style={{ color: 'var(--color-accent)' }}>
+        Product not found. <Link to="/" className="underline">Go back</Link>
+      </p>
+    </div>
+  )
+
   return (
-    <div className="min-h-screen bg-inherit">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <button onClick={() => navigate(-1)} className="text-sm text-gray-500 hover:text-gray-800 mb-8 flex items-center gap-1">
+        {/* Back button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="text-sm mb-8 flex items-center gap-1 transition-opacity hover:opacity-60"
+          style={{ color: 'var(--color-accent)' }}
+        >
           ← Back
         </button>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12">
-          <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
-            {product.image_url
-              ? <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-gray-300 text-sm">No image</div>
+
+        {/* Two-column product layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16">
+          {/* Image */}
+          <div className="aspect-square rounded-xl overflow-hidden bg-stone-100">
+            {displayImage
+              ? <img src={displayImage} alt={product.name} className="w-full h-full object-cover" />
+              : <div className="w-full h-full flex items-center justify-center text-sm" style={{ color: 'var(--color-accent)' }}>No image</div>
             }
           </div>
-          <div className="flex flex-col justify-center">
-            {product.category && <p className="text-xs text-gray-400 tracking-wider uppercase mb-2">{product.category}</p>}
-            <h1 className="text-2xl sm:text-3xl font-semibold text-gray-900 mb-3">{product.name}</h1>
-            <p className="text-xl text-gray-700 mb-4">{currency}{product.price.toFixed(2)}</p>
-            {product.description && <p className="text-sm text-gray-500 leading-relaxed mb-6">{product.description}</p>}
-            <p className="text-xs text-gray-400 mb-4">{product.stock_count} in stock</p>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="flex items-center border border-gray-300 rounded">
-                <button onClick={() => setQty(Math.max(1, qty - 1))} className="px-3 py-2 text-gray-500 hover:text-gray-800">−</button>
-                <span className="px-3 text-sm">{qty}</span>
-                <button onClick={() => setQty(Math.min(product.stock_count, qty + 1))} className="px-3 py-2 text-gray-500 hover:text-gray-800">+</button>
-              </div>
-              <button
-                onClick={() => {
-                  addItem({ product_id: product.id, name: product.name, price: product.price, quantity: qty, image_url: product.image_url })
-                  setAdded(true)
-                  setTimeout(() => setAdded(false), 2000)
-                }}
-                disabled={product.stock_count === 0}
-                className="flex-1 py-3 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-              >
-                {added ? 'Added!' : product.stock_count === 0 ? 'Out of stock' : 'Add to Cart'}
-              </button>
+
+          {/* Info column */}
+          <div className="flex flex-col">
+            {/* Badges row */}
+            <div className="flex items-center gap-2 mb-3">
+              {product.category && (
+                <span className="text-xs tracking-wider uppercase px-2 py-0.5 rounded-full" style={{ backgroundColor: 'var(--color-accent)', color: '#fff', opacity: 0.8 }}>
+                  {product.category}
+                </span>
+              )}
+              {isDigital && (
+                <span className="text-xs tracking-wider uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                  Digital Product
+                </span>
+              )}
             </div>
+
+            {/* Name */}
+            <h1
+              className="text-2xl sm:text-3xl font-semibold mb-3 leading-tight"
+              style={{ color: 'var(--color-primary)' }}
+            >
+              {product.name}
+            </h1>
+
+            {/* Price */}
+            <div className="flex items-baseline gap-3 mb-5">
+              <span className="text-2xl font-bold" style={{ color: 'var(--color-accent)' }}>
+                {currency}{displayPrice.toFixed(2)}
+              </span>
+              {product.compare_price && product.compare_price > displayPrice && (
+                <span className="text-sm line-through opacity-50" style={{ color: 'var(--color-primary)' }}>
+                  {currency}{product.compare_price.toFixed(2)}
+                </span>
+              )}
+            </div>
+
+            {/* Description */}
+            {product.description && (
+              <p className="text-sm leading-relaxed mb-6 opacity-70" style={{ color: 'var(--color-primary)' }}>
+                {product.description}
+              </p>
+            )}
+
+            {/* Variant pickers */}
+            {optionGroups.size > 0 && Array.from(optionGroups.entries()).map(([key, values]) => (
+              <div key={key} className="mb-5">
+                <p className="text-xs tracking-wider uppercase mb-2 font-semibold" style={{ color: 'var(--color-primary)' }}>
+                  {key}
+                  {selectedOptions[key] && <span className="ml-2 normal-case font-normal opacity-60">— {selectedOptions[key]}</span>}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {values.map(val => {
+                    const isSelected = selectedOptions[key] === val
+                    // Check if this option combo has stock
+                    const hasStock = variants.some(v => {
+                      const opts = parseOptions(v.options_json)
+                      return opts[key] === val && v.stock_count > 0
+                    })
+                    return (
+                      <button
+                        key={val}
+                        onClick={() => setSelectedOptions(prev => ({ ...prev, [key]: val }))}
+                        disabled={!hasStock}
+                        className="px-4 py-2 text-xs border rounded-full transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
+                        style={isSelected ? {
+                          backgroundColor: 'var(--color-primary)',
+                          borderColor: 'var(--color-primary)',
+                          color: 'var(--color-bg)',
+                        } : {
+                          backgroundColor: 'transparent',
+                          borderColor: 'var(--color-accent)',
+                          color: 'var(--color-primary)',
+                        }}
+                      >
+                        {val}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
+
+            {/* Digital product note */}
+            {isDigital && (
+              <div className="mb-5 p-3 rounded-lg bg-blue-50 border border-blue-100">
+                <p className="text-xs text-blue-700">
+                  📥 <strong>Digital Download</strong> — After purchase, you'll receive a secure download link via email.
+                </p>
+              </div>
+            )}
+
+            {/* Stock */}
+            <p className="text-xs mb-4 opacity-50" style={{ color: 'var(--color-primary)' }}>
+              {displayStock > 0 ? `${displayStock} in stock` : 'Out of stock'}
+            </p>
+
+            {/* Quantity + Add to Cart (desktop — hidden on mobile via pb-24) */}
+            {!isDigital && (
+              <div className="flex items-center gap-3 mb-4 pb-24 md:pb-0">
+                <div className="flex items-center border rounded-full overflow-hidden" style={{ borderColor: 'var(--color-accent)' }}>
+                  <button
+                    onClick={() => setQty(Math.max(1, qty - 1))}
+                    className="px-4 py-2 text-sm transition-opacity hover:opacity-60"
+                    style={{ color: 'var(--color-primary)' }}
+                  >
+                    −
+                  </button>
+                  <span className="px-3 text-sm min-w-[2rem] text-center" style={{ color: 'var(--color-primary)' }}>{qty}</span>
+                  <button
+                    onClick={() => setQty(Math.min(displayStock, qty + 1))}
+                    className="px-4 py-2 text-sm transition-opacity hover:opacity-60"
+                    style={{ color: 'var(--color-primary)' }}
+                  >
+                    +
+                  </button>
+                </div>
+                <button
+                  onClick={handleAddToCart}
+                  disabled={displayStock === 0}
+                  className="flex-1 py-3 text-sm font-semibold tracking-wider uppercase rounded-full transition-all duration-200 hover:opacity-80 disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-bg)' }}
+                >
+                  {added ? 'Added!' : displayStock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                </button>
+              </div>
+            )}
+
+            {/* Digital: Buy to Download */}
+            {isDigital && (
+              <div className="flex gap-3 pb-24 md:pb-0">
+                <button
+                  onClick={handleAddToCart}
+                  disabled={displayStock === 0}
+                  className="flex-1 py-3 text-sm font-semibold tracking-wider uppercase rounded-full transition-all duration-200 hover:opacity-80 disabled:opacity-40"
+                  style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-bg)' }}
+                >
+                  {added ? 'Added!' : displayStock === 0 ? 'Out of Stock' : 'Buy to Download'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Mobile sticky CTA bar */}
+        {!isDigital && (
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 px-4 py-3 border-t" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'var(--color-accent)', borderTopWidth: '1px' }}>
+            <div className="flex items-center gap-3">
+              <div className="text-sm font-bold" style={{ color: 'var(--color-accent)' }}>
+                {currency}{displayPrice.toFixed(2)}
+              </div>
+              <button
+                onClick={handleAddToCart}
+                disabled={displayStock === 0}
+                className="flex-1 py-3 text-sm font-semibold tracking-wider uppercase rounded-full transition-all duration-200 disabled:opacity-40"
+                style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-bg)' }}
+              >
+                {added ? 'Added!' : displayStock === 0 ? 'Out of Stock' : 'Add to Cart'}
+              </button>
+            </div>
+          </div>
+        )}
+        {isDigital && (
+          <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 px-4 py-3 border-t" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'var(--color-accent)', borderTopWidth: '1px' }}>
+            <div className="flex items-center gap-3">
+              <div className="text-sm font-bold" style={{ color: 'var(--color-accent)' }}>
+                {currency}{displayPrice.toFixed(2)}
+              </div>
+              <button
+                onClick={handleAddToCart}
+                disabled={displayStock === 0}
+                className="flex-1 py-3 text-sm font-semibold tracking-wider uppercase rounded-full transition-all duration-200 disabled:opacity-40"
+                style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-bg)' }}
+              >
+                {added ? 'Added!' : displayStock === 0 ? 'Out of Stock' : 'Buy Now'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Reviews section */}
-        <div className="mt-12">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="mt-16">
+          <h2 className="text-lg font-semibold mb-6" style={{ color: 'var(--color-primary)' }}>
             Customer Reviews {reviewsList.length > 0 && `(${reviewsList.length})`}
           </h2>
           {reviewsList.length === 0 ? (
-            <p className="text-sm text-gray-400 mb-8">No reviews yet. Be the first to review!</p>
+            <p className="text-sm mb-8 opacity-50" style={{ color: 'var(--color-primary)' }}>No reviews yet. Be the first to review!</p>
           ) : (
             <div className="space-y-4 mb-8">
               {reviewsList.map(review => (
-                <div key={review.id} className="border border-gray-100 rounded-lg p-4">
+                <div key={review.id} className="border rounded-xl p-4" style={{ borderColor: 'var(--color-accent)', opacity: 0.9 }}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium text-gray-800">{review.customer_name}</span>
-                    <span className="text-xs text-gray-400">
+                    <span className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>{review.customer_name}</span>
+                    <span className="text-xs opacity-50" style={{ color: 'var(--color-primary)' }}>
                       {new Date(review.created_at).toLocaleDateString()}
                     </span>
                   </div>
@@ -183,7 +433,7 @@ export default function ProductPage() {
                       <span key={star} className={star <= review.rating ? 'text-yellow-400' : 'text-gray-200'}>★</span>
                     ))}
                   </div>
-                  <p className="text-sm text-gray-600">{review.body}</p>
+                  <p className="text-sm opacity-70" style={{ color: 'var(--color-primary)' }}>{review.body}</p>
                 </div>
               ))}
             </div>
@@ -192,15 +442,15 @@ export default function ProductPage() {
           {reviewSubmitted ? (
             <p className="text-sm text-green-600">Thank you! Your review has been submitted for moderation.</p>
           ) : (
-            <form onSubmit={e => { e.preventDefault(); submitReviewMutation.mutate(reviewForm) }} className="space-y-3 border border-gray-200 rounded-lg p-4">
-              <h3 className="text-sm font-medium text-gray-800">Write a Review</h3>
+            <form onSubmit={e => { e.preventDefault(); submitReviewMutation.mutate(reviewForm) }} className="space-y-3 border rounded-xl p-4" style={{ borderColor: 'var(--color-accent)' }}>
+              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>Write a Review</h3>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Your Name *</label>
+                <label className="block text-xs mb-1 opacity-60" style={{ color: 'var(--color-primary)' }}>Your Name *</label>
                 <input required maxLength={100} value={reviewForm.customer_name} onChange={e => setReviewForm(f => ({ ...f, customer_name: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ borderColor: 'var(--color-accent)', color: 'var(--color-primary)', backgroundColor: 'transparent' }} />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Rating *</label>
+                <label className="block text-xs mb-1 opacity-60" style={{ color: 'var(--color-primary)' }}>Rating *</label>
                 <div className="flex gap-1">
                   {[1,2,3,4,5].map(star => (
                     <button key={star} type="button" onClick={() => setReviewForm(f => ({ ...f, rating: star }))}
@@ -211,13 +461,14 @@ export default function ProductPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Review *</label>
+                <label className="block text-xs mb-1 opacity-60" style={{ color: 'var(--color-primary)' }}>Review *</label>
                 <textarea required maxLength={2000} rows={3} value={reviewForm.body} onChange={e => setReviewForm(f => ({ ...f, body: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ borderColor: 'var(--color-accent)', color: 'var(--color-primary)', backgroundColor: 'transparent' }} />
               </div>
               {submitReviewMutation.isError && <p className="text-xs text-red-500">{(submitReviewMutation.error as Error)?.message ?? 'Failed to submit review'}</p>}
               <button type="submit" disabled={submitReviewMutation.isPending}
-                className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50">
+                className="px-5 py-2 text-sm font-semibold rounded-full transition-all hover:opacity-80 disabled:opacity-50"
+                style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-bg)' }}>
                 {submitReviewMutation.isPending ? 'Submitting...' : 'Submit Review'}
               </button>
             </form>
