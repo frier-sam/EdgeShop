@@ -12,8 +12,8 @@ interface Product {
   image_url: string
   stock_count: number
   category: string
-  seo_title: string
-  seo_description: string
+  seo_title: string | null
+  seo_description: string | null
 }
 
 interface Settings {
@@ -52,6 +52,11 @@ export default function ProductPage() {
     document.title = product.seo_title || product.name
     const meta = document.querySelector('meta[name="description"]')
     if (meta) meta.setAttribute('content', product.seo_description || product.description.slice(0, 160))
+    return () => {
+      document.title = ''
+      const m = document.querySelector('meta[name="description"]')
+      if (m) m.setAttribute('content', '')
+    }
   }, [product])
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Loading...</p></div>

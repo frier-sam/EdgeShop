@@ -30,6 +30,11 @@ export default function StaticPage() {
     document.title = page.meta_title || page.title
     const meta = document.querySelector('meta[name="description"]')
     if (meta) meta.setAttribute('content', page.meta_description || '')
+    return () => {
+      document.title = ''
+      const m = document.querySelector('meta[name="description"]')
+      if (m) m.setAttribute('content', '')
+    }
   }, [page])
 
   if (isThemeLoading || isLoading) return (

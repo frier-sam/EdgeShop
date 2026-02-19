@@ -10,8 +10,8 @@ interface Product {
   image_url: string
   stock_count: number
   category: string
-  seo_title: string
-  seo_description: string
+  seo_title: string | null
+  seo_description: string | null
 }
 
 interface ProductForm {
@@ -81,8 +81,8 @@ export default function AdminProducts() {
       image_url: p.image_url,
       stock_count: String(p.stock_count),
       category: p.category,
-      seo_title: p.seo_title,
-      seo_description: p.seo_description,
+      seo_title: p.seo_title ?? '',
+      seo_description: p.seo_description ?? '',
     })
     setEditingId(p.id)
     setShowForm(true)
@@ -221,7 +221,8 @@ export default function AdminProducts() {
                     <label className="block text-xs text-gray-500 mb-1">SEO Description</label>
                     <textarea rows={2} value={form.seo_description} onChange={(e) => setForm({ ...form, seo_description: e.target.value })}
                       className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-                      placeholder="Brief description for search engines (max 160 chars)" />
+                      placeholder="Brief description for search engines (max 160 chars)"
+                      maxLength={160} />
                   </div>
                 </div>
               </div>

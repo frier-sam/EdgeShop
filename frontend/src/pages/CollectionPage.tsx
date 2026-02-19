@@ -44,7 +44,12 @@ export default function CollectionPage() {
     document.title = col.seo_title || col.name
     const meta = document.querySelector('meta[name="description"]')
     if (meta) meta.setAttribute('content', col.seo_description || col.description?.slice(0, 160) || '')
-  }, [data?.collection])
+    return () => {
+      document.title = ''
+      const m = document.querySelector('meta[name="description"]')
+      if (m) m.setAttribute('content', '')
+    }
+  }, [data])
 
   if (themeLoading || isLoading) {
     return (
