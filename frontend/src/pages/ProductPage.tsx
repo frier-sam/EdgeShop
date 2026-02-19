@@ -16,6 +16,14 @@ interface Product {
   seo_description: string | null
 }
 
+interface Review {
+  id: number
+  customer_name: string
+  rating: number
+  body: string
+  created_at: string
+}
+
 interface Settings {
   store_name?: string
   currency?: string
@@ -45,6 +53,18 @@ export default function ProductPage() {
     enabled: !!id,
   })
 
+  const [reviewForm, setReviewForm] = useState({ customer_name: '', rating: 5, body: '' })
+  const [reviewSubmitting, setReviewSubmitting] = useState(false)
+  const [reviewSubmitted, setReviewSubmitted] = useState(false)
+  const [reviewError, setReviewError] = useState('')
+
+  const { data: reviewsData, refetch: refetchReviews } = useQuery<{ reviews: Review[] }>({
+    queryKey: ['reviews', id],
+    queryFn: () => fetch(`/api/products/${id}/reviews`).then(r => r.json()),
+    enabled: !!id,
+  })
+  const reviewsList = reviewsData?.reviews ?? []
+
   const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
 
   useEffect(() => {
@@ -58,6 +78,31 @@ export default function ProductPage() {
       if (m) m.setAttribute('content', '')
     }
   }, [product])
+
+  async function submitReview(e: React.FormEvent) {
+    e.preventDefault()
+    setReviewSubmitting(true)
+    setReviewError('')
+    try {
+      const res = await fetch(`/api/products/${id}/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reviewForm),
+      })
+      if (res.ok) {
+        setReviewSubmitted(true)
+        setReviewForm({ customer_name: '', rating: 5, body: '' })
+        refetchReviews()
+      } else {
+        const err = await res.json() as { error?: string }
+        setReviewError(err.error ?? 'Failed to submit review')
+      }
+    } catch {
+      setReviewError('Failed to submit review')
+    } finally {
+      setReviewSubmitting(false)
+    }
+  }
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Loading...</p></div>
   if (error || !product) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-red-400">Product not found. <Link to="/" className="underline">Go back</Link></p></div>
@@ -101,6 +146,69 @@ export default function ProductPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Reviews section */}
+        <div className="mt-12">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            Customer Reviews {reviewsList.length > 0 && `(${reviewsList.length})`}
+          </h2>
+          {reviewsList.length === 0 ? (
+            <p className="text-sm text-gray-400 mb-8">No reviews yet. Be the first to review!</p>
+          ) : (
+            <div className="space-y-4 mb-8">
+              {reviewsList.map(review => (
+                <div key={review.id} className="border border-gray-100 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-gray-800">{review.customer_name}</span>
+                    <span className="text-xs text-gray-400">
+                      {new Date(review.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex gap-0.5 mb-2">
+                    {[1,2,3,4,5].map(star => (
+                      <span key={star} className={star <= review.rating ? 'text-yellow-400' : 'text-gray-200'}>★</span>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-600">{review.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {reviewSubmitted ? (
+            <p className="text-sm text-green-600">Thank you! Your review has been submitted for moderation.</p>
+          ) : (
+            <form onSubmit={submitReview} className="space-y-3 border border-gray-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-gray-800">Write a Review</h3>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Your Name *</label>
+                <input required value={reviewForm.customer_name} onChange={e => setReviewForm(f => ({ ...f, customer_name: e.target.value }))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Rating *</label>
+                <div className="flex gap-1">
+                  {[1,2,3,4,5].map(star => (
+                    <button key={star} type="button" onClick={() => setReviewForm(f => ({ ...f, rating: star }))}
+                      className={`text-2xl ${star <= reviewForm.rating ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400 transition-colors`}>
+                      ★
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Review *</label>
+                <textarea required rows={3} value={reviewForm.body} onChange={e => setReviewForm(f => ({ ...f, body: e.target.value }))}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+              </div>
+              {reviewError && <p className="text-xs text-red-500">{reviewError}</p>}
+              <button type="submit" disabled={reviewSubmitting}
+                className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50">
+                {reviewSubmitting ? 'Submitting...' : 'Submit Review'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
