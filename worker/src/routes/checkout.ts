@@ -3,6 +3,7 @@ import type { Env } from '../index'
 import type { OrderItem } from '../types'
 import { sendEmail } from '../lib/email'
 import { orderConfirmationHtml, newOrderAlertHtml } from '../lib/emailTemplates'
+import { createDownloadToken } from '../lib/auth'
 
 const checkout = new Hono<{ Bindings: Env }>()
 
@@ -100,7 +101,26 @@ checkout.post('/', async (c) => {
       console.error('COD confirmation email failed:', err)
     }
 
-    return c.json({ order_id: orderId, payment_method: 'cod' }, 201)
+    // Generate download tokens for digital items
+    const items = body.items as Array<{ product_id: number; quantity: number }>
+    const productIds = items.map(i => i.product_id)
+    const downloadTokens: Record<number, string> = {}
+
+    if (productIds.length > 0) {
+      const secretRow = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").first<{ value: string }>()
+      if (secretRow?.value) {
+        for (const productId of productIds) {
+          const product = await c.env.DB.prepare(
+            "SELECT product_type FROM products WHERE id = ? AND product_type = 'digital'"
+          ).bind(productId).first<{ product_type: string }>()
+          if (product) {
+            downloadTokens[productId] = await createDownloadToken(orderId, productId, secretRow.value)
+          }
+        }
+      }
+    }
+
+    return c.json({ order_id: orderId, payment_method: 'cod', ...(Object.keys(downloadTokens).length > 0 ? { download_tokens: downloadTokens } : {}) }, 201)
   }
 
   // Razorpay flow
