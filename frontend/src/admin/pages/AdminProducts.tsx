@@ -10,6 +10,8 @@ interface Product {
   image_url: string
   stock_count: number
   category: string
+  seo_title: string
+  seo_description: string
 }
 
 interface ProductForm {
@@ -19,10 +21,12 @@ interface ProductForm {
   image_url: string
   stock_count: string
   category: string
+  seo_title: string
+  seo_description: string
 }
 
 const emptyForm: ProductForm = {
-  name: '', description: '', price: '', image_url: '', stock_count: '0', category: ''
+  name: '', description: '', price: '', image_url: '', stock_count: '0', category: '', seo_title: '', seo_description: ''
 }
 
 export default function AdminProducts() {
@@ -77,6 +81,8 @@ export default function AdminProducts() {
       image_url: p.image_url,
       stock_count: String(p.stock_count),
       category: p.category,
+      seo_title: p.seo_title,
+      seo_description: p.seo_description,
     })
     setEditingId(p.id)
     setShowForm(true)
@@ -97,6 +103,8 @@ export default function AdminProducts() {
       image_url: form.image_url,
       stock_count: parseInt(form.stock_count, 10),
       category: form.category,
+      seo_title: form.seo_title,
+      seo_description: form.seo_description,
     }
     if (editingId !== null) {
       updateMutation.mutate({ id: editingId, ...payload })
@@ -198,6 +206,24 @@ export default function AdminProducts() {
                 <label className="block text-xs text-gray-500 mb-1">Category</label>
                 <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+              </div>
+              {/* SEO */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2">SEO</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">SEO Title</label>
+                    <input value={form.seo_title} onChange={(e) => setForm({ ...form, seo_title: e.target.value })}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                      placeholder={form.name} />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">SEO Description</label>
+                    <textarea rows={2} value={form.seo_description} onChange={(e) => setForm({ ...form, seo_description: e.target.value })}
+                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                      placeholder="Brief description for search engines (max 160 chars)" />
+                  </div>
+                </div>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-2">Product Image</label>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
@@ -37,6 +37,14 @@ export default function CollectionPage() {
       }),
     enabled: !!slug,
   })
+
+  useEffect(() => {
+    if (!data?.collection) return
+    const col = data.collection
+    document.title = col.seo_title || col.name
+    const meta = document.querySelector('meta[name="description"]')
+    if (meta) meta.setAttribute('content', col.seo_description || col.description?.slice(0, 160) || '')
+  }, [data?.collection])
 
   if (themeLoading || isLoading) {
     return (

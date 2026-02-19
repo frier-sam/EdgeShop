@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
@@ -23,6 +24,13 @@ export default function StaticPage() {
   })
 
   const storeName = settings.store_name ?? 'EdgeShop'
+
+  useEffect(() => {
+    if (!page) return
+    document.title = page.meta_title || page.title
+    const meta = document.querySelector('meta[name="description"]')
+    if (meta) meta.setAttribute('content', page.meta_description || '')
+  }, [page])
 
   if (isThemeLoading || isLoading) return (
     <div className="min-h-screen flex items-center justify-center">

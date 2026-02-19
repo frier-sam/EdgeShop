@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
@@ -12,6 +12,8 @@ interface Product {
   image_url: string
   stock_count: number
   category: string
+  seo_title: string
+  seo_description: string
 }
 
 interface Settings {
@@ -44,6 +46,13 @@ export default function ProductPage() {
   })
 
   const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
+
+  useEffect(() => {
+    if (!product) return
+    document.title = product.seo_title || product.name
+    const meta = document.querySelector('meta[name="description"]')
+    if (meta) meta.setAttribute('content', product.seo_description || product.description.slice(0, 160))
+  }, [product])
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Loading...</p></div>
   if (error || !product) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-red-400">Product not found. <Link to="/" className="underline">Go back</Link></p></div>
