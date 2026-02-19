@@ -107,10 +107,29 @@ collect_config() {
   read -rs RAZORPAY_SECRET
   echo ""
 
+  ask "JWT Secret for customer auth (leave blank to auto-generate):"
+  printf "  › "
+  read -rs JWT_SECRET
+  echo ""
+  if [[ -z "$JWT_SECRET" ]]; then
+    JWT_SECRET=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48 || true)
+    if [[ -z "$JWT_SECRET" ]]; then
+      JWT_SECRET="$(date +%s)-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
+    fi
+    success "JWT secret auto-generated"
+  fi
+
+  ask "Resend API Key for transactional email (leave blank — you can set it later):"
+  printf "  › "
+  read -rs RESEND_API_KEY
+  echo ""
+
   hr
-  echo "  Project name : $PROJECT_NAME"
-  echo "  Store name   : $STORE_NAME"
+  echo "  Project name  : $PROJECT_NAME"
+  echo "  Store name    : $STORE_NAME"
   echo "  Webhook secret: ${RAZORPAY_SECRET:+(set)}"
+  echo "  JWT secret    : (set)"
+  echo "  Resend API key: ${RESEND_API_KEY:+(set)}"
   hr
 
   DB_NAME="${PROJECT_NAME}-db"
@@ -153,9 +172,11 @@ setup_d1() {
   sed_i "s/name = \"edgeshop-worker\"/name = \"${PROJECT_NAME}-worker\"/" wrangler.toml
   success "wrangler.toml patched"
 
-  # Run migration
+  # Run migrations
   log "Applying D1 migrations..."
   wrangler d1 execute "$DB_NAME" --file=migrations/0001_initial.sql
+  wrangler d1 execute "$DB_NAME" --file=migrations/0002_v2_schema.sql
+  wrangler d1 execute "$DB_NAME" --file=migrations/0003_abandoned_cart.sql
   success "Migrations applied"
 
   # Seed store name
@@ -242,6 +263,21 @@ deploy_worker() {
     success "Webhook secret set"
   else
     warn "Webhook secret not set. Run later:  cd worker && wrangler secret put RAZORPAY_WEBHOOK_SECRET"
+  fi
+
+  # Set JWT secret (required for customer auth)
+  log "Setting JWT_SECRET..."
+  echo "$JWT_SECRET" | wrangler secret put JWT_SECRET
+  success "JWT secret set"
+
+  # Set Resend API key (optional — used for transactional email)
+  if [[ -n "$RESEND_API_KEY" ]]; then
+    log "Seeding Resend API key into settings..."
+    wrangler d1 execute "$DB_NAME" \
+      --command="INSERT OR REPLACE INTO settings (key, value) VALUES ('email_api_key', '${RESEND_API_KEY}')"
+    success "Resend API key seeded"
+  else
+    warn "Resend API key not set. Add it later in Admin → Settings."
   fi
 }
 

@@ -17,6 +17,8 @@ Copy the `database_id` from the output and update `worker/wrangler.toml`.
 ```bash
 cd worker
 npx wrangler d1 execute edgeshop-db --file=migrations/0001_initial.sql
+npx wrangler d1 execute edgeshop-db --file=migrations/0002_v2_schema.sql
+npx wrangler d1 execute edgeshop-db --file=migrations/0003_abandoned_cart.sql
 ```
 
 ### 3. Create R2 Bucket
@@ -29,8 +31,22 @@ Copy the public URL and update `R2_PUBLIC_URL` in `worker/wrangler.toml`.
 ### 4. Set Secrets
 ```bash
 cd worker
+# Required for Razorpay payment webhooks
 npx wrangler secret put RAZORPAY_WEBHOOK_SECRET
+
+# Required for customer auth (JWT tokens) — use a long random string
+echo "your-random-secret-here" | npx wrangler secret put JWT_SECRET
+
+# Optional: Resend API key for transactional email (order confirmations, shipping updates, abandoned cart recovery)
+# Can also be set later via Admin → Settings → Email
+npx wrangler secret put RESEND_API_KEY  # then seed: wrangler d1 execute edgeshop-db --command="INSERT OR REPLACE INTO settings (key, value) VALUES ('email_api_key', 'YOUR_KEY')"
 ```
+
+**New in v2:** The following settings can be configured via Admin → Settings after deployment:
+- `email_api_key` — Resend API key
+- `email_from_address` — From email address for transactional emails
+- `email_from_name` — From name
+- `merchant_email` — Merchant email (receives contact form submissions and new order alerts)
 
 ### 5. Deploy Worker
 ```bash
