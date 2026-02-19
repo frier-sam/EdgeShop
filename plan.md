@@ -1273,7 +1273,7 @@ git commit -am "feat: arts & crafts theme (warm, earthy, terracotta)"
 
 ## Phase 4: Frontend — Storefront Pages
 
-### Task 16: Cart Store (Zustand + localStorage)
+### Task 16: Cart Store (Zustand + localStorage) [x] DONE
 
 **Files:**
 - Create: `frontend/src/store/cartStore.ts`
@@ -1366,7 +1366,7 @@ git commit -am "feat: cart store with Zustand + localStorage persistence"
 
 ---
 
-### Task 17: Storefront Pages (Home, Product Detail)
+### Task 17: Storefront Pages (Home, Product Detail) [x] DONE
 
 **Files:**
 - Create: `frontend/src/pages/HomePage.tsx`
@@ -1417,7 +1417,7 @@ git commit -am "feat: storefront home and product detail pages"
 
 ---
 
-### Task 18: Checkout Page
+### Task 18: Checkout Page [x] DONE
 
 **Files:**
 - Create: `frontend/src/pages/CheckoutPage.tsx`
@@ -1474,7 +1474,7 @@ git commit -am "feat: checkout page with Razorpay modal + COD"
 
 ## Phase 5: Admin Panel
 
-### Task 19: Admin Layout
+### Task 19: Admin Layout [x] Done
 
 **Files:**
 - Create: `frontend/src/admin/AdminLayout.tsx`
@@ -1519,7 +1519,7 @@ export default function AdminLayout() {
 
 ---
 
-### Task 20: Image Uploader Component
+### Task 20: Image Uploader Component [x] Done
 
 **Files:**
 - Create: `frontend/src/admin/ImageUploader.tsx`
@@ -1629,7 +1629,7 @@ git commit -am "feat: image uploader (Canvas resize to WebP + R2 upload)"
 
 ---
 
-### Task 21: Admin — Products Page
+### Task 21: Admin — Products Page [x] Done
 
 **Files:**
 - Create: `frontend/src/admin/pages/AdminProducts.tsx`
@@ -1640,7 +1640,7 @@ git commit -am "feat: image uploader (Canvas resize to WebP + R2 upload)"
 
 ---
 
-### Task 22: Admin — Orders Page
+### Task 22: Admin — Orders Page [x] Done
 
 **Files:**
 - Create: `frontend/src/admin/pages/AdminOrders.tsx`
@@ -1651,7 +1651,7 @@ git commit -am "feat: image uploader (Canvas resize to WebP + R2 upload)"
 
 ---
 
-### Task 23: Admin — Settings Page
+### Task 23: Admin — Settings Page [x] Done
 
 **Files:**
 - Create: `frontend/src/admin/pages/AdminSettings.tsx`
@@ -1737,4 +1737,15 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 | 2026-02-19 | TanStack Query with 5-min staleTime for settings | Avoids re-fetching theme config on every render; settings change rarely |
 | 2026-02-19 | allowImportingTsExtensions + noEmit in frontend tsconfig | Required for Vite projects — tsc type-checks only, Vite handles transpilation; avoids TS5097 error on .tsx imports |
 | 2026-02-19 | Frontend scaffold done manually (not via npm create vite) | TTY unavailable in non-interactive shell; all scaffold files created by hand to identical spec |
+| 2026-02-19 | cartStore imports CartItem from themes/types.ts (not redefined) | Single source of truth for CartItem shape; avoids type drift between cart state and theme components |
+| 2026-02-19 | ProductPage uses theme-neutral Tailwind classes (not theme components) | Product detail is layout-agnostic; forcing it through theme Header/Footer would cause nav duplication and add coupling |
+| 2026-02-19 | CheckoutPage and OrderSuccessPage use plain Tailwind, no theme components | Checkout is a conversion-critical flow; keeping it theme-independent ensures consistent UX regardless of active theme |
+| 2026-02-19 | Razorpay SDK loaded lazily on checkout submit (not at page load) | Avoids blocking initial page load and only loads the script when the user actually chooses Razorpay |
+| 2026-02-19 | window.Razorpay typed via global interface augmentation (not `any`) | Keeps TypeScript strict without needing a separate @types/razorpay package that may lag behind the SDK |
 | 2026-02-19 | Migration applied with `wrangler d1 execute --local --file` | Wrangler picks up the migrations/ directory by convention; local apply verified all 3 tables created successfully |
+| 2026-02-19 | AdminLayout uses fixed bottom nav on mobile (not top nav) | Bottom nav is thumb-friendly on mobile; avoids obscuring table content scrolled at top |
+| 2026-02-19 | AdminProducts fetches from `/api/products` (public) not a separate admin list endpoint | Products list is the same data; no sensitive fields on products justify a separate admin-only read route |
+| 2026-02-19 | ImageUploader accepts `existingUrl` prop and initialises preview from it | Enables editing products with pre-filled image previews without requiring a re-upload |
+| 2026-02-19 | ImageUploader validates file.type before processing (not just accept attr) | Browser accept attr is advisory only; explicit type check prevents Canvas errors from non-image files dragged in |
+| 2026-02-19 | AdminSettings useEffect uses functional form of setForm to avoid stale closure | Avoids the eslint exhaustive-deps footgun; settings query data initialises form once on load without re-running on form changes |
+| 2026-02-19 | AdminOrders auto-refetches every 30s via refetchInterval | Keeps orders list fresh for a merchant watching incoming orders without requiring a manual reload |
