@@ -154,11 +154,19 @@ adminOrders.patch('/:id/refund', async (c) => {
     return c.json({ error: 'Invalid JSON body' }, 400)
   }
 
-  const result = await c.env.DB.prepare(
-    `UPDATE orders SET payment_status = 'refunded', internal_notes = ? WHERE id = ?`
-  ).bind(notes ?? '', id).run()
+  // Guard: only paid orders can be refunded
+  const existing = await c.env.DB.prepare(
+    'SELECT payment_status FROM orders WHERE id = ?'
+  ).bind(id).first<{ payment_status: string }>()
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+  if (existing.payment_status !== 'paid') {
+    return c.json({ error: 'Only paid orders can be refunded' }, 400)
+  }
 
-  if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
+  // Preserve existing internal_notes if no new notes provided
+  await c.env.DB.prepare(
+    `UPDATE orders SET payment_status = 'refunded', internal_notes = COALESCE(NULLIF(?, ''), internal_notes) WHERE id = ?`
+  ).bind(notes ?? '', id).run()
 
   return c.json({ ok: true })
 })

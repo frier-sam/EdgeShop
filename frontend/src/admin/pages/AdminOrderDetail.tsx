@@ -107,6 +107,7 @@ export default function AdminOrderDetail() {
       qc.setQueryData(['admin-order', id], (old: Order | undefined) =>
         old ? { ...old, payment_status: 'refunded' } : old
       )
+      qc.invalidateQueries({ queryKey: ['admin-order', id] })
     },
   })
 
