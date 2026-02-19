@@ -43,6 +43,8 @@ export default function CheckoutPage() {
   const [discountResult, setDiscountResult] = useState<{
     discount_amount: number; type: string; code: string
   } | null>(null)
+  const [discountError, setDiscountError] = useState('')
+  const [applyingDiscount, setApplyingDiscount] = useState(false)
 
   const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
   const codEnabled = settings?.cod_enabled !== 'false'
@@ -63,16 +65,24 @@ export default function CheckoutPage() {
 
   async function applyDiscount() {
     if (!discountCode.trim()) return
-    const res = await fetch('/api/discount/validate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: discountCode.trim(), cart_total: cartTotal }),
-    })
-    if (res.ok) {
-      setDiscountResult(await res.json())
-    } else {
-      const err = await res.json()
-      alert(err.error)
+    setApplyingDiscount(true)
+    try {
+      const res = await fetch('/api/discount/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: discountCode.trim(), cart_total: cartTotal }),
+      })
+      if (res.ok) {
+        setDiscountResult(await res.json())
+        setDiscountError('')
+      } else {
+        const err = await res.json()
+        setDiscountError(err.error)
+      }
+    } catch {
+      setDiscountError('Failed to apply discount. Please try again.')
+    } finally {
+      setApplyingDiscount(false)
     }
   }
 
@@ -220,18 +230,22 @@ export default function CheckoutPage() {
                 <input
                   type="text"
                   value={discountCode}
-                  onChange={(e) => setDiscountCode(e.target.value)}
+                  onChange={(e) => { setDiscountCode(e.target.value); setDiscountError('') }}
                   placeholder="Enter discount code"
                   className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
                 />
                 <button
                   type="button"
                   onClick={applyDiscount}
-                  className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-700 transition-colors"
+                  disabled={applyingDiscount}
+                  className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
                 >
-                  Apply
+                  {applyingDiscount ? 'Applying...' : 'Apply'}
                 </button>
               </div>
+            )}
+            {discountError && (
+              <p className="text-xs text-red-500 mt-2">{discountError}</p>
             )}
           </div>
 

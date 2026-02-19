@@ -61,15 +61,23 @@ webhook.post('/razorpay', async (c) => {
       WHERE razorpay_order_id = ?
     `).bind(payment_id, order_id).run()
 
-    // Fetch order for email
+    // Fetch order for email and discount processing
     const order = await c.env.DB.prepare(
       'SELECT * FROM orders WHERE razorpay_order_id = ?'
     ).bind(order_id).first<{
       id: string; customer_name: string; customer_email: string;
-      items_json: string; total_amount: number; shipping_address: string; payment_method: string
+      items_json: string; total_amount: number; shipping_address: string; payment_method: string;
+      discount_code: string
     }>()
 
     if (order) {
+      // Increment discount code usage if applicable
+      if (order.discount_code) {
+        await c.env.DB.prepare(
+          'UPDATE discount_codes SET uses_count = uses_count + 1 WHERE code = ? COLLATE NOCASE'
+        ).bind(order.discount_code).run()
+      }
+
       const emailRows = await c.env.DB.prepare(
         "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address','merchant_email')"
       ).all<{ key: string; value: string }>()

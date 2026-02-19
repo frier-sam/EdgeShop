@@ -147,12 +147,6 @@ checkout.post('/', async (c) => {
     body.discount_amount ?? 0
   ).run()
 
-  if (body.discount_code) {
-    await c.env.DB.prepare(
-      'UPDATE discount_codes SET uses_count = uses_count + 1 WHERE code = ? COLLATE NOCASE'
-    ).bind(body.discount_code).run()
-  }
-
   return c.json({
     order_id: orderId,
     razorpay_order_id: rzpOrder.id,
