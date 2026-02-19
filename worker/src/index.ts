@@ -15,6 +15,8 @@ import search from './routes/search'
 import pages from './routes/pages'
 import adminPages from './routes/admin/pages'
 import dashboard from './routes/admin/dashboard'
+import validateDiscount from './routes/validateDiscount'
+import adminDiscounts from './routes/admin/discounts'
 
 export type Env = {
   DB: D1Database
@@ -45,5 +47,7 @@ app.route('/api/admin/collections', adminCollections)
 app.route('/api/search', search)
 app.route('/api/pages', pages)
 app.route('/api/admin/pages', adminPages)
+app.route('/api/discount/validate', validateDiscount)
+app.route('/api/admin/discounts', adminDiscounts)
 
 export default app
