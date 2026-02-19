@@ -15,6 +15,8 @@ checkout.post('/', async (c) => {
     payment_method: 'razorpay' | 'cod'
     items: OrderItem[]
     total_amount: number
+    discount_code: string
+    discount_amount: number
   }>()
 
   // Basic validation
@@ -31,8 +33,8 @@ checkout.post('/', async (c) => {
     await c.env.DB.prepare(`
       INSERT INTO orders (id, customer_name, customer_email, customer_phone,
         shipping_address, total_amount, payment_method, payment_status,
-        order_status, items_json)
-      VALUES (?, ?, ?, ?, ?, ?, 'cod', 'pending', 'placed', ?)
+        order_status, items_json, discount_code, discount_amount)
+      VALUES (?, ?, ?, ?, ?, ?, 'cod', 'pending', 'placed', ?, ?, ?)
     `).bind(
       orderId,
       body.customer_name,
@@ -40,8 +42,16 @@ checkout.post('/', async (c) => {
       body.customer_phone ?? '',
       body.shipping_address,
       body.total_amount,
-      JSON.stringify(body.items)
+      JSON.stringify(body.items),
+      body.discount_code ?? '',
+      body.discount_amount ?? 0
     ).run()
+
+    if (body.discount_code) {
+      await c.env.DB.prepare(
+        'UPDATE discount_codes SET uses_count = uses_count + 1 WHERE code = ? COLLATE NOCASE'
+      ).bind(body.discount_code).run()
+    }
 
     // Wrap all email logic so any failure doesn't break the order response
     try {
@@ -122,8 +132,8 @@ checkout.post('/', async (c) => {
   await c.env.DB.prepare(`
     INSERT INTO orders (id, customer_name, customer_email, customer_phone,
       shipping_address, total_amount, payment_method, payment_status,
-      order_status, razorpay_order_id, items_json)
-    VALUES (?, ?, ?, ?, ?, ?, 'razorpay', 'pending', 'placed', ?, ?)
+      order_status, razorpay_order_id, items_json, discount_code, discount_amount)
+    VALUES (?, ?, ?, ?, ?, ?, 'razorpay', 'pending', 'placed', ?, ?, ?, ?)
   `).bind(
     orderId,
     body.customer_name,
@@ -132,8 +142,16 @@ checkout.post('/', async (c) => {
     body.shipping_address,
     body.total_amount,
     rzpOrder.id,
-    JSON.stringify(body.items)
+    JSON.stringify(body.items),
+    body.discount_code ?? '',
+    body.discount_amount ?? 0
   ).run()
+
+  if (body.discount_code) {
+    await c.env.DB.prepare(
+      'UPDATE discount_codes SET uses_count = uses_count + 1 WHERE code = ? COLLATE NOCASE'
+    ).bind(body.discount_code).run()
+  }
 
   return c.json({
     order_id: orderId,

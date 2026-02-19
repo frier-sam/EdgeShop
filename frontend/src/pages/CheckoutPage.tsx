@@ -39,11 +39,16 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [discountCode, setDiscountCode] = useState('')
+  const [discountResult, setDiscountResult] = useState<{
+    discount_amount: number; type: string; code: string
+  } | null>(null)
 
   const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
   const codEnabled = settings?.cod_enabled !== 'false'
   const storeName = settings?.store_name ?? 'EdgeShop'
-  const total = totalAmount()
+  const cartTotal = totalAmount()
+  const total = cartTotal - (discountResult?.discount_amount ?? 0)
 
   if (items.length === 0) {
     return (
@@ -54,6 +59,21 @@ export default function CheckoutPage() {
         </div>
       </div>
     )
+  }
+
+  async function applyDiscount() {
+    if (!discountCode.trim()) return
+    const res = await fetch('/api/discount/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: discountCode.trim(), cart_total: cartTotal }),
+    })
+    if (res.ok) {
+      setDiscountResult(await res.json())
+    } else {
+      const err = await res.json()
+      alert(err.error)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -70,6 +90,8 @@ export default function CheckoutPage() {
           payment_method: paymentMethod,
           items,
           total_amount: total,
+          discount_code: discountResult?.code ?? '',
+          discount_amount: discountResult?.discount_amount ?? 0,
         }),
       })
 
@@ -138,6 +160,12 @@ export default function CheckoutPage() {
                 </li>
               ))}
             </ul>
+            {discountResult && (
+              <div className="flex justify-between text-sm text-green-700 mt-3">
+                <span>Discount ({discountResult.code})</span>
+                <span>-{currency}{discountResult.discount_amount.toFixed(2)}</span>
+              </div>
+            )}
             <div className="border-t border-gray-100 mt-4 pt-3 flex justify-between font-semibold text-gray-900">
               <span>Total</span>
               <span>{currency}{total.toFixed(2)}</span>
@@ -169,6 +197,42 @@ export default function CheckoutPage() {
               <textarea required rows={3} value={form.shipping_address} onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
             </div>
+          </div>
+
+          {/* Discount code */}
+          <div className="bg-white rounded-lg border border-gray-200 p-5">
+            <h2 className="font-medium text-gray-800 mb-4">Discount Code</h2>
+            {discountResult ? (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-green-700 font-medium">
+                  {discountResult.code} applied — {currency}{discountResult.discount_amount.toFixed(2)} off
+                </span>
+                <button
+                  type="button"
+                  onClick={() => { setDiscountResult(null); setDiscountCode('') }}
+                  className="text-xs text-gray-500 hover:text-gray-800 underline ml-4"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={discountCode}
+                  onChange={(e) => setDiscountCode(e.target.value)}
+                  placeholder="Enter discount code"
+                  className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                />
+                <button
+                  type="button"
+                  onClick={applyDiscount}
+                  className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-700 transition-colors"
+                >
+                  Apply
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Payment method */}
