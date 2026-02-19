@@ -5,26 +5,38 @@ import { themes } from '../../themes'
 
 export default function AdminThemeCustomizer() {
   const qc = useQueryClient()
-  const { data: settings } = useQuery({
+  const { data: settings, isLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: () => fetch('/api/settings').then(r => r.json()) as Promise<Record<string, string>>,
   })
 
   const activeThemeId = settings?.active_theme ?? 'jewellery'
-  const overrides: Record<string, Record<string, string>> = settings?.theme_overrides_json
-    ? JSON.parse(settings.theme_overrides_json)
-    : {}
 
-  const [form, setForm] = useState<Record<string, string>>(overrides[activeThemeId] ?? {})
+  const [form, setForm] = useState<Record<string, string>>({})
 
   // Reset form when activeThemeId changes (e.g. after settings load)
   useEffect(() => {
-    setForm(overrides[activeThemeId] ?? {})
+    try {
+      const parsed: Record<string, Record<string, string>> = settings?.theme_overrides_json
+        ? JSON.parse(settings.theme_overrides_json)
+        : {}
+      setForm(parsed[activeThemeId] ?? {})
+    } catch {
+      setForm({})
+    }
   }, [activeThemeId, settings?.theme_overrides_json])
 
   const save = useMutation({
     mutationFn: async () => {
-      const merged = { ...overrides, [activeThemeId]: form }
+      let existingOverrides: Record<string, Record<string, string>> = {}
+      try {
+        if (settings?.theme_overrides_json) {
+          existingOverrides = JSON.parse(settings.theme_overrides_json)
+        }
+      } catch {
+        // ignore malformed stored JSON
+      }
+      const merged = { ...existingOverrides, [activeThemeId]: form }
       const res = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -34,6 +46,8 @@ export default function AdminThemeCustomizer() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
   })
+
+  if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
 
   const theme = themes[activeThemeId]
 
@@ -58,23 +72,37 @@ export default function AdminThemeCustomizer() {
       {fields.map(({ key, label, type }) => {
         const defaultVal = theme?.defaultCssVars[key] ?? ''
         return (
-          <div key={key}>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
-            <input
-              type={type}
-              value={form[key] ?? ''}
-              onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-              placeholder={defaultVal}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-            />
-            {defaultVal && (
-              <p className="text-xs text-gray-400 mt-1">Default: {defaultVal}</p>
+          <div key={key} className="flex items-end gap-2">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+              <input
+                type={type}
+                value={form[key] ?? ''}
+                onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
+                placeholder={defaultVal}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+              />
+              {defaultVal && (
+                <p className="text-xs text-gray-400 mt-1">Default: {defaultVal}</p>
+              )}
+            </div>
+            {form[key] !== undefined && (
+              <button
+                type="button"
+                onClick={() => setForm(f => { const next = { ...f }; delete next[key]; return next })}
+                className="text-xs text-gray-400 hover:text-gray-600 pb-1 whitespace-nowrap"
+              >
+                Reset
+              </button>
             )}
           </div>
         )
       })}
       {save.isError && (
         <p className="text-red-600 text-sm">Failed to save. Please try again.</p>
+      )}
+      {save.isSuccess && (
+        <p className="text-green-600 text-sm">Saved successfully.</p>
       )}
       <button
         onClick={() => save.mutate()}
