@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import settings from './routes/settings'
+import products from './routes/products'
+import adminProducts from './routes/admin/products'
 
 export type Env = {
   DB: D1Database
@@ -17,5 +19,7 @@ app.use('*', cors({ origin: '*' }))
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
 app.route('/api/settings', settings)
+app.route('/api/products', products)
+app.route('/api/admin/products', adminProducts)
 
 export default app

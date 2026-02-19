@@ -1,0 +1,61 @@
+import { Hono } from 'hono'
+import type { Env } from '../../index'
+
+const adminProducts = new Hono<{ Bindings: Env }>()
+
+adminProducts.post('/', async (c) => {
+  const body = await c.req.json<{
+    name: string
+    description?: string
+    price: number
+    image_url?: string
+    stock_count?: number
+    category?: string
+  }>()
+  if (!body.name || body.price == null) {
+    return c.json({ error: 'name and price are required' }, 400)
+  }
+  const result = await c.env.DB.prepare(
+    `INSERT INTO products (name, description, price, image_url, stock_count, category)
+     VALUES (?, ?, ?, ?, ?, ?)`
+  ).bind(
+    body.name,
+    body.description ?? '',
+    body.price,
+    body.image_url ?? '',
+    body.stock_count ?? 0,
+    body.category ?? ''
+  ).run()
+  return c.json({ id: result.meta.last_row_id }, 201)
+})
+
+adminProducts.put('/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
+  const body = await c.req.json<Partial<{
+    name: string
+    description: string
+    price: number
+    image_url: string
+    stock_count: number
+    category: string
+  }>>()
+  const allowedFields = ['name', 'description', 'price', 'image_url', 'stock_count', 'category']
+  const entries = Object.entries(body).filter(([k]) => allowedFields.includes(k))
+  if (entries.length === 0) return c.json({ error: 'Nothing to update' }, 400)
+  const fields = entries.map(([k]) => `${k} = ?`).join(', ')
+  const values = entries.map(([, v]) => v)
+  await c.env.DB.prepare(`UPDATE products SET ${fields} WHERE id = ?`)
+    .bind(...values, id)
+    .run()
+  return c.json({ ok: true })
+})
+
+adminProducts.delete('/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
+  await c.env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id).run()
+  return c.json({ ok: true })
+})
+
+export default adminProducts
