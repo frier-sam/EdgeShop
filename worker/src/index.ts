@@ -11,6 +11,7 @@ import variants from './routes/admin/variants'
 import gallery from './routes/admin/gallery'
 import collections from './routes/collections'
 import adminCollections from './routes/admin/collections'
+import search from './routes/search'
 
 export type Env = {
   DB: D1Database
@@ -37,5 +38,6 @@ app.route('/api/admin/products/:productId/variants', variants)
 app.route('/api/admin/products/:productId/images', gallery)
 app.route('/api/collections', collections)
 app.route('/api/admin/collections', adminCollections)
+app.route('/api/search', search)
 
 export default app
