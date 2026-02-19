@@ -2,6 +2,9 @@ import { Hono } from 'hono'
 import type { Env } from '../../index'
 import type { Order } from '../../types'
 
+const VALID_ORDER_STATUSES = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled'] as const
+const VALID_PAYMENT_STATUSES = ['pending', 'paid', 'refunded'] as const
+
 const adminOrders = new Hono<{ Bindings: Env }>()
 
 adminOrders.get('/', async (c) => {
@@ -32,14 +35,11 @@ adminOrders.put('/:id', async (c) => {
   const entries = Object.entries(body).filter(([k]) => allowed.includes(k))
   if (!entries.length) return c.json({ error: 'Nothing to update' }, 400)
 
-  const validOrderStatuses = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled']
-  const validPaymentStatuses = ['pending', 'paid', 'refunded']
-
   for (const [k, v] of entries) {
-    if (k === 'order_status' && !validOrderStatuses.includes(v as string)) {
+    if (k === 'order_status' && !VALID_ORDER_STATUSES.includes(v as never)) {
       return c.json({ error: 'Invalid order_status' }, 400)
     }
-    if (k === 'payment_status' && !validPaymentStatuses.includes(v as string)) {
+    if (k === 'payment_status' && !VALID_PAYMENT_STATUSES.includes(v as never)) {
       return c.json({ error: 'Invalid payment_status' }, 400)
     }
   }
@@ -47,9 +47,11 @@ adminOrders.put('/:id', async (c) => {
   const setClauses = entries.map(([k]) => `${k} = ?`).join(', ')
   const values = entries.map(([, v]) => v)
 
-  await c.env.DB.prepare(
+  const result = await c.env.DB.prepare(
     `UPDATE orders SET ${setClauses} WHERE id = ?`
   ).bind(...values, id).run()
+
+  if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
 
   return c.json({ ok: true })
 })
@@ -61,13 +63,10 @@ adminOrders.patch('/:id/status', async (c) => {
     payment_status?: string
   }>()
 
-  const validOrderStatuses = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled']
-  const validPaymentStatuses = ['pending', 'paid', 'refunded']
-
-  if (body.order_status && !validOrderStatuses.includes(body.order_status)) {
+  if (body.order_status && !VALID_ORDER_STATUSES.includes(body.order_status as never)) {
     return c.json({ error: 'Invalid order_status' }, 400)
   }
-  if (body.payment_status && !validPaymentStatuses.includes(body.payment_status)) {
+  if (body.payment_status && !VALID_PAYMENT_STATUSES.includes(body.payment_status as never)) {
     return c.json({ error: 'Invalid payment_status' }, 400)
   }
 

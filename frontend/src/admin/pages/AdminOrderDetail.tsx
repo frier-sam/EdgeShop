@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
@@ -82,8 +82,11 @@ export default function AdminOrderDetail() {
   const [trackingNumber, setTrackingNumber] = useState('')
   const [internalNotes, setInternalNotes] = useState('')
 
+  const seeded = useRef(false)
+
   useEffect(() => {
-    if (order) {
+    if (order && !seeded.current) {
+      seeded.current = true
       setOrderStatus(order.order_status)
       setTrackingNumber(order.tracking_number ?? '')
       setInternalNotes(order.internal_notes ?? '')
@@ -100,7 +103,11 @@ export default function AdminOrderDetail() {
       if (!r.ok) throw new Error('Update failed')
       return r.json()
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-order', id] }),
+    onSuccess: (_, variables) => {
+      qc.setQueryData(['admin-order', id], (old: Order | undefined) =>
+        old ? { ...old, ...variables } : old
+      )
+    },
   })
 
   const items: OrderItem[] = useMemo(() => {
