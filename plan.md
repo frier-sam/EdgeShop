@@ -1737,3 +1737,4 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 | 2026-02-19 | TanStack Query with 5-min staleTime for settings | Avoids re-fetching theme config on every render; settings change rarely |
 | 2026-02-19 | allowImportingTsExtensions + noEmit in frontend tsconfig | Required for Vite projects — tsc type-checks only, Vite handles transpilation; avoids TS5097 error on .tsx imports |
 | 2026-02-19 | Frontend scaffold done manually (not via npm create vite) | TTY unavailable in non-interactive shell; all scaffold files created by hand to identical spec |
+| 2026-02-19 | Migration applied with `wrangler d1 execute --local --file` | Wrangler picks up the migrations/ directory by convention; local apply verified all 3 tables created successfully |
