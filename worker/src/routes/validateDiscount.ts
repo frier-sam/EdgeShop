@@ -5,7 +5,21 @@ import type { DiscountCode } from '../types'
 const validateDiscount = new Hono<{ Bindings: Env }>()
 
 validateDiscount.post('/', async (c) => {
-  const { code, cart_total } = await c.req.json<{ code: string; cart_total: number }>()
+  let body: { code: unknown; cart_total: unknown }
+  try {
+    body = await c.req.json()
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400)
+  }
+
+  const { code, cart_total } = body
+
+  if (typeof code !== 'string' || code.trim() === '') {
+    return c.json({ error: 'code must be a non-empty string' }, 400)
+  }
+  if (typeof cart_total !== 'number' || cart_total < 0) {
+    return c.json({ error: 'cart_total must be a non-negative number' }, 400)
+  }
 
   const discount = await c.env.DB.prepare(`
     SELECT * FROM discount_codes
@@ -28,7 +42,10 @@ validateDiscount.post('/', async (c) => {
 
   let discount_amount = 0
   if (discount.type === 'percent') {
-    discount_amount = Math.round((cart_total * discount.value) / 100 * 100) / 100
+    discount_amount = Math.min(
+      Math.round((cart_total * discount.value / 100) * 100) / 100,
+      cart_total
+    )
   } else if (discount.type === 'fixed') {
     discount_amount = Math.min(discount.value, cart_total)
   }

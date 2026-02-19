@@ -113,6 +113,7 @@ export interface DiscountCode {
   uses_count: number
   expires_at: string | null
   is_active: number
+  created_at: string
 }
 
 export interface Page {
