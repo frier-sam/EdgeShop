@@ -3,7 +3,7 @@ import type { Env } from '../index'
 
 const abandonedCart = new Hono<{ Bindings: Env }>()
 
-abandonedCart.post('/', async (c) => {
+abandonedCart.post('/save', async (c) => {
   let body: { email?: unknown; cart_json?: unknown }
   try {
     body = await c.req.json()

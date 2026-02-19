@@ -97,7 +97,15 @@ export default {
       const eCfg: Record<string, string> = {}
       for (const row of emailRows.results) eCfg[row.key] = row.value
 
+      const frontendUrl = eCfg.frontend_url || env.FRONTEND_URL || ''
+
       for (const cart of results) {
+        // Atomic claim: skip if another cron invocation already marked this row
+        const claimed = await env.DB.prepare(
+          'UPDATE abandoned_carts SET recovery_sent = 1 WHERE id = ? AND recovery_sent = 0'
+        ).bind(cart.id).run()
+        if (claimed.meta.changes === 0) continue
+
         let items: Array<{ name: string; price: number; quantity: number; image_url?: string }> = []
         try { items = JSON.parse(cart.cart_json) } catch { /* skip malformed */ }
 
@@ -105,7 +113,7 @@ export default {
           {
             to: cart.email,
             subject: 'You left something behind!',
-            html: abandonedCartHtml({ email: cart.email, items, frontendUrl: eCfg.frontend_url ?? '' }),
+            html: abandonedCartHtml({ email: cart.email, items, frontendUrl }),
           },
           {
             email_api_key: eCfg.email_api_key ?? '',
@@ -113,10 +121,6 @@ export default {
             email_from_address: eCfg.email_from_address ?? '',
           }
         )
-
-        await env.DB.prepare(
-          'UPDATE abandoned_carts SET recovery_sent = 1 WHERE id = ?'
-        ).bind(cart.id).run()
       }
     } catch (err) {
       console.error('Abandoned cart cron failed:', err)

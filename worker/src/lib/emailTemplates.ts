@@ -93,7 +93,7 @@ export function abandonedCartHtml(data: {
   frontendUrl: string
 }): string {
   const itemRows = data.items
-    .map(i => `<tr><td style="padding:4px 8px">${escapeHtml(i.name)}</td><td style="padding:4px 8px;text-align:center">${i.quantity}</td><td style="padding:4px 8px;text-align:right">₹${i.price}</td></tr>`)
+    .map(i => `<tr><td style="padding:4px 8px">${escapeHtml(i.name)}</td><td style="padding:4px 8px;text-align:center">${Number(i.quantity) || 0}</td><td style="padding:4px 8px;text-align:right">₹${(Number(i.price) || 0).toFixed(2)}</td></tr>`)
     .join('')
 
   const checkoutUrl = data.frontendUrl ? `${data.frontendUrl}/checkout` : '/checkout'
