@@ -134,7 +134,16 @@ adminShipping.put('/rates/:id', async (c) => {
 
   const newMin = 'min_weight' in body ? (body.min_weight as number) : undefined
   const newMax = 'max_weight' in body ? (body.max_weight as number) : undefined
-  if (newMin !== undefined && newMax !== undefined && newMax < newMin) {
+
+  // Fetch existing row to validate weight relationship with stored values
+  const existing = await c.env.DB.prepare(
+    'SELECT min_weight, max_weight FROM shipping_rates WHERE id = ?'
+  ).bind(id).first<{ min_weight: number; max_weight: number }>()
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+
+  const effectiveMin = newMin !== undefined ? newMin : existing.min_weight
+  const effectiveMax = newMax !== undefined ? newMax : existing.max_weight
+  if (effectiveMax < effectiveMin) {
     return c.json({ error: 'max_weight must be >= min_weight' }, 400)
   }
 
