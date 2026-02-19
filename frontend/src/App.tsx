@@ -47,7 +47,6 @@ export default function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/blog" element={<BlogListPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
-            <Route path="*" element={<NotFoundPage />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/products" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
@@ -62,6 +61,7 @@ export default function App() {
               <Route path="discounts" element={<AdminDiscounts />} />
               <Route path="analytics" element={<AdminAnalytics />} />
             </Route>
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </BrowserRouter>
       </ThemeProvider>
