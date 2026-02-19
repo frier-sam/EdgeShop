@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../../themes/ThemeProvider'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
@@ -26,6 +26,7 @@ export default function AccountOrdersPage() {
   const token = useAuthStore((s) => s.token)
   const customerName = useAuthStore((s) => s.customerName)
   const logout = useAuthStore((s) => s.logout)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     if (!token) {
@@ -52,10 +53,12 @@ export default function AccountOrdersPage() {
   })
 
   const storeName = settings?.store_name ?? 'EdgeShop'
-  const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
+  const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' }
+  const currency = CURRENCY_SYMBOLS[settings?.currency ?? 'INR'] ?? (settings?.currency ?? '₹')
   const orders = data?.orders ?? []
 
   const handleLogout = () => {
+    queryClient.removeQueries({ queryKey: ['account-orders'] })
     logout()
     navigate('/')
   }

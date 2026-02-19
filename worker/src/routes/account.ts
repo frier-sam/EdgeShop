@@ -15,7 +15,8 @@ account.get('/orders', async (c) => {
   const payload = await verifyJWT(token, secretRow.value)
   if (!payload) return c.json({ error: 'Unauthorized' }, 401)
 
-  const customerId = payload.sub as number
+  const customerId = payload.sub
+  if (typeof customerId !== 'number') return c.json({ error: 'Unauthorized' }, 401)
   const { results } = await c.env.DB.prepare(
     'SELECT id, total_amount, order_status, payment_status, created_at FROM orders WHERE customer_id = ? ORDER BY created_at DESC'
   ).bind(customerId).all<{ id: string; total_amount: number; order_status: string; payment_status: string; created_at: string }>()
