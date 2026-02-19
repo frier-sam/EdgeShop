@@ -13,6 +13,7 @@ import AdminThemeCustomizer from './admin/pages/AdminThemeCustomizer'
 import StaticPage from './pages/StaticPage'
 import AdminPages from './admin/pages/AdminPages'
 import AdminNavigation from './admin/pages/AdminNavigation'
+import AdminCollections from './admin/pages/AdminCollections'
 import AdminDashboard from './admin/pages/AdminDashboard'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
@@ -45,6 +46,7 @@ export default function App() {
               <Route path="orders" element={<AdminOrders />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="theme" element={<AdminThemeCustomizer />} />
+              <Route path="collections" element={<AdminCollections />} />
               <Route path="pages" element={<AdminPages />} />
               <Route path="navigation" element={<AdminNavigation />} />
             </Route>

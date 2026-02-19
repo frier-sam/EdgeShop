@@ -3,6 +3,7 @@ import { Outlet, NavLink, Link } from 'react-router-dom'
 const navItems = [
   { to: '/admin/dashboard', label: 'Dashboard' },
   { to: '/admin/products', label: 'Products' },
+  { to: '/admin/collections', label: 'Collections' },
   { to: '/admin/orders', label: 'Orders' },
   { to: '/admin/settings', label: 'Settings' },
   { to: '/admin/theme', label: 'Theme' },
