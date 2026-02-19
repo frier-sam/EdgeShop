@@ -1,0 +1,77 @@
+import { Hono } from 'hono'
+import type { Env } from '../../index'
+import type { Collection } from '../../types'
+
+const adminCollections = new Hono<{ Bindings: Env }>()
+
+// List all collections
+adminCollections.get('/', async (c) => {
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM collections ORDER BY sort_order ASC, name ASC'
+  ).all<Collection>()
+  return c.json({ collections: results })
+})
+
+// Create a collection
+adminCollections.post('/', async (c) => {
+  const body = await c.req.json<{
+    name: string; slug: string; description?: string
+    image_url?: string; sort_order?: number
+    seo_title?: string; seo_description?: string
+  }>()
+  if (!body.name || !body.slug) return c.json({ error: 'name and slug are required' }, 400)
+  const result = await c.env.DB.prepare(`
+    INSERT INTO collections (name, slug, description, image_url, sort_order, seo_title, seo_description)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    body.name, body.slug,
+    body.description ?? '', body.image_url ?? '',
+    body.sort_order ?? 0,
+    body.seo_title ?? '', body.seo_description ?? ''
+  ).run()
+  return c.json({ id: result.meta.last_row_id }, 201)
+})
+
+// Update a collection
+adminCollections.put('/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
+  const body = await c.req.json<Record<string, unknown>>()
+  const allowed = ['name', 'slug', 'description', 'image_url', 'sort_order', 'seo_title', 'seo_description']
+  const entries = Object.entries(body).filter(([k]) => allowed.includes(k))
+  if (!entries.length) return c.json({ error: 'Nothing to update' }, 400)
+  const fields = entries.map(([k]) => `${k} = ?`).join(', ')
+  await c.env.DB.prepare(`UPDATE collections SET ${fields} WHERE id = ?`)
+    .bind(...entries.map(([, v]) => v), id).run()
+  return c.json({ ok: true })
+})
+
+// Delete a collection
+adminCollections.delete('/:id', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
+  await c.env.DB.prepare('DELETE FROM collections WHERE id = ?').bind(id).run()
+  return c.json({ ok: true })
+})
+
+// Assign products to collection (replaces entire product list for this collection)
+adminCollections.put('/:id/products', async (c) => {
+  const collectionId = Number(c.req.param('id'))
+  if (isNaN(collectionId)) return c.json({ error: 'Invalid id' }, 400)
+  const { product_ids } = await c.req.json<{ product_ids: number[] }>()
+  if (!Array.isArray(product_ids)) return c.json({ error: 'product_ids array is required' }, 400)
+
+  // Replace entire product list for this collection
+  await c.env.DB.prepare('DELETE FROM product_collections WHERE collection_id = ?')
+    .bind(collectionId).run()
+  if (product_ids.length > 0) {
+    const stmts = product_ids.map(pid =>
+      c.env.DB.prepare('INSERT OR IGNORE INTO product_collections (product_id, collection_id) VALUES (?, ?)')
+        .bind(pid, collectionId)
+    )
+    await c.env.DB.batch(stmts)
+  }
+  return c.json({ ok: true })
+})
+
+export default adminCollections

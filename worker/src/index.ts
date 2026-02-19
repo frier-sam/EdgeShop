@@ -9,6 +9,8 @@ import webhook from './routes/webhook'
 import adminOrders from './routes/admin/orders'
 import variants from './routes/admin/variants'
 import gallery from './routes/admin/gallery'
+import collections from './routes/collections'
+import adminCollections from './routes/admin/collections'
 
 export type Env = {
   DB: D1Database
@@ -33,5 +35,7 @@ app.route('/api/webhook', webhook)
 app.route('/api/admin/orders', adminOrders)
 app.route('/api/admin/products/:productId/variants', variants)
 app.route('/api/admin/products/:productId/images', gallery)
+app.route('/api/collections', collections)
+app.route('/api/admin/collections', adminCollections)
 
 export default app
