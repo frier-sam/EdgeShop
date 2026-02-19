@@ -19,6 +19,8 @@ interface Settings {
   [key: string]: string | undefined
 }
 
+const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' }
+
 export default function AccountOrdersPage() {
   const navigate = useNavigate()
   const { theme, isLoading: themeLoading, navItems } = useTheme()
@@ -53,7 +55,6 @@ export default function AccountOrdersPage() {
   })
 
   const storeName = settings?.store_name ?? 'EdgeShop'
-  const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' }
   const currency = CURRENCY_SYMBOLS[settings?.currency ?? 'INR'] ?? (settings?.currency ?? '₹')
   const orders = data?.orders ?? []
 
