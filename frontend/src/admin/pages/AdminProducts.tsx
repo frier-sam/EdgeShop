@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ImageUploader from '../ImageUploader'
 import { adminFetch } from '../lib/adminFetch'
@@ -350,6 +351,7 @@ export default function AdminProducts() {
                   <td className="px-4 py-3 text-gray-700">₹{p.price.toFixed(2)}</td>
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.stock_count}</td>
                   <td className="px-4 py-3 text-right">
+                    <Link to={`/admin/products/${p.id}`} className="text-gray-500 hover:text-gray-800 text-xs mr-3">Details</Link>
                     <button onClick={() => openEdit(p)} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Edit</button>
                     <button onClick={() => setDeleteId(p.id)} className="text-red-500 hover:text-red-700 text-xs">Delete</button>
                   </td>
