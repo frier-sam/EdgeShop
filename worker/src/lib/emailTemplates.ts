@@ -140,3 +140,24 @@ export function contactFormHtml(data: {
     </html>
   `
 }
+
+export function passwordResetHtml(data: {
+  customer_name: string
+  reset_url: string
+}): string {
+  return `
+    <!DOCTYPE html>
+    <html>
+    <body style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;color:#1A1A1A">
+      <h2>Reset Your Password</h2>
+      <p>Hi ${escapeHtml(data.customer_name)},</p>
+      <p>We received a request to reset your password. Click the link below — it expires in 1 hour.</p>
+      <a href="${escapeHtml(data.reset_url)}"
+         style="display:inline-block;margin:16px 0;padding:12px 24px;background:#1A1A1A;color:white;text-decoration:none;border-radius:4px">
+        Reset Password
+      </a>
+      <p style="font-size:12px;color:#888">If you didn't request this, ignore this email. Your password won't change.</p>
+    </body>
+    </html>
+  `
+}
