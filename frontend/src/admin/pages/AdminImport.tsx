@@ -220,7 +220,7 @@ function parseGeneric(headers: string[], rows: string[][]): ImportedProduct[] {
       stock_count: stockCol >= 0 ? (parseInt(row[stockCol], 10) || 0) : 0,
       categoryPath: (() => {
         const c = categoryCol >= 0 ? row[categoryCol].trim() : ''
-        return c ? [c] : []
+        return c ? c.split(' > ').map(s => s.trim()).filter(Boolean) : []
       })(),
       tags: tagsCol >= 0 ? row[tagsCol].trim() : '',
       status: 'active',
