@@ -115,6 +115,16 @@ export default function ProductPage() {
   })
   const reviewsList = reviewsData?.reviews ?? []
 
+  const { data: recommendedData } = useQuery<{ products: Array<{ id: number; name: string; price: number; image_url: string; category: string }> }>({
+    queryKey: ['recommended', product?.category, id],
+    queryFn: () =>
+      fetch(`/api/products?category=${encodeURIComponent(product!.category)}&exclude=${id}&limit=4`)
+        .then(r => r.json()),
+    enabled: !!product?.category && !!id,
+    staleTime: 60 * 1000,
+  })
+  const recommendedProducts = recommendedData?.products ?? []
+
   const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
 
   // Initialize default selected options when product loads
@@ -222,7 +232,7 @@ export default function ProductPage() {
 
   if (themeLoading || !theme) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Loading...</p></div>
 
-  const { Header, Footer, CartDrawer } = theme.components
+  const { Header, Footer, CartDrawer, ProductCard } = theme.components
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
@@ -526,6 +536,37 @@ export default function ProductPage() {
                 </button>
               </form>
             )}
+          </div>
+        )}
+
+        {/* Recommended Products */}
+        {recommendedProducts.length > 0 && (
+          <div className="mt-16 mb-8">
+            <h2
+              className="text-lg font-semibold mb-6"
+              style={{ color: 'var(--color-primary)' }}
+            >
+              You May Also Like
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {recommendedProducts.map(p => (
+                <ProductCard
+                  key={p.id}
+                  id={p.id}
+                  name={p.name}
+                  price={p.price}
+                  image_url={p.image_url}
+                  currency={currency}
+                  onAddToCart={() => addItem({
+                    product_id: p.id,
+                    name: p.name,
+                    price: p.price,
+                    quantity: 1,
+                    image_url: p.image_url,
+                  })}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
