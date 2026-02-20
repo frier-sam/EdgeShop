@@ -115,7 +115,7 @@ export default function ProductPage() {
   })
   const reviewsList = reviewsData?.reviews ?? []
 
-  const { data: recommendedData } = useQuery<{ products: Array<{ id: number; name: string; price: number; image_url: string; category: string }> }>({
+  const { data: recommendedData } = useQuery<{ products: Array<{ id: number; name: string; price: number; image_url: string; images: string[] }> }>({
     queryKey: ['recommended', product?.category, id],
     queryFn: () =>
       fetch(`/api/products?category=${encodeURIComponent(product!.category)}&exclude=${id}&limit=4`)
@@ -556,6 +556,7 @@ export default function ProductPage() {
                   name={p.name}
                   price={p.price}
                   image_url={p.image_url}
+                  images={p.images}
                   currency={currency}
                   onAddToCart={() => addItem({
                     product_id: p.id,
