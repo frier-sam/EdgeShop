@@ -200,7 +200,7 @@ export default function AdminNavigation() {
                 <p className="text-xs text-gray-400 mb-1.5">Quick fill</p>
                 <div className="flex flex-wrap gap-1.5">
                   {[
-                    { label: 'All Products', href: '/search' },
+                    { label: 'Shop', href: '/shop' },
                     { label: 'Home', href: '/' },
                     { label: 'Blog', href: '/blog' },
                     { label: 'Contact', href: '/contact' },

@@ -27,6 +27,7 @@ import AdminReviews from './admin/pages/AdminReviews'
 import AdminImport from './admin/pages/AdminImport'
 import AdminCustomers from './admin/pages/AdminCustomers'
 import AdminStaff from './admin/pages/AdminStaff'
+import AdminProductEdit from './admin/pages/AdminProductEdit'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
@@ -35,6 +36,7 @@ import ForgotPasswordPage from './pages/account/ForgotPasswordPage'
 import ResetPasswordPage from './pages/account/ResetPasswordPage'
 import CollectionPage from './pages/CollectionPage'
 import SearchPage from './pages/SearchPage'
+import ShopPage from './pages/ShopPage'
 import BlogListPage from './pages/BlogListPage'
 import BlogPostPage from './pages/BlogPostPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -61,6 +63,7 @@ export default function App() {
             <Route path="/account/reset-password" element={<ResetPasswordPage />} />
             <Route path="/collections/:slug" element={<CollectionPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/shop" element={<ShopPage />} />
             <Route path="/blog" element={<BlogListPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
             <Route path="/admin/login" element={<AdminLogin />} />
@@ -68,6 +71,7 @@ export default function App() {
               <Route index element={<Navigate to="/admin/products" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="products" element={<AdminProducts />} />
+              <Route path="products/:id" element={<AdminProductEdit />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="orders/:id" element={<AdminOrderDetail />} />
               <Route path="settings" element={<AdminSettings />} />
