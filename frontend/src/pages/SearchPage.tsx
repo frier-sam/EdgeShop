@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
@@ -23,6 +23,10 @@ export default function SearchPage() {
   const [cartOpen, setCartOpen] = useState(false)
 
   const q = searchParams.get('q') ?? ''
+  const [inputValue, setInputValue] = useState(q)
+
+  useEffect(() => { setInputValue(q) }, [q])
+
   const currency = settings.currency === 'INR' ? '₹' : (settings.currency ?? '₹')
   const storeName = settings.store_name ?? 'EdgeShop'
 
@@ -59,12 +63,33 @@ export default function SearchPage() {
         navItems={navItems}
       />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+        <form
+          onSubmit={e => { e.preventDefault(); navigate('/search?q=' + encodeURIComponent(inputValue.trim())) }}
+          className="flex gap-2 mb-6"
+        >
+          <input
+            type="search"
+            value={inputValue}
+            onChange={e => setInputValue(e.target.value)}
+            placeholder="Search products…"
+            autoFocus
+            className="flex-1 border rounded-lg px-4 py-2.5 text-sm focus:outline-none"
+            style={{ borderColor: 'var(--color-accent)', color: 'var(--color-primary)', backgroundColor: 'var(--color-bg)' }}
+          />
+          <button
+            type="submit"
+            className="px-5 py-2.5 text-sm font-medium rounded-lg transition-opacity hover:opacity-80"
+            style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-bg)' }}
+          >
+            Search
+          </button>
+        </form>
         <h1 className="text-2xl font-semibold mb-6">
           {q ? `Search results for "${q}"` : 'Search'}
         </h1>
         {!q && (
           <p className="text-gray-500 text-sm">
-            Enter a search term in the URL: /search?q=your+query
+            Type above to search products.
           </p>
         )}
         {q && isLoading && (

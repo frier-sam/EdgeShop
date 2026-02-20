@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { themes } from '../../themes'
+import ImageUploader from '../ImageUploader'
 
 export default function AdminAppearance() {
   const qc = useQueryClient()
@@ -166,6 +167,14 @@ export default function AdminAppearance() {
                   )}
                 </div>
                 {defaultVal && <p className="text-xs text-gray-300 mt-0.5 font-mono">default: {defaultVal}</p>}
+                {(key === '--logo-url' || key === '--hero-image') && (
+                  <div className="mt-2">
+                    <ImageUploader
+                      existingUrl={overrideForm[key] ?? ''}
+                      onUploadComplete={(url) => setOverrideForm(f => ({ ...f, [key]: url }))}
+                    />
+                  </div>
+                )}
               </div>
             )
           })}
