@@ -11,17 +11,36 @@ products.get('/', async (c) => {
   const limit = isNaN(rawLimit) ? 12 : Math.min(48, Math.max(1, Math.floor(rawLimit)))
   const offset = (page - 1) * limit
 
+  const category = (c.req.query('category') ?? '').trim()
+  const excludeId = Number(c.req.query('exclude') ?? 0)
+
+  // Build WHERE clause
+  let where = "WHERE p.status = 'active'"
+  const params: (string | number)[] = []
+  if (category) { where += ' AND p.category = ?'; params.push(category) }
+  if (excludeId) { where += ' AND p.id != ?'; params.push(excludeId) }
+
   try {
     const countRow = await c.env.DB.prepare(
-      'SELECT COUNT(*) as total FROM products WHERE status = ?'
-    ).bind('active').first<{ total: number }>()
+      `SELECT COUNT(*) as total FROM products p ${where}`
+    ).bind(...params).first<{ total: number }>()
     const total = countRow?.total ?? 0
 
     const { results } = await c.env.DB.prepare(
-      'SELECT * FROM products WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?'
-    ).bind('active', limit, offset).all<Product>()
+      `SELECT p.*,
+        COALESCE(
+          (SELECT json_group_array(url) FROM product_images WHERE product_id = p.id ORDER BY sort_order),
+          '[]'
+        ) AS images_json
+       FROM products p ${where} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`
+    ).bind(...params, limit, offset).all<Product & { images_json: string }>()
 
-    return c.json({ products: results, total, page, limit, pages: limit > 0 ? Math.ceil(total / limit) : 0 })
+    const products = results.map(({ images_json, ...p }) => ({
+      ...p,
+      images: (() => { try { return JSON.parse(images_json) as string[] } catch { return [] } })(),
+    }))
+
+    return c.json({ products, total, page, limit, pages: limit > 0 ? Math.ceil(total / limit) : 0 })
   } catch (err) {
     console.error('Products list error:', err)
     return c.json({ error: 'Failed to load products' }, 500)
