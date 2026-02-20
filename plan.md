@@ -1761,6 +1761,20 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 | 2026-02-20 | All email sends are fire-and-forget (wrapped in try/catch) | Missing or misconfigured email provider never breaks checkout, login, or password reset flows |
 | 2026-02-20 | Customer delete nullifies orders.customer_id instead of cascade-deleting orders | Preserves merchant's order history and revenue analytics; GDPR-style anonymisation |
 | 2026-02-20 | Admin customers page uses LEFT JOIN for order_count + total_spent in a single query | Avoids N+1; D1 handles this cleanly at small-merchant scale |
+| 2026-02-20 | Structured shipping address: keep shipping_address as address line, add shipping_city/state/pincode/country columns | Backward-compatible; new fields default to '' / 'India' so existing orders keep their data intact |
+| 2026-02-20 | Product list collection filter uses DISTINCT JOIN on product_collections | Prevents duplicate rows when a product belongs to multiple collections |
+| 2026-02-20 | All admin order fields editable via existing PUT /api/admin/orders/:id endpoint | No new endpoint needed; expanded allowed list covers customer info + address + payment_status |
+| 2026-02-21 | Product page wraps in theme Header/Footer/CartDrawer — same pattern as HomePage | Consistent UX; single source of theme config |
+| 2026-02-21 | Gallery state is local `manualImage` (null = auto) cleared on variant change | Prevents stale gallery selection when user switches size/color |
+| 2026-02-21 | product.images from detail API is ProductImage[] (objects), not string[] — gallery uses img.url | Detail endpoint returns full image objects; list endpoint returns string[] via images_json subquery |
+| 2026-02-21 | Recommended products fetch /api/products?category=X&exclude=ID&limit=4 | Reuses existing public endpoint; no new endpoint needed |
+| 2026-02-21 | First registered customer auto-becomes super_admin (COUNT WHERE id != last_row_id) | Zero config for merchant; doesn't require manual DB seeding |
+| 2026-02-21 | permissions_json stored as JSON blob in customers row; JWT includes role+permissions | Simple; no extra table; stale JWTs accepted (staff re-login picks up changes) |
+| 2026-02-21 | PERMISSION_KEYS + allPermissions() extracted to worker/src/lib/permissions.ts | Single source of truth; used by both auth.ts and staff.ts |
+| 2026-02-21 | requireSuperAdmin middleware used as route-level guard on staff PUT /:id | Eliminates redundant JWT re-verification; uses Task 7 abstraction as intended |
+| 2026-02-21 | adminFetch reads admin-auth from localStorage directly to avoid Zustand circular import | Lets any admin page call adminFetch without importing the store |
+| 2026-02-21 | Staff page (/admin/staff) only visible to super_admin via __super_admin__ permission sentinel | No separate role check needed in nav — canAccess() handles it uniformly |
+| 2026-02-21 | AdminLayout nav reordered: Catalog / Content / Sales / Store (Blog moved from Catalog to Content) | Blog belongs with Pages/Navigation/Footer in Content section |
 
 ---
 
