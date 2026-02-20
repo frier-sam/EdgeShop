@@ -23,6 +23,7 @@ import AdminBlog from './admin/pages/AdminBlog'
 import AdminOrderDetail from './admin/pages/AdminOrderDetail'
 import AdminShipping from './admin/pages/AdminShipping'
 import AdminReviews from './admin/pages/AdminReviews'
+import AdminImport from './admin/pages/AdminImport'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
@@ -71,6 +72,7 @@ export default function App() {
               <Route path="blog" element={<AdminBlog />} />
               <Route path="shipping" element={<AdminShipping />} />
               <Route path="reviews" element={<AdminReviews />} />
+              <Route path="import" element={<AdminImport />} />
             </Route>
             <Route path="/contact" element={<ContactPage />} />
             <Route path="*" element={<NotFoundPage />} />
