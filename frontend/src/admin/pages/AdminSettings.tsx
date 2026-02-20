@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showToast } from '../Toast'
 import { adminFetch } from '../lib/adminFetch'
+import { COUNTRY_CODES } from '../../utils/countryCodes'
 
 interface Settings {
   store_name: string
@@ -31,6 +32,7 @@ export default function AdminSettings() {
     announcement_bar_color: '#1A1A1A',
     reviews_visibility: 'all',
     admin_email_notifications: 'false',
+    default_country_code: '+91',
   })
 
   useEffect(() => {
@@ -81,6 +83,21 @@ export default function AdminSettings() {
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
               />
             </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Default Country (phone dial code)</label>
+            <select
+              value={form.default_country_code}
+              onChange={(e) => setForm({ ...form, default_country_code: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+            >
+              {COUNTRY_CODES.map((c) => (
+                <option key={c.code + c.name} value={c.code}>
+                  {c.code} — {c.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">Pre-selected dial code on the checkout phone field.</p>
           </div>
           <label className="flex items-center gap-3 cursor-pointer">
             <input
