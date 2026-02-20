@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Outlet, NavLink, Link, useLocation } from 'react-router-dom'
+import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { ToastContainer } from './Toast'
+import { useAdminAuthStore } from '../store/adminAuthStore'
 
 // Minimal inline SVG icons — single color, stroke-based, 16×16 viewBox
 function IconHome() {
@@ -128,49 +129,69 @@ function IconChevronDown() {
 
 interface NavSection {
   title: string
-  items: { to: string; label: string; icon: React.ReactNode }[]
+  items: { to: string; label: string; icon: React.ReactNode; permission?: string }[]
 }
 
 const sections: NavSection[] = [
   {
     title: 'Catalog',
     items: [
-      { to: '/admin/products', label: 'Products', icon: <IconBox /> },
-      { to: '/admin/collections', label: 'Collections', icon: <IconFolder /> },
-      { to: '/admin/blog', label: 'Blog', icon: <IconPencil /> },
-      { to: '/admin/import', label: 'Import', icon: <IconUpload /> },
-    ],
-  },
-  {
-    title: 'Sales',
-    items: [
-      { to: '/admin/orders', label: 'Orders', icon: <IconCart /> },
-      { to: '/admin/customers', label: 'Customers', icon: <IconUsers /> },
-      { to: '/admin/discounts', label: 'Discounts', icon: <IconTag /> },
-      { to: '/admin/reviews', label: 'Reviews', icon: <IconStar /> },
-      { to: '/admin/analytics', label: 'Analytics', icon: <IconChart /> },
+      { to: '/admin/products', label: 'Products', icon: <IconBox />, permission: 'products' },
+      { to: '/admin/collections', label: 'Collections', icon: <IconFolder />, permission: 'products' },
+      { to: '/admin/import', label: 'Import', icon: <IconUpload />, permission: 'products' },
     ],
   },
   {
     title: 'Content',
     items: [
-      { to: '/admin/pages', label: 'Pages', icon: <IconDocument /> },
-      { to: '/admin/navigation', label: 'Navigation', icon: <IconMenu /> },
-      { to: '/admin/footer', label: 'Footer', icon: <IconLayout /> },
+      { to: '/admin/blog', label: 'Blog', icon: <IconPencil />, permission: 'content' },
+      { to: '/admin/pages', label: 'Pages', icon: <IconDocument />, permission: 'content' },
+      { to: '/admin/navigation', label: 'Navigation', icon: <IconMenu />, permission: 'content' },
+      { to: '/admin/footer', label: 'Footer', icon: <IconLayout />, permission: 'content' },
+    ],
+  },
+  {
+    title: 'Sales',
+    items: [
+      { to: '/admin/orders', label: 'Orders', icon: <IconCart />, permission: 'orders' },
+      { to: '/admin/customers', label: 'Customers', icon: <IconUsers />, permission: 'customers' },
+      { to: '/admin/discounts', label: 'Discounts', icon: <IconTag />, permission: 'discounts' },
+      { to: '/admin/reviews', label: 'Reviews', icon: <IconStar />, permission: 'reviews' },
+      { to: '/admin/analytics', label: 'Analytics', icon: <IconChart />, permission: 'analytics' },
     ],
   },
   {
     title: 'Store',
     items: [
-      { to: '/admin/appearance', label: 'Appearance', icon: <IconSwatch /> },
-      { to: '/admin/shipping', label: 'Shipping', icon: <IconTruck /> },
-      { to: '/admin/settings', label: 'Settings', icon: <IconCog /> },
+      { to: '/admin/appearance', label: 'Appearance', icon: <IconSwatch />, permission: 'appearance' },
+      { to: '/admin/shipping', label: 'Shipping', icon: <IconTruck />, permission: 'shipping' },
+      { to: '/admin/settings', label: 'Settings', icon: <IconCog />, permission: 'settings' },
+      { to: '/admin/staff', label: 'Staff', icon: <IconUsers />, permission: '__super_admin__' },
     ],
   },
 ]
 
-function SidebarSection({ section, defaultOpen = true }: { section: NavSection; defaultOpen?: boolean }) {
+function canAccess(permission: string | undefined, role: string, perms: Record<string, boolean>): boolean {
+  if (!permission) return true
+  if (permission === '__super_admin__') return role === 'super_admin'
+  if (role === 'super_admin') return true
+  return !!perms[permission]
+}
+
+function SidebarSection({
+  section,
+  defaultOpen = false,
+  role,
+  permissions,
+}: {
+  section: NavSection
+  defaultOpen?: boolean
+  role: string
+  permissions: Record<string, boolean>
+}) {
   const [open, setOpen] = useState(defaultOpen)
+  const visibleItems = section.items.filter(item => canAccess(item.permission, role, permissions))
+  if (visibleItems.length === 0) return null
 
   return (
     <div className="mb-1">
@@ -185,7 +206,7 @@ function SidebarSection({ section, defaultOpen = true }: { section: NavSection; 
       </button>
       {open && (
         <div className="space-y-0.5 mt-0.5">
-          {section.items.map(({ to, label, icon }) => (
+          {visibleItems.map(({ to, label, icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -210,10 +231,22 @@ function SidebarSection({ section, defaultOpen = true }: { section: NavSection; 
 export default function AdminLayout() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const location = useLocation()
+  const adminToken = useAdminAuthStore(s => s.adminToken)
+  const adminName = useAdminAuthStore(s => s.adminName)
+  const adminRole = useAdminAuthStore(s => s.adminRole)
+  const adminPermissions = useAdminAuthStore(s => s.adminPermissions)
+  const adminLogout = useAdminAuthStore(s => s.adminLogout)
+  const navigate = useNavigate()
 
   useEffect(() => {
     setDrawerOpen(false)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!adminToken) navigate('/admin/login', { replace: true })
+  }, [adminToken, navigate])
+
+  if (!adminToken) return null
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-gray-50">
@@ -237,10 +270,20 @@ export default function AdminLayout() {
           </NavLink>
           <div className="border-t border-gray-100 pt-3 space-y-1">
             {sections.map(section => (
-              <SidebarSection key={section.title} section={section} />
+              <SidebarSection key={section.title} section={section} role={adminRole} permissions={adminPermissions} />
             ))}
           </div>
         </nav>
+        <div className="p-3 border-t border-gray-100">
+          <p className="text-xs font-medium text-gray-700 truncate">{adminName}</p>
+          <p className="text-xs text-gray-400 capitalize mb-2">{adminRole.replace('_', ' ')}</p>
+          <button
+            onClick={() => { adminLogout(); navigate('/admin/login') }}
+            className="w-full text-left text-xs text-red-500 hover:text-red-700 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </aside>
 
       {/* Mobile top bar */}
@@ -292,10 +335,20 @@ export default function AdminLayout() {
           </NavLink>
           <div className="border-t border-gray-100 pt-3 space-y-1">
             {sections.map(section => (
-              <SidebarSection key={section.title} section={section} />
+              <SidebarSection key={section.title} section={section} role={adminRole} permissions={adminPermissions} />
             ))}
           </div>
         </nav>
+        <div className="p-3 border-t border-gray-100">
+          <p className="text-xs font-medium text-gray-700 truncate">{adminName}</p>
+          <p className="text-xs text-gray-400 capitalize mb-2">{adminRole.replace('_', ' ')}</p>
+          <button
+            onClick={() => { adminLogout(); navigate('/admin/login') }}
+            className="w-full text-left text-xs text-red-500 hover:text-red-700 transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       {/* Main content */}
