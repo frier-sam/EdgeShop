@@ -166,6 +166,7 @@ const sections: NavSection[] = [
       { to: '/admin/appearance', label: 'Appearance', icon: <IconSwatch />, permission: 'appearance' },
       { to: '/admin/shipping', label: 'Shipping', icon: <IconTruck />, permission: 'shipping' },
       { to: '/admin/settings', label: 'Settings', icon: <IconCog />, permission: 'settings' },
+      // '__super_admin__' is a sentinel: canAccess() allows only role === 'super_admin'
       { to: '/admin/staff', label: 'Staff', icon: <IconUsers />, permission: '__super_admin__' },
     ],
   },
@@ -276,7 +277,7 @@ export default function AdminLayout() {
         </nav>
         <div className="p-3 border-t border-gray-100">
           <p className="text-xs font-medium text-gray-700 truncate">{adminName}</p>
-          <p className="text-xs text-gray-400 capitalize mb-2">{adminRole.replace('_', ' ')}</p>
+          <p className="text-xs text-gray-400 capitalize mb-2">{adminRole.replace(/_/g, ' ')}</p>
           <button
             onClick={() => { adminLogout(); navigate('/admin/login') }}
             className="w-full text-left text-xs text-red-500 hover:text-red-700 transition-colors"
@@ -341,7 +342,7 @@ export default function AdminLayout() {
         </nav>
         <div className="p-3 border-t border-gray-100">
           <p className="text-xs font-medium text-gray-700 truncate">{adminName}</p>
-          <p className="text-xs text-gray-400 capitalize mb-2">{adminRole.replace('_', ' ')}</p>
+          <p className="text-xs text-gray-400 capitalize mb-2">{adminRole.replace(/_/g, ' ')}</p>
           <button
             onClick={() => { adminLogout(); navigate('/admin/login') }}
             className="w-full text-left text-xs text-red-500 hover:text-red-700 transition-colors"
