@@ -6,6 +6,11 @@ import { sendEmail } from '../lib/email'
 
 const auth = new Hono<{ Bindings: Env }>()
 
+function allPermissions(): Record<string, boolean> {
+  const keys = ['products','orders','customers','discounts','reviews','analytics','content','appearance','shipping','settings']
+  return Object.fromEntries(keys.map(k => [k, true]))
+}
+
 auth.post('/register', async (c) => {
   let body: Record<string, unknown>
   try {
@@ -38,10 +43,27 @@ auth.post('/register', async (c) => {
     return c.json({ error: 'Registration failed' }, 500)
   }
 
-  const secret = await getOrCreateJwtSecret(c.env.DB)
-  const token = await createJWT({ sub: result.meta.last_row_id, email: email.toLowerCase() }, secret)
+  // Check if this was the first customer → auto super_admin
+  const countBefore = await c.env.DB.prepare('SELECT COUNT(*) as cnt FROM customers WHERE id != ?')
+    .bind(result.meta.last_row_id).first<{ cnt: number }>()
+  const isFirst = (countBefore?.cnt ?? 0) === 0
+  const role = isFirst ? 'super_admin' : 'customer'
+  const permissions = isFirst ? allPermissions() : {}
 
-  return c.json({ token, customer_id: result.meta.last_row_id, name: (name as string) ?? '' }, 201)
+  if (isFirst) {
+    await c.env.DB.prepare("UPDATE customers SET role = 'super_admin' WHERE id = ?")
+      .bind(result.meta.last_row_id).run()
+  }
+
+  const secret = await getOrCreateJwtSecret(c.env.DB)
+  const token = await createJWT({
+    sub: result.meta.last_row_id,
+    email: email.toLowerCase(),
+    role,
+    permissions,
+  }, secret)
+
+  return c.json({ token, customer_id: result.meta.last_row_id, name: (name as string) ?? '', role, permissions }, 201)
 })
 
 auth.post('/login', async (c) => {
@@ -59,17 +81,27 @@ auth.post('/login', async (c) => {
   }
 
   const customer = await c.env.DB.prepare(
-    'SELECT id, email, password_hash, name FROM customers WHERE email = ?'
-  ).bind(email.toLowerCase()).first<{ id: number; email: string; password_hash: string; name: string }>()
+    'SELECT id, email, password_hash, name, role, permissions_json FROM customers WHERE email = ?'
+  ).bind(email.toLowerCase()).first<{ id: number; email: string; password_hash: string; name: string; role: string; permissions_json: string }>()
   if (!customer) return c.json({ error: 'Invalid credentials' }, 401)
 
   const valid = await verifyPassword(password, customer.password_hash)
   if (!valid) return c.json({ error: 'Invalid credentials' }, 401)
 
-  const secret = await getOrCreateJwtSecret(c.env.DB)
-  const token = await createJWT({ sub: customer.id, email: customer.email }, secret)
+  let permissions: Record<string, boolean> = {}
+  try { permissions = JSON.parse(customer.permissions_json || '{}') } catch {}
+  // super_admin always has all permissions
+  if (customer.role === 'super_admin') permissions = allPermissions()
 
-  return c.json({ token, customer_id: customer.id, name: customer.name })
+  const secret = await getOrCreateJwtSecret(c.env.DB)
+  const token = await createJWT({
+    sub: customer.id,
+    email: customer.email,
+    role: customer.role,
+    permissions,
+  }, secret)
+
+  return c.json({ token, customer_id: customer.id, name: customer.name, role: customer.role, permissions })
 })
 
 auth.post('/forgot-password', async (c) => {
