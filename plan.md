@@ -19,7 +19,7 @@
 
 ## Phase 1: Project Scaffolding
 
-### Task 1: Initialise monorepo root
+### Task 1: Initialise monorepo root [x] Done
 
 **Files:**
 - Create: `package.json` (root)
@@ -74,7 +74,7 @@ git commit -m "chore: initialise monorepo root"
 
 ---
 
-### Task 2: Scaffold Worker package
+### Task 2: Scaffold Worker package [x] Done
 
 **Files:**
 - Create: `worker/package.json`
@@ -269,7 +269,7 @@ git commit -m "chore: scaffold frontend with React + Vite + Tailwind"
 
 ---
 
-### Task 4: D1 Schema and Migrations
+### Task 4: D1 Schema and Migrations [x] Done
 
 **Files:**
 - Create: `worker/migrations/0001_initial.sql`
@@ -339,7 +339,7 @@ git commit -m "feat: add D1 schema with products, orders, settings tables"
 
 ## Phase 2: Backend API (Worker)
 
-### Task 5: Shared Worker types
+### Task 5: Shared Worker types [x] Done
 
 **Files:**
 - Create: `worker/src/types.ts`
@@ -401,7 +401,7 @@ git commit -m "feat: add shared worker types"
 
 ---
 
-### Task 6: Settings API
+### Task 6: Settings API [x] Done
 
 **Files:**
 - Create: `worker/src/routes/settings.ts`
@@ -496,7 +496,7 @@ git commit -m "feat: add settings API (GET/PUT)"
 
 ---
 
-### Task 7: Products API (CRUD)
+### Task 7: Products API (CRUD) [x] Done
 
 **Files:**
 - Create: `worker/src/routes/products.ts`
@@ -643,7 +643,7 @@ git commit -am "feat: products CRUD API (public read + admin write)"
 
 ---
 
-### Task 8: R2 Presigned URL Endpoint
+### Task 8: R2 Presigned URL Endpoint [x] Done
 
 **Files:**
 - Create: `worker/src/routes/admin/upload.ts`
@@ -703,7 +703,7 @@ git commit -am "feat: R2 upload endpoint (presign + PUT proxy)"
 
 ---
 
-### Task 9: Checkout API
+### Task 9: Checkout API [x] Done
 
 **Files:**
 - Create: `worker/src/routes/checkout.ts`
@@ -841,7 +841,7 @@ git commit -am "feat: checkout API (COD + Razorpay order creation)"
 
 ---
 
-### Task 10: Razorpay Webhook
+### Task 10: Razorpay Webhook [x] Done
 
 **Files:**
 - Create: `worker/src/routes/webhook.ts`
@@ -941,7 +941,7 @@ git commit -am "feat: Razorpay webhook with Web Crypto HMAC verification"
 
 ---
 
-### Task 11: Orders Admin API
+### Task 11: Orders Admin API [x] Done
 
 **Files:**
 - Create: `worker/src/routes/admin/orders.ts`
@@ -1012,7 +1012,7 @@ git commit -am "feat: orders admin API (list + status update)"
 
 ## Phase 3: Theme System
 
-### Task 12: Theme Contract Interface
+### Task 12: Theme Contract Interface [x] Done
 
 **Files:**
 - Create: `frontend/src/themes/types.ts`
@@ -1084,7 +1084,7 @@ git commit -m "feat: define theme component contract (TypeScript interface)"
 
 ---
 
-### Task 13: ThemeProvider Context
+### Task 13: ThemeProvider Context [x] Done
 
 **Files:**
 - Create: `frontend/src/themes/ThemeProvider.tsx`
@@ -1154,7 +1154,7 @@ git commit -am "feat: ThemeProvider context and theme registry"
 
 ---
 
-### Task 14: Jewellery Theme
+### Task 14: Jewellery Theme [x] Done
 
 **Files:**
 - Create: `frontend/src/themes/jewellery/index.ts`
@@ -1241,7 +1241,7 @@ git commit -am "feat: jewellery theme (elegant, gold-accented, serif)"
 
 ---
 
-### Task 15: Arts & Crafts Theme
+### Task 15: Arts & Crafts Theme [x] Done
 
 **Files:**
 - Create: `frontend/src/themes/artsCrafts/` (same component set as jewellery theme)
@@ -1680,7 +1680,7 @@ git commit -am "feat: image uploader (Canvas resize to WebP + R2 upload)"
 
 ## Phase 6: Deployment Configuration
 
-### Task 24: Cloudflare Pages Configuration
+### Task 24: Cloudflare Pages Configuration [x] Done
 
 **Files:**
 - Create: `frontend/public/_redirects`
@@ -1755,6 +1755,12 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 | 2026-02-20 | AdminNavigation upgraded with nested items + type dialog (collection/page/custom link) | Allows building dropdown nav without manually typing slugs; collection and page dropdowns auto-populate label+href; one level of children supported |
 | 2026-02-20 | AdminSettings stripped of theme selector (moved to AdminAppearance) | Settings page now contains only operational settings (store info, Razorpay, announcement bar); theme concerns belong in Appearance |
 | 2026-02-20 | AdminNavigation fetches pages from /api/pages (public endpoint) | Public pages endpoint returns page titles+slugs, which is sufficient for building nav links; no sensitive data on pages |
+| 2026-02-20 | Stock decrement split by payment method (COD at order creation, Razorpay at webhook payment.captured) | Prevents phantom stock reduction for abandoned Razorpay sessions; COD orders are immediately confirmed so stock reduces at placement |
+| 2026-02-20 | jwt_secret auto-generated in D1 on first auth request using INSERT OR IGNORE | Zero config for merchant; INSERT OR IGNORE makes it race-safe under simultaneous first-logins; persists until DB is wiped |
+| 2026-02-20 | Password reset token is a plain UUID stored in customers table, expires in 1 hour | No separate tokens table needed; UUID entropy (122 bits) + 1h expiry is sufficient at this scale; token cleared after use (single-use) |
+| 2026-02-20 | All email sends are fire-and-forget (wrapped in try/catch) | Missing or misconfigured email provider never breaks checkout, login, or password reset flows |
+| 2026-02-20 | Customer delete nullifies orders.customer_id instead of cascade-deleting orders | Preserves merchant's order history and revenue analytics; GDPR-style anonymisation |
+| 2026-02-20 | Admin customers page uses LEFT JOIN for order_count + total_spent in a single query | Avoids N+1; D1 handles this cleanly at small-merchant scale |
 
 ---
 
@@ -1762,52 +1768,62 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 
 ### Phase 1 — Make It Usable
 
-- [ ] Task V2-1: D1 v2 schema migration (variants, collections, customers, discounts, pages, shipping, blog, reviews)
-- [ ] Task V2-2: Product variants API (CRUD per product)
-- [ ] Task V2-3: Product gallery API (add/delete/reorder images)
-- [ ] Task V2-4: Collections API (public read + admin CRUD + product assignment)
-- [ ] Task V2-5: FTS5 full-text search API with filter/sort
-- [ ] Task V2-6: Theme customizer — extend settings API with v2 keys
-- [ ] Task V2-7: Theme customizer — CSS custom properties injected from D1 settings
-- [ ] Task V2-8: Theme customizer — admin panel with live preview
-- [ ] Task V2-9: Static pages CMS — API (CRUD)
-- [ ] Task V2-10: Static pages — storefront (/pages/:slug) + admin editor
-- [ ] Task V2-11: Navigation menu editor (admin + dynamic nav in themes)
-- [ ] Task V2-12: Announcement bar (enabled/text/color from D1 settings)
-- [ ] Task V2-13: Email — Resend integration (helper + templates)
-- [ ] Task V2-14: Email — order confirmation trigger (COD + Razorpay webhook)
-- [ ] Task V2-15: Admin dashboard stats (revenue, orders, pending, low stock)
-- [ ] Task V2-16: Discount codes — API (validate + admin CRUD)
-- [ ] Task V2-17: Discount codes — checkout integration
-- [ ] Task V2-18: Customer accounts — registration & login API (PBKDF2 + JWT)
-- [ ] Task V2-19: Customer accounts — frontend pages (login, register, orders)
-- [ ] Task V2-20: Digital products — download API (HMAC-signed time-limited tokens)
-- [ ] Task V2-21: Collection storefront page + search results page
-- [ ] Task V2-22: Admin collections & pages management
-- [ ] Task V2-23: Discount codes admin UI
+- [x] Task V2-1: D1 v2 schema migration (variants, collections, customers, discounts, pages, shipping, blog, reviews)
+- [x] Task V2-2: Product variants API (CRUD per product)
+- [x] Task V2-3: Product gallery API (add/delete/reorder images)
+- [x] Task V2-4: Collections API (public read + admin CRUD + product assignment)
+- [x] Task V2-5: FTS5 full-text search API with filter/sort
+- [x] Task V2-6: Theme customizer — extend settings API with v2 keys
+- [x] Task V2-7: Theme customizer — CSS custom properties injected from D1 settings
+- [x] Task V2-8: Theme customizer — admin panel with live preview
+- [x] Task V2-9: Static pages CMS — API (CRUD)
+- [x] Task V2-10: Static pages — storefront (/pages/:slug) + admin editor
+- [x] Task V2-11: Navigation menu editor (admin + dynamic nav in themes)
+- [x] Task V2-12: Announcement bar (enabled/text/color from D1 settings)
+- [x] Task V2-13: Email — Resend integration (helper + templates)
+- [x] Task V2-14: Email — order confirmation trigger (COD + Razorpay webhook)
+- [x] Task V2-15: Admin dashboard stats (revenue, orders, pending, low stock)
+- [x] Task V2-16: Discount codes — API (validate + admin CRUD)
+- [x] Task V2-17: Discount codes — checkout integration
+- [x] Task V2-18: Customer accounts — registration & login API (PBKDF2 + JWT)
+- [x] Task V2-19: Customer accounts — frontend pages (login, register, orders)
+- [x] Task V2-20: Digital products — download API (HMAC-signed time-limited tokens)
+- [x] Task V2-21: Collection storefront page + search results page
+- [x] Task V2-22: Admin collections & pages management
+- [x] Task V2-23: Discount codes admin UI
 
 ### Phase 2 — Make It Complete
 
-- [ ] Task V2-24: Order detail page (admin — line items, tracking, notes)
-- [ ] Task V2-25: Tracking numbers + automatic shipping email
-- [ ] Task V2-26: SEO fields — products & collections (meta tags)
-- [ ] Task V2-27: Sitemap.xml (auto-generated from D1)
-- [ ] Task V2-28: Shipping zones + rates API (calculate + admin CRUD)
-- [ ] Task V2-29: Shipping at checkout (calculate + apply)
-- [ ] Task V2-30: Product reviews (public submit + admin moderation)
-- [ ] Task V2-31: Blog / articles (API + storefront + admin CRUD)
-- [ ] Task V2-32: Refunds (admin — mark refunded with notes)
-- [ ] Task V2-33: Analytics charts (revenue/day CSS bars)
-- [ ] Task V2-34: Abandoned cart recovery (D1 + Cron Trigger + email)
-- [ ] Task V2-35: OG tags + social sharing meta
+- [x] Task V2-24: Order detail page (admin — line items, tracking, notes)
+- [x] Task V2-25: Tracking numbers + automatic shipping email
+- [x] Task V2-26: SEO fields — products & collections (meta tags)
+- [x] Task V2-27: Sitemap.xml (auto-generated from D1)
+- [x] Task V2-28: Shipping zones + rates API (calculate + admin CRUD)
+- [x] Task V2-29: Shipping at checkout (calculate + apply)
+- [x] Task V2-30: Product reviews (public submit + admin moderation)
+- [x] Task V2-31: Blog / articles (API + storefront + admin CRUD)
+- [x] Task V2-32: Refunds (admin — mark refunded with notes)
+- [x] Task V2-33: Analytics charts (revenue/day CSS bars)
+- [x] Task V2-34: Abandoned cart recovery (D1 + Cron Trigger + email)
+- [x] Task V2-35: OG tags + social sharing meta
 
 ### Phase 3 — Make It Competitive
 
-- [ ] Task V2-36: Custom 404 page
-- [ ] Task V2-37: Contact form (sends to merchant email)
-- [ ] Task V2-38: Pagination (products list + search)
-- [ ] Task V2-39: Admin search & filter (products + orders)
-- [ ] Task V2-40: Admin blog management UI
-- [ ] Task V2-41: Admin shipping management UI
-- [ ] Task V2-42: Admin reviews moderation UI
-- [ ] Task V2-43: Deploy v2 (update deploy.sh + secrets)
+- [x] Task V2-36: Custom 404 page
+- [x] Task V2-37: Contact form (sends to merchant email)
+- [x] Task V2-38: Pagination (products list + search)
+- [x] Task V2-39: Admin search & filter (products + orders)
+- [x] Task V2-40: Admin blog management UI
+- [x] Task V2-41: Admin shipping management UI
+- [x] Task V2-42: Admin reviews moderation UI
+- [x] Task V2-43: Deploy v2 (update deploy.sh + secrets)
+
+## Phase 7: Auth, Email & Customer Management
+
+- [x] Task 7-1: Auto-generate jwt_secret in D1 on first auth request — `getOrCreateJwtSecret()` helper uses INSERT OR IGNORE to be race-safe
+- [x] Task 7-2: D1 migration 0005 — add `reset_token` and `reset_token_expires_at` columns to customers table
+- [x] Task 7-3: Password reset email template — `passwordResetHtml()` in emailTemplates.ts
+- [x] Task 7-4: Forgot-password and reset-password API endpoints — `POST /api/auth/forgot-password` and `POST /api/auth/reset-password`
+- [x] Task 7-5: Forgot-password and reset-password frontend pages — ForgotPasswordPage, ResetPasswordPage, "Forgot password?" link on LoginPage
+- [x] Task 7-6: Admin customers API — `GET/DELETE /api/admin/customers` with LEFT JOIN order stats
+- [x] Task 7-7: Admin customers frontend page — AdminCustomers.tsx with search, expandable order history, delete
