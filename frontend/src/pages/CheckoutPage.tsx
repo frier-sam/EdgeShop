@@ -153,6 +153,7 @@ export default function CheckoutPage() {
     setSubmitting(true)
 
     try {
+      const { country_code, ...formFields } = form
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: {
@@ -160,8 +161,8 @@ export default function CheckoutPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          ...form,
-          customer_phone: form.country_code + form.customer_phone,
+          ...formFields,
+          customer_phone: country_code + form.customer_phone,
           payment_method: paymentMethod,
           items,
           total_amount: total,
