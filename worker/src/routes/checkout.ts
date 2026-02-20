@@ -3,9 +3,22 @@ import type { Env } from '../index'
 import type { OrderItem } from '../types'
 import { sendEmail } from '../lib/email'
 import { orderConfirmationHtml, newOrderAlertHtml } from '../lib/emailTemplates'
-import { createDownloadToken } from '../lib/auth'
+import { createDownloadToken, verifyJWT, getOrCreateJwtSecret } from '../lib/auth'
 
 const checkout = new Hono<{ Bindings: Env }>()
+
+async function getCustomerIdFromHeader(authHeader: string, db: D1Database): Promise<number | null> {
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!token) return null
+  try {
+    const secret = await getOrCreateJwtSecret(db)
+    const payload = await verifyJWT(token, secret)
+    if (!payload || typeof payload.sub !== 'number') return null
+    return payload.sub
+  } catch {
+    return null
+  }
+}
 
 checkout.post('/', async (c) => {
   const body = await c.req.json<{
@@ -50,10 +63,32 @@ checkout.post('/', async (c) => {
       body.shipping_amount ?? 0
     ).run()
 
+    // Link order to customer if logged in
+    const authHeaderCod = c.req.header('Authorization') ?? ''
+    const customerIdCod = await getCustomerIdFromHeader(authHeaderCod, c.env.DB)
+    if (customerIdCod !== null) {
+      await c.env.DB.prepare('UPDATE orders SET customer_id = ? WHERE id = ?')
+        .bind(customerIdCod, orderId).run()
+      // Save shipping address to customer_addresses
+      await c.env.DB.prepare(
+        "INSERT OR IGNORE INTO customer_addresses (customer_id, label, address_line, city, state, pincode, country) VALUES (?, 'Shipping', ?, '', '', '', '')"
+      ).bind(customerIdCod, body.shipping_address).run()
+    }
+
     if (body.discount_code) {
       await c.env.DB.prepare(
         'UPDATE discount_codes SET uses_count = uses_count + 1 WHERE code = ? COLLATE NOCASE'
       ).bind(body.discount_code).run()
+    }
+
+    // Decrement stock for each ordered item (COD orders are immediately confirmed)
+    const stockStmts = body.items.map(item =>
+      c.env.DB.prepare(
+        'UPDATE products SET stock_count = MAX(0, stock_count - ?) WHERE id = ?'
+      ).bind(item.quantity, item.product_id)
+    )
+    if (stockStmts.length > 0) {
+      await c.env.DB.batch(stockStmts)
     }
 
     // Wrap all email logic so any failure doesn't break the order response
@@ -171,6 +206,18 @@ checkout.post('/', async (c) => {
     body.discount_amount ?? 0,
     body.shipping_amount ?? 0
   ).run()
+
+  // Link order to customer if logged in
+  const authHeaderRzp = c.req.header('Authorization') ?? ''
+  const customerIdRzp = await getCustomerIdFromHeader(authHeaderRzp, c.env.DB)
+  if (customerIdRzp !== null) {
+    await c.env.DB.prepare('UPDATE orders SET customer_id = ? WHERE id = ?')
+      .bind(customerIdRzp, orderId).run()
+    // Save shipping address to customer_addresses
+    await c.env.DB.prepare(
+      "INSERT OR IGNORE INTO customer_addresses (customer_id, label, address_line, city, state, pincode, country) VALUES (?, 'Shipping', ?, '', '', '', '')"
+    ).bind(customerIdRzp, body.shipping_address).run()
+  }
 
   return c.json({
     order_id: orderId,

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useCartStore } from '../store/cartStore'
+import { useAuthStore } from '../store/authStore'
 import { loadRazorpay, openRazorpayModal } from '../utils/razorpay'
 
 interface Settings {
@@ -23,6 +24,9 @@ export default function CheckoutPage() {
   const items = useCartStore((s) => s.items)
   const totalAmount = useCartStore((s) => s.totalAmount)
   const clearCart = useCartStore((s) => s.clearCart)
+  const token = useAuthStore((s) => s.token)
+  const customerName = useAuthStore((s) => s.customerName)
+  const customerId = useAuthStore((s) => s.customerId)
 
   const { data: settings } = useQuery<Settings>({
     queryKey: ['settings'],
@@ -80,6 +84,24 @@ export default function CheckoutPage() {
     return () => { cancelled = true }
   }, [form.country, cartTotal])
 
+  useEffect(() => {
+    if (!token) return
+    fetch('/api/account/profile', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((profile: { name?: string; email?: string; phone?: string } | null) => {
+        if (!profile) return
+        setForm(f => ({
+          ...f,
+          customer_name: f.customer_name || profile.name || '',
+          customer_email: f.customer_email || profile.email || '',
+          customer_phone: f.customer_phone || profile.phone || '',
+        }))
+      })
+      .catch(() => {})
+  }, [token])
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -122,7 +144,10 @@ export default function CheckoutPage() {
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           ...form,
           payment_method: paymentMethod,
