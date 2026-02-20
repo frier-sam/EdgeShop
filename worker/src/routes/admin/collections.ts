@@ -1,18 +1,9 @@
 import { Hono } from 'hono'
 import type { Env } from '../../index'
+import type { Collection } from '../../types'
 
-interface CollectionRow {
-  id: number
-  name: string
-  slug: string
-  description: string
-  image_url: string
-  sort_order: number
-  seo_title: string
-  seo_description: string
-  parent_id: number | null
+interface CollectionRow extends Collection {
   depth: number
-  created_at: string
 }
 
 const adminCollections = new Hono<{ Bindings: Env }>()
@@ -21,13 +12,16 @@ const adminCollections = new Hono<{ Bindings: Env }>()
 adminCollections.get('/', async (c) => {
   const { results } = await c.env.DB.prepare(`
     WITH RECURSIVE tree AS (
-      SELECT *, 0 AS depth FROM collections WHERE parent_id IS NULL
+      SELECT *, 0 AS depth,
+             CAST(sort_order AS TEXT) || '__' || name AS sort_path
+      FROM collections WHERE parent_id IS NULL
       UNION ALL
-      SELECT col.*, tree.depth + 1
+      SELECT col.*, tree.depth + 1,
+             tree.sort_path || '/' || CAST(col.sort_order AS TEXT) || '__' || col.name
       FROM collections col
       JOIN tree ON col.parent_id = tree.id
     )
-    SELECT * FROM tree ORDER BY depth ASC, sort_order ASC, name ASC
+    SELECT * FROM tree ORDER BY sort_path ASC
   `).all<CollectionRow>()
   return c.json({ collections: results })
 })
@@ -66,6 +60,11 @@ adminCollections.put('/:id', async (c) => {
   const allowed = ['name', 'slug', 'description', 'image_url', 'sort_order', 'seo_title', 'seo_description', 'parent_id']
   const entries = Object.entries(body).filter(([k]) => allowed.includes(k))
   if (!entries.length) return c.json({ error: 'Nothing to update' }, 400)
+  // Guard: prevent self-reference
+  const parentEntry = entries.find(([k]) => k === 'parent_id')
+  if (parentEntry && Number(parentEntry[1]) === id) {
+    return c.json({ error: 'A collection cannot be its own parent' }, 400)
+  }
   const fields = entries.map(([k]) => `${k} = ?`).join(', ')
   const result = await c.env.DB.prepare(`UPDATE collections SET ${fields} WHERE id = ?`)
     .bind(...entries.map(([, v]) => v), id).run()
