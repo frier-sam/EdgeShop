@@ -82,9 +82,9 @@ export default function AdminCollections() {
   })
 
   const saveMutation = useMutation({
-    mutationFn: async (body: typeof emptyForm) => {
-      const url = editing ? `/api/admin/collections/${editing.id}` : '/api/admin/collections'
-      const method = editing ? 'PUT' : 'POST'
+    mutationFn: async ({ body, editingId }: { body: typeof emptyForm; editingId: number | null }) => {
+      const url = editingId ? `/api/admin/collections/${editingId}` : '/api/admin/collections'
+      const method = editingId ? 'PUT' : 'POST'
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -92,9 +92,9 @@ export default function AdminCollections() {
       })
       if (!res.ok) throw new Error('Failed to save')
     },
-    onSuccess: () => {
+    onSuccess: (_, { editingId }) => {
       qc.invalidateQueries({ queryKey: ['admin-collections'] })
-      showToast(editing ? 'Collection updated' : 'Collection created', 'success')
+      showToast(editingId ? 'Collection updated' : 'Collection created', 'success')
       closeModal()
     },
     onError: () => showToast('Failed to save collection', 'error'),
@@ -278,7 +278,7 @@ export default function AdminCollections() {
               <button onClick={closeModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
             <form
-              onSubmit={e => { e.preventDefault(); saveMutation.mutate(form) }}
+              onSubmit={e => { e.preventDefault(); saveMutation.mutate({ body: form, editingId: editing?.id ?? null }) }}
               className="px-6 py-4 space-y-4"
             >
               <div>
