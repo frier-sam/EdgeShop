@@ -19,6 +19,7 @@ import validateDiscount from './routes/validateDiscount'
 import adminDiscounts from './routes/admin/discounts'
 import auth from './routes/auth'
 import account from './routes/account'
+import { requireAdmin } from './middleware/requireAdmin'
 import download from './routes/download'
 import sitemap from './routes/sitemap'
 import shippingRates from './routes/shippingRates'
@@ -50,6 +51,10 @@ app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
 app.route('/api/settings', settings)
 app.route('/api/products', products)
+
+// Protect all admin routes with JWT staff check
+app.use('/api/admin/*', requireAdmin)
+
 app.route('/api/admin/dashboard', dashboard)
 app.route('/api/admin/products', adminProducts)
 app.route('/api/admin/upload', upload)
