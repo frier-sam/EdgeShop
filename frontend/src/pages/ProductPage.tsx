@@ -74,10 +74,16 @@ function buildOptionGroups(variants: ProductVariant[]): Map<string, string[]> {
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { theme } = useTheme()
+  const { theme, navItems, footerData } = useTheme()
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
+  const cartOpen = useCartStore((s) => s.isCartOpen)
+  const openCart = useCartStore((s) => s.openCart)
+  const closeCart = useCartStore((s) => s.closeCart)
+  const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const items = useCartStore((s) => s.items)
+  const totalItems = useCartStore((s) => s.totalItems)
   const addItem = useCartStore((s) => s.addItem)
   const queryClient = useQueryClient()
 
@@ -194,9 +200,6 @@ export default function ProductPage() {
     setTimeout(() => setAdded(false), 2000)
   }
 
-  // Suppress unused variable warning — theme is available for future conditional styling
-  void theme
-
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--color-bg)' }}>
       <p className="text-sm" style={{ color: 'var(--color-accent)' }}>Loading...</p>
@@ -210,8 +213,26 @@ export default function ProductPage() {
     </div>
   )
 
+  if (!theme) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm opacity-50">Loading...</p></div>
+
+  const { Header, Footer, CartDrawer } = theme.components
+
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
+      <Header
+        storeName={settings?.store_name ?? 'EdgeShop'}
+        cartCount={totalItems()}
+        onCartOpen={openCart}
+        navItems={navItems}
+      />
+      <CartDrawer
+        isOpen={cartOpen}
+        items={items}
+        currency={currency}
+        onClose={closeCart}
+        onUpdateQuantity={updateQuantity}
+        onCheckout={() => { closeCart(); window.location.href = '/checkout' }}
+      />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         {/* Back button */}
         <button
@@ -481,6 +502,7 @@ export default function ProductPage() {
           </div>
         )}
       </div>
+      <Footer storeName={settings?.store_name ?? 'EdgeShop'} footerData={footerData} />
     </div>
   )
 }
