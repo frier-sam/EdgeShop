@@ -13,9 +13,9 @@ export default function AdminNavigation() {
     queryFn: () => fetch('/api/settings').then(r => r.json()),
   })
 
-  const { data: collectionsData } = useQuery<{ collections: Array<{ id: number; name: string; slug: string }> }>({
-    queryKey: ['collections'],
-    queryFn: () => fetch('/api/collections').then(r => r.json()),
+  const { data: collectionsData } = useQuery<{ collections: Array<{ id: number; name: string; slug: string; depth: number }> }>({
+    queryKey: ['admin-collections'],
+    queryFn: () => fetch('/api/admin/collections').then(r => r.json()),
   })
 
   const { data: pagesData } = useQuery<{ pages: Array<{ id: number; title: string; slug: string }> }>({
@@ -224,7 +224,9 @@ export default function AdminNavigation() {
                 <select onChange={handleCollectionSelect} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none">
                   <option value="">Select a collection…</option>
                   {collectionsData?.collections.map(c => (
-                    <option key={c.id} value={c.slug}>{c.name}</option>
+                    <option key={c.id} value={c.slug}>
+                      {'—'.repeat(c.depth)}{c.depth > 0 ? ' ' : ''}{c.name}
+                    </option>
                   ))}
                 </select>
               </div>
