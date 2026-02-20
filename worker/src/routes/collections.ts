@@ -29,10 +29,13 @@ collections.get('/:slug', async (c) => {
 
   // Build breadcrumb by walking up parent chain
   const breadcrumb: Array<{ name: string; slug: string }> = []
+  const visited = new Set<number>()
   let current: Collection | null = collection
   while (current) {
+    if (visited.has(current.id)) break  // cycle guard
+    visited.add(current.id)
     breadcrumb.unshift({ name: current.name, slug: current.slug })
-    if (current.parent_id) {
+    if (current.parent_id !== null) {
       current = await c.env.DB.prepare('SELECT * FROM collections WHERE id = ?')
         .bind(current.parent_id).first<Collection>() ?? null
     } else {
