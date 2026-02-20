@@ -96,6 +96,8 @@ export interface Customer {
   name: string
   phone: string
   created_at: string
+  role: string          // 'customer' | 'staff' | 'super_admin'
+  permissions_json: string  // JSON-encoded permissions map
 }
 
 export interface CustomerAddress {
