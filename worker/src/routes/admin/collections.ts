@@ -13,11 +13,11 @@ adminCollections.get('/', async (c) => {
   const { results } = await c.env.DB.prepare(`
     WITH RECURSIVE tree AS (
       SELECT *, 0 AS depth,
-             CAST(sort_order AS TEXT) || '__' || name AS sort_path
+             PRINTF('%010d', sort_order) || '__' || name AS sort_path
       FROM collections WHERE parent_id IS NULL
       UNION ALL
       SELECT col.*, tree.depth + 1,
-             tree.sort_path || '/' || CAST(col.sort_order AS TEXT) || '__' || col.name
+             tree.sort_path || '/' || PRINTF('%010d', col.sort_order) || '__' || col.name
       FROM collections col
       JOIN tree ON col.parent_id = tree.id
     )
