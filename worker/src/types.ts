@@ -16,6 +16,7 @@ export interface Product {
   weight: number
   seo_title: string
   seo_description: string
+  images?: string[]
 }
 
 export interface ProductVariant {
@@ -64,6 +65,11 @@ export interface Order {
   razorpay_payment_id: string
   items_json: string
   created_at: string
+  // structured address fields (migration 0007)
+  shipping_city: string
+  shipping_state: string
+  shipping_pincode: string
+  shipping_country: string
   // v2 additions
   discount_code: string
   discount_amount: number
