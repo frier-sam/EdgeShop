@@ -3,13 +3,9 @@ import type { Env } from '../index'
 import { hashPassword, verifyPassword, createJWT, getOrCreateJwtSecret } from '../lib/auth'
 import { passwordResetHtml } from '../lib/emailTemplates'
 import { sendEmail } from '../lib/email'
+import { allPermissions } from '../lib/permissions'
 
 const auth = new Hono<{ Bindings: Env }>()
-
-function allPermissions(): Record<string, boolean> {
-  const keys = ['products','orders','customers','discounts','reviews','analytics','content','appearance','shipping','settings']
-  return Object.fromEntries(keys.map(k => [k, true]))
-}
 
 auth.post('/register', async (c) => {
   let body: Record<string, unknown>
