@@ -89,3 +89,21 @@ export async function createDownloadToken(
   const sigHex = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('')
   return `${data}.${sigHex}`
 }
+
+export async function getOrCreateJwtSecret(db: D1Database): Promise<string> {
+  const row = await db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").first<{ value: string }>()
+  if (row?.value) return row.value
+
+  // INSERT OR IGNORE: safe under concurrent first-login races — only one writer wins
+  const secret = `${crypto.randomUUID()}-${crypto.randomUUID()}`
+  await db.prepare(
+    "INSERT OR IGNORE INTO settings (key, value) VALUES ('jwt_secret', ?)"
+  ).bind(secret).run()
+
+  // Re-fetch: returns our value if we won the race, or the winner's value if we lost
+  const final = await db.prepare(
+    "SELECT value FROM settings WHERE key = 'jwt_secret'"
+  ).first<{ value: string }>()
+  if (!final?.value) throw new Error('Failed to initialise JWT secret')
+  return final.value
+}

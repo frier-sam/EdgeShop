@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
-import { hashPassword, verifyPassword, createJWT } from '../lib/auth'
+import { hashPassword, verifyPassword, createJWT, getOrCreateJwtSecret } from '../lib/auth'
 
 const auth = new Hono<{ Bindings: Env }>()
 
@@ -36,11 +36,7 @@ auth.post('/register', async (c) => {
     return c.json({ error: 'Registration failed' }, 500)
   }
 
-  const secretRow = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").first<{ value: string }>()
-  if (!secretRow?.value) {
-    return c.json({ error: 'Auth service not configured' }, 500)
-  }
-  const secret = secretRow.value
+  const secret = await getOrCreateJwtSecret(c.env.DB)
   const token = await createJWT({ sub: result.meta.last_row_id, email: email.toLowerCase() }, secret)
 
   return c.json({ token, customer_id: result.meta.last_row_id, name: (name as string) ?? '' }, 201)
@@ -68,11 +64,7 @@ auth.post('/login', async (c) => {
   const valid = await verifyPassword(password, customer.password_hash)
   if (!valid) return c.json({ error: 'Invalid credentials' }, 401)
 
-  const secretRow = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").first<{ value: string }>()
-  if (!secretRow?.value) {
-    return c.json({ error: 'Auth service not configured' }, 500)
-  }
-  const secret = secretRow.value
+  const secret = await getOrCreateJwtSecret(c.env.DB)
   const token = await createJWT({ sub: customer.id, email: customer.email }, secret)
 
   return c.json({ token, customer_id: customer.id, name: customer.name })
