@@ -6,6 +6,7 @@ import ProductPage from './pages/ProductPage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
 import CheckoutPage from './pages/CheckoutPage'
 import AdminLayout from './admin/AdminLayout'
+import AdminLogin from './admin/pages/AdminLogin'
 import AdminProducts from './admin/pages/AdminProducts'
 import AdminOrders from './admin/pages/AdminOrders'
 import AdminSettings from './admin/pages/AdminSettings'
@@ -28,6 +29,7 @@ import AdminCustomers from './admin/pages/AdminCustomers'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
+import AccountProfilePage from './pages/account/AccountProfilePage'
 import ForgotPasswordPage from './pages/account/ForgotPasswordPage'
 import ResetPasswordPage from './pages/account/ResetPasswordPage'
 import CollectionPage from './pages/CollectionPage'
@@ -53,12 +55,14 @@ export default function App() {
             <Route path="/account/login" element={<LoginPage />} />
             <Route path="/account/register" element={<RegisterPage />} />
             <Route path="/account/orders" element={<AccountOrdersPage />} />
+            <Route path="/account/profile" element={<AccountProfilePage />} />
             <Route path="/account/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/account/reset-password" element={<ResetPasswordPage />} />
             <Route path="/collections/:slug" element={<CollectionPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/blog" element={<BlogListPage />} />
             <Route path="/blog/:slug" element={<BlogPostPage />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/products" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
