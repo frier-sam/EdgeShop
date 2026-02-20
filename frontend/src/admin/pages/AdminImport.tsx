@@ -124,7 +124,7 @@ function parseShopify(headers: string[], rows: string[][]): ImportedProduct[] {
       stock_count: variants.reduce((s, v) => s + v.stock_count, 0),
       categoryPath: (() => {
         const c = get('Product Category') || get('Type')
-        return c ? [c] : []
+        return c ? c.split(' > ').map(s => s.trim()).filter(Boolean) : []
       })(),
       tags: get('Tags'),
       status,
