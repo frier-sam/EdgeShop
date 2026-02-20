@@ -4,7 +4,7 @@ import type { Collection, Product } from '../types'
 
 const collections = new Hono<{ Bindings: Env }>()
 
-// List all collections
+// List all collections (flat, no depth — used for storefront dropdowns)
 collections.get('/', async (c) => {
   const { results } = await c.env.DB.prepare(
     'SELECT * FROM collections ORDER BY sort_order ASC, name ASC'
@@ -12,7 +12,7 @@ collections.get('/', async (c) => {
   return c.json({ collections: results })
 })
 
-// Get a collection with its products
+// Get a collection with its products + breadcrumb
 collections.get('/:slug', async (c) => {
   const slug = c.req.param('slug')
   const collection = await c.env.DB.prepare(
@@ -27,7 +27,20 @@ collections.get('/:slug', async (c) => {
     ORDER BY p.created_at DESC
   `).bind(collection.id).all<Product>()
 
-  return c.json({ collection, products })
+  // Build breadcrumb by walking up parent chain
+  const breadcrumb: Array<{ name: string; slug: string }> = []
+  let current: Collection | null = collection
+  while (current) {
+    breadcrumb.unshift({ name: current.name, slug: current.slug })
+    if (current.parent_id) {
+      current = await c.env.DB.prepare('SELECT * FROM collections WHERE id = ?')
+        .bind(current.parent_id).first<Collection>() ?? null
+    } else {
+      break
+    }
+  }
+
+  return c.json({ collection, products, breadcrumb })
 })
 
 export default collections
