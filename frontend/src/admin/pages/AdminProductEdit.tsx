@@ -77,10 +77,10 @@ export default function AdminProductEdit() {
   // Section state — stock + category
   const stock = useSection({ stock_count: 0, category: '' })
 
+  const [savingSection, setSavingSection] = useState<'basicInfo' | 'pricing' | 'stock' | null>(null)
+
   if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
   if (error || !product) return <p className="text-sm text-red-500">Product not found.</p>
-
-  const saving = updateMutation.isPending
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -139,18 +139,20 @@ export default function AdminProductEdit() {
               <button
                 onClick={() => {
                   if (!basicInfo.draft.name.trim()) return
+                  setSavingSection('basicInfo')
                   updateMutation.mutate({ name: basicInfo.draft.name, description: basicInfo.draft.description }, {
-                    onSuccess: () => basicInfo.cancel(),
+                    onSuccess: () => { basicInfo.cancel(); setSavingSection(null) },
+                    onError: () => setSavingSection(null),
                   })
                 }}
-                disabled={saving || !basicInfo.draft.name.trim()}
+                disabled={savingSection === 'basicInfo' || !basicInfo.draft.name.trim()}
                 className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Saving…' : 'Save'}
+                {savingSection === 'basicInfo' ? 'Saving…' : 'Save'}
               </button>
               <button
                 onClick={basicInfo.cancel}
-                disabled={saving}
+                disabled={savingSection === 'basicInfo'}
                 className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50 disabled:opacity-50"
               >
                 Cancel
@@ -209,16 +211,18 @@ export default function AdminProductEdit() {
             <div className="flex gap-2">
               <button
                 onClick={() => {
+                  setSavingSection('pricing')
                   updateMutation.mutate({ price: pricing.draft.price, compare_price: pricing.draft.compare_price }, {
-                    onSuccess: () => pricing.cancel(),
+                    onSuccess: () => { pricing.cancel(); setSavingSection(null) },
+                    onError: () => setSavingSection(null),
                   })
                 }}
-                disabled={saving}
+                disabled={savingSection === 'pricing'}
                 className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Saving…' : 'Save'}
+                {savingSection === 'pricing' ? 'Saving…' : 'Save'}
               </button>
-              <button onClick={pricing.cancel} disabled={saving}
+              <button onClick={pricing.cancel} disabled={savingSection === 'pricing'}
                 className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50 disabled:opacity-50">
                 Cancel
               </button>
@@ -226,9 +230,9 @@ export default function AdminProductEdit() {
           </div>
         ) : (
           <div className="flex gap-4 text-sm">
-            <span className="font-semibold text-gray-900">{product.price.toFixed(2)}</span>
-            {product.compare_price && (
-              <span className="line-through text-gray-400">{product.compare_price.toFixed(2)}</span>
+            <span className="font-semibold text-gray-900">₹{product.price.toFixed(2)}</span>
+            {product.compare_price != null && (
+              <span className="line-through text-gray-400">₹{product.compare_price.toFixed(2)}</span>
             )}
           </div>
         )}
@@ -275,16 +279,18 @@ export default function AdminProductEdit() {
             <div className="flex gap-2">
               <button
                 onClick={() => {
+                  setSavingSection('stock')
                   updateMutation.mutate({ stock_count: stock.draft.stock_count, category: stock.draft.category }, {
-                    onSuccess: () => stock.cancel(),
+                    onSuccess: () => { stock.cancel(); setSavingSection(null) },
+                    onError: () => setSavingSection(null),
                   })
                 }}
-                disabled={saving}
+                disabled={savingSection === 'stock'}
                 className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
-                {saving ? 'Saving…' : 'Save'}
+                {savingSection === 'stock' ? 'Saving…' : 'Save'}
               </button>
-              <button onClick={stock.cancel} disabled={saving}
+              <button onClick={stock.cancel} disabled={savingSection === 'stock'}
                 className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50 disabled:opacity-50">
                 Cancel
               </button>
