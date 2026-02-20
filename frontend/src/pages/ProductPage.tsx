@@ -74,7 +74,7 @@ function buildOptionGroups(variants: ProductVariant[]): Map<string, string[]> {
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { theme, navItems, footerData } = useTheme()
+  const { theme, isLoading: themeLoading, navItems, footerData } = useTheme()
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
@@ -213,7 +213,7 @@ export default function ProductPage() {
     </div>
   )
 
-  if (!theme) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm opacity-50">Loading...</p></div>
+  if (themeLoading || !theme) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Loading...</p></div>
 
   const { Header, Footer, CartDrawer } = theme.components
 
@@ -224,14 +224,6 @@ export default function ProductPage() {
         cartCount={totalItems()}
         onCartOpen={openCart}
         navItems={navItems}
-      />
-      <CartDrawer
-        isOpen={cartOpen}
-        items={items}
-        currency={currency}
-        onClose={closeCart}
-        onUpdateQuantity={updateQuantity}
-        onCheckout={() => { closeCart(); window.location.href = '/checkout' }}
       />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         {/* Back button */}
@@ -503,6 +495,14 @@ export default function ProductPage() {
         )}
       </div>
       <Footer storeName={settings?.store_name ?? 'EdgeShop'} footerData={footerData} />
+      <CartDrawer
+        isOpen={cartOpen}
+        items={items}
+        currency={currency}
+        onClose={closeCart}
+        onUpdateQuantity={updateQuantity}
+        onCheckout={() => { closeCart(); navigate('/checkout') }}
+      />
     </div>
   )
 }
