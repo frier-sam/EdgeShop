@@ -29,7 +29,7 @@ interface Product {
   seo_title: string | null
   seo_description: string | null
   variants?: ProductVariant[]
-  images?: string[]
+  images?: Array<{ id: number; url: string; sort_order: number }>
 }
 
 interface Review {
@@ -265,15 +265,15 @@ export default function ProductPage() {
                 >
                   <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
                 </button>
-                {(product.images ?? []).map((url, idx) => (
+                {(product.images ?? []).map((img) => (
                   <button
-                    key={idx}
-                    onClick={() => setManualImage(url)}
+                    key={img.id}
+                    onClick={() => setManualImage(img.url)}
                     className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
-                      manualImage === url ? 'border-[var(--color-primary)]' : 'border-transparent'
+                      manualImage === img.url ? 'border-[var(--color-primary)]' : 'border-transparent'
                     }`}
                   >
-                    <img src={url} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
+                    <img src={img.url} alt={`${product.name} ${img.id}`} className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
