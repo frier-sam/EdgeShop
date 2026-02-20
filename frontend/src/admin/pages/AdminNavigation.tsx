@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { NavItem } from '../../themes/types'
+import { showToast } from '../Toast'
 
 type AddTarget = { parentIndex: number | null }
 
@@ -17,9 +18,9 @@ export default function AdminNavigation() {
     queryFn: () => fetch('/api/collections').then(r => r.json()),
   })
 
-  const { data: pagesData } = useQuery<Array<{ id: number; title: string; slug: string }>>({
+  const { data: pagesData } = useQuery<{ pages: Array<{ id: number; title: string; slug: string }> }>({
     queryKey: ['admin-pages'],
-    queryFn: () => fetch('/api/pages').then(r => r.json()),
+    queryFn: () => fetch('/api/admin/pages').then(r => r.json()),
   })
 
   const [items, setItems] = useState<NavItem[]>([])
@@ -42,7 +43,13 @@ export default function AdminNavigation() {
       })
       if (!res.ok) throw new Error('Failed to save')
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings'] })
+      showToast('Navigation saved', 'success')
+    },
+    onError: () => {
+      showToast('Failed to save navigation', 'error')
+    },
   })
 
   function save(newItems: NavItem[]) {
@@ -69,7 +76,7 @@ export default function AdminNavigation() {
   }
 
   function handlePageSelect(e: React.ChangeEvent<HTMLSelectElement>) {
-    const page = pagesData?.find(p => p.slug === e.target.value)
+    const page = pagesData?.pages.find(p => p.slug === e.target.value)
     if (page) { setNewLabel(page.title); setNewHref(`/pages/${page.slug}`) }
   }
 
@@ -162,8 +169,6 @@ export default function AdminNavigation() {
         ))}
       </div>
 
-      {saveMutation.isError && <p className="text-red-600 text-sm">Failed to save. Please try again.</p>}
-      {saveMutation.isSuccess && <p className="text-green-600 text-sm">Saved.</p>}
 
       {/* Add Item Modal */}
       {modal && (
@@ -205,7 +210,7 @@ export default function AdminNavigation() {
                 <label className="block text-xs text-gray-500 mb-1">Page</label>
                 <select onChange={handlePageSelect} className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none">
                   <option value="">Select a page…</option>
-                  {pagesData?.map(p => (
+                  {pagesData?.pages.map(p => (
                     <option key={p.id} value={p.slug}>{p.title}</option>
                   ))}
                 </select>

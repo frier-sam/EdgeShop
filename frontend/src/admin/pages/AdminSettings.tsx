@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { showToast } from '../Toast'
 
 interface Settings {
   store_name: string
@@ -12,7 +13,6 @@ interface Settings {
 
 export default function AdminSettings() {
   const qc = useQueryClient()
-  const [saved, setSaved] = useState(false)
 
   const { data: settings, isLoading } = useQuery<Settings>({
     queryKey: ['settings'],
@@ -28,6 +28,8 @@ export default function AdminSettings() {
     announcement_bar_enabled: 'false',
     announcement_bar_text: '',
     announcement_bar_color: '#1A1A1A',
+    reviews_visibility: 'all',
+    admin_email_notifications: 'false',
   })
 
   useEffect(() => {
@@ -43,8 +45,7 @@ export default function AdminSettings() {
       }).then((r) => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['settings'] })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      showToast('Settings saved', 'success')
     },
   })
 
@@ -152,6 +153,37 @@ export default function AdminSettings() {
           </div>
         </div>
 
+        {/* Reviews */}
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+          <h2 className="font-medium text-gray-800">Reviews</h2>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Who can write reviews?</label>
+            <select
+              value={form.reviews_visibility}
+              onChange={(e) => setForm({ ...form, reviews_visibility: e.target.value })}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+            >
+              <option value="all">Everyone</option>
+              <option value="logged_in">Logged-in users</option>
+              <option value="none">Disabled</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Email Notifications */}
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+          <h2 className="font-medium text-gray-800">Email Notifications</h2>
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.admin_email_notifications === 'true'}
+              onChange={(e) => setForm({ ...form, admin_email_notifications: e.target.checked ? 'true' : 'false' })}
+              className="w-4 h-4 rounded border-gray-300"
+            />
+            <span className="text-sm text-gray-700">Send email to store email when a new order is placed</span>
+          </label>
+        </div>
+
         <div className="flex items-center gap-4">
           <button
             type="submit"
@@ -160,7 +192,6 @@ export default function AdminSettings() {
           >
             {saveMutation.isPending ? 'Saving...' : 'Save Settings'}
           </button>
-          {saved && <span className="text-sm text-green-600">Saved successfully</span>}
         </div>
       </form>
     </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ImageUploader from '../ImageUploader'
 
@@ -12,6 +12,10 @@ interface Product {
   category: string
   seo_title: string | null
   seo_description: string | null
+  compare_price: number | null
+  tags: string
+  status: 'active' | 'draft' | 'archived'
+  product_type: 'physical' | 'digital'
 }
 
 interface ProductForm {
@@ -23,10 +27,22 @@ interface ProductForm {
   category: string
   seo_title: string
   seo_description: string
+  compare_price: string
+  tags: string
+  status: 'active' | 'draft' | 'archived'
+  product_type: 'physical' | 'digital'
+}
+
+interface Collection {
+  id: number
+  name: string
+  slug: string
 }
 
 const emptyForm: ProductForm = {
-  name: '', description: '', price: '', image_url: '', stock_count: '0', category: '', seo_title: '', seo_description: ''
+  name: '', description: '', price: '', image_url: '', stock_count: '0', category: '',
+  seo_title: '', seo_description: '', compare_price: '', tags: '',
+  status: 'active', product_type: 'physical',
 }
 
 export default function AdminProducts() {
@@ -37,6 +53,7 @@ export default function AdminProducts() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [selectedCollections, setSelectedCollections] = useState<number[]>([])
 
   const { data, isLoading } = useQuery<{ products: Product[] }>({
     queryKey: ['admin-products', q, statusFilter],
@@ -44,24 +61,61 @@ export default function AdminProducts() {
       fetch('/api/admin/products?' + new URLSearchParams({ ...(q && { q }), ...(statusFilter && { status: statusFilter }) })).then((r) => r.json()),
   })
 
+  const { data: collectionsData } = useQuery<{ collections: Collection[] }>({
+    queryKey: ['collections'],
+    queryFn: () => fetch('/api/collections').then(r => r.json()),
+  })
+
+  const { data: productCollectionsData } = useQuery<{ collection_ids: number[] }>({
+    queryKey: ['product-collections', editingId],
+    queryFn: () => fetch(`/api/admin/products/${editingId}/collections`).then(r => r.json()),
+    enabled: editingId !== null,
+  })
+
+  useEffect(() => {
+    if (productCollectionsData?.collection_ids) {
+      setSelectedCollections(productCollectionsData.collection_ids)
+    }
+  }, [productCollectionsData])
+
   const createMutation = useMutation({
-    mutationFn: (body: Omit<ProductForm, 'price' | 'stock_count'> & { price: number; stock_count: number }) =>
+    mutationFn: (body: Omit<ProductForm, 'price' | 'stock_count' | 'compare_price'> & { price: number; stock_count: number; compare_price: number | null }) =>
       fetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-products'] }); closeForm() },
+    onSuccess: async (data: { id?: number }) => {
+      if (selectedCollections.length > 0 && data.id) {
+        await fetch(`/api/admin/products/${data.id}/collections`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ collection_ids: selectedCollections }),
+        })
+      }
+      qc.invalidateQueries({ queryKey: ['admin-products'] })
+      closeForm()
+    },
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ id, ...body }: { id: number } & Omit<ProductForm, 'price' | 'stock_count'> & { price: number; stock_count: number }) =>
+    mutationFn: ({ id, ...body }: { id: number } & Omit<ProductForm, 'price' | 'stock_count' | 'compare_price'> & { price: number; stock_count: number; compare_price: number | null }) =>
       fetch(`/api/admin/products/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }).then((r) => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-products'] }); closeForm() },
+    onSuccess: async () => {
+      if (editingId !== null) {
+        await fetch(`/api/admin/products/${editingId}/collections`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ collection_ids: selectedCollections }),
+        })
+      }
+      qc.invalidateQueries({ queryKey: ['admin-products'] })
+      closeForm()
+    },
   })
 
   const deleteMutation = useMutation({
@@ -73,6 +127,7 @@ export default function AdminProducts() {
   function openAdd() {
     setForm(emptyForm)
     setEditingId(null)
+    setSelectedCollections([])
     setShowForm(true)
   }
 
@@ -86,8 +141,13 @@ export default function AdminProducts() {
       category: p.category,
       seo_title: p.seo_title ?? '',
       seo_description: p.seo_description ?? '',
+      compare_price: p.compare_price != null ? String(p.compare_price) : '',
+      tags: p.tags ?? '',
+      status: p.status ?? 'active',
+      product_type: p.product_type ?? 'physical',
     })
     setEditingId(p.id)
+    setSelectedCollections([])
     setShowForm(true)
   }
 
@@ -95,6 +155,7 @@ export default function AdminProducts() {
     setShowForm(false)
     setEditingId(null)
     setForm(emptyForm)
+    setSelectedCollections([])
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -108,6 +169,10 @@ export default function AdminProducts() {
       category: form.category,
       seo_title: form.seo_title,
       seo_description: form.seo_description,
+      compare_price: form.compare_price !== '' ? parseFloat(form.compare_price) : null,
+      tags: form.tags,
+      status: form.status,
+      product_type: form.product_type,
     }
     if (editingId !== null) {
       updateMutation.mutate({ id: editingId, ...payload })
@@ -116,7 +181,14 @@ export default function AdminProducts() {
     }
   }
 
+  function toggleCollection(id: number) {
+    setSelectedCollections(prev =>
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    )
+  }
+
   const products = data?.products ?? []
+  const collections = collectionsData?.collections ?? []
   const isSaving = createMutation.isPending || updateMutation.isPending
 
   return (
@@ -230,6 +302,67 @@ export default function AdminProducts() {
                 <input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
               </div>
+
+              {/* Status + Product Type */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Status</label>
+                  <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as ProductForm['status'] })}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500">
+                    <option value="active">Active</option>
+                    <option value="draft">Draft</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Product Type</label>
+                  <select value={form.product_type} onChange={(e) => setForm({ ...form, product_type: e.target.value as ProductForm['product_type'] })}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500">
+                    <option value="physical">Physical</option>
+                    <option value="digital">Digital</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Compare Price + Tags */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Compare at Price (₹)</label>
+                  <input type="number" min="0" step="0.01" value={form.compare_price}
+                    onChange={(e) => setForm({ ...form, compare_price: e.target.value })}
+                    placeholder="0.00"
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Tags</label>
+                  <input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })}
+                    placeholder="e.g. summer, sale"
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+                </div>
+              </div>
+
+              {/* Collections */}
+              {collections.length > 0 && (
+                <div>
+                  <label className="block text-xs text-gray-500 mb-2">Collections</label>
+                  <div className="border border-gray-300 rounded px-3 py-2 max-h-32 overflow-y-auto">
+                    <div className="grid grid-cols-2 gap-1">
+                      {collections.map(col => (
+                        <label key={col.id} className="flex items-center gap-2 cursor-pointer py-0.5">
+                          <input
+                            type="checkbox"
+                            checked={selectedCollections.includes(col.id)}
+                            onChange={() => toggleCollection(col.id)}
+                            className="w-3.5 h-3.5 rounded border-gray-300"
+                          />
+                          <span className="text-xs text-gray-700 truncate">{col.name}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* SEO */}
               <div>
                 <p className="text-xs font-medium text-gray-500 mb-2">SEO</p>

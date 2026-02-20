@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { FooterData, FooterColumn } from '../../themes/types'
+import { showToast } from '../Toast'
 
 export default function AdminFooter() {
   const qc = useQueryClient()
-  const [saved, setSaved] = useState(false)
 
   const { data: settings, isLoading } = useQuery<Record<string, string>>({
     queryKey: ['settings'],
@@ -34,8 +34,10 @@ export default function AdminFooter() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['settings'] })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
+      showToast('Footer saved', 'success')
+    },
+    onError: () => {
+      showToast('Failed to save footer', 'error')
     },
   })
 
@@ -192,8 +194,6 @@ export default function AdminFooter() {
         >
           {saveMutation.isPending ? 'Saving...' : 'Save Footer'}
         </button>
-        {saved && <span className="text-sm text-green-600">Saved successfully</span>}
-        {saveMutation.isError && <span className="text-sm text-red-500">Failed to save</span>}
       </div>
     </div>
   )

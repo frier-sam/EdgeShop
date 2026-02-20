@@ -412,68 +412,74 @@ export default function ProductPage() {
         )}
 
         {/* Reviews section */}
-        <div className="mt-16">
-          <h2 className="text-lg font-semibold mb-6" style={{ color: 'var(--color-primary)' }}>
-            Customer Reviews {reviewsList.length > 0 && `(${reviewsList.length})`}
-          </h2>
-          {reviewsList.length === 0 ? (
-            <p className="text-sm mb-8 opacity-50" style={{ color: 'var(--color-primary)' }}>No reviews yet. Be the first to review!</p>
-          ) : (
-            <div className="space-y-4 mb-8">
-              {reviewsList.map(review => (
-                <div key={review.id} className="border rounded-xl p-4" style={{ borderColor: 'var(--color-accent)', opacity: 0.9 }}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>{review.customer_name}</span>
-                    <span className="text-xs opacity-50" style={{ color: 'var(--color-primary)' }}>
-                      {new Date(review.created_at).toLocaleDateString()}
-                    </span>
+        {settings?.reviews_visibility !== 'none' && (
+          <div className="mt-16">
+            <h2 className="text-lg font-semibold mb-6" style={{ color: 'var(--color-primary)' }}>
+              Customer Reviews {reviewsList.length > 0 && `(${reviewsList.length})`}
+            </h2>
+            {reviewsList.length === 0 ? (
+              <p className="text-sm mb-8 opacity-50" style={{ color: 'var(--color-primary)' }}>No reviews yet. Be the first to review!</p>
+            ) : (
+              <div className="space-y-4 mb-8">
+                {reviewsList.map(review => (
+                  <div key={review.id} className="border rounded-xl p-4" style={{ borderColor: 'var(--color-accent)', opacity: 0.9 }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>{review.customer_name}</span>
+                      <span className="text-xs opacity-50" style={{ color: 'var(--color-primary)' }}>
+                        {new Date(review.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex gap-0.5 mb-2">
+                      {[1,2,3,4,5].map(star => (
+                        <span key={star} className={star <= review.rating ? 'text-yellow-400' : 'text-gray-200'}>★</span>
+                      ))}
+                    </div>
+                    <p className="text-sm opacity-70" style={{ color: 'var(--color-primary)' }}>{review.body}</p>
                   </div>
-                  <div className="flex gap-0.5 mb-2">
+                ))}
+              </div>
+            )}
+
+            {settings?.reviews_visibility === 'logged_in' ? (
+              <p className="text-sm opacity-60 border rounded-xl p-4" style={{ color: 'var(--color-primary)', borderColor: 'var(--color-accent)' }}>
+                Log in to write a review
+              </p>
+            ) : reviewSubmitted ? (
+              <p className="text-sm text-green-600">Thank you! Your review has been submitted for moderation.</p>
+            ) : (
+              <form onSubmit={e => { e.preventDefault(); submitReviewMutation.mutate(reviewForm) }} className="space-y-3 border rounded-xl p-4" style={{ borderColor: 'var(--color-accent)' }}>
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>Write a Review</h3>
+                <div>
+                  <label className="block text-xs mb-1 opacity-60" style={{ color: 'var(--color-primary)' }}>Your Name *</label>
+                  <input required maxLength={100} value={reviewForm.customer_name} onChange={e => setReviewForm(f => ({ ...f, customer_name: e.target.value }))}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ borderColor: 'var(--color-accent)', color: 'var(--color-primary)', backgroundColor: 'transparent' }} />
+                </div>
+                <div>
+                  <label className="block text-xs mb-1 opacity-60" style={{ color: 'var(--color-primary)' }}>Rating *</label>
+                  <div className="flex gap-1">
                     {[1,2,3,4,5].map(star => (
-                      <span key={star} className={star <= review.rating ? 'text-yellow-400' : 'text-gray-200'}>★</span>
+                      <button key={star} type="button" onClick={() => setReviewForm(f => ({ ...f, rating: star }))}
+                        className={`text-2xl ${star <= reviewForm.rating ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400 transition-colors`}>
+                        ★
+                      </button>
                     ))}
                   </div>
-                  <p className="text-sm opacity-70" style={{ color: 'var(--color-primary)' }}>{review.body}</p>
                 </div>
-              ))}
-            </div>
-          )}
-
-          {reviewSubmitted ? (
-            <p className="text-sm text-green-600">Thank you! Your review has been submitted for moderation.</p>
-          ) : (
-            <form onSubmit={e => { e.preventDefault(); submitReviewMutation.mutate(reviewForm) }} className="space-y-3 border rounded-xl p-4" style={{ borderColor: 'var(--color-accent)' }}>
-              <h3 className="text-sm font-semibold" style={{ color: 'var(--color-primary)' }}>Write a Review</h3>
-              <div>
-                <label className="block text-xs mb-1 opacity-60" style={{ color: 'var(--color-primary)' }}>Your Name *</label>
-                <input required maxLength={100} value={reviewForm.customer_name} onChange={e => setReviewForm(f => ({ ...f, customer_name: e.target.value }))}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ borderColor: 'var(--color-accent)', color: 'var(--color-primary)', backgroundColor: 'transparent' }} />
-              </div>
-              <div>
-                <label className="block text-xs mb-1 opacity-60" style={{ color: 'var(--color-primary)' }}>Rating *</label>
-                <div className="flex gap-1">
-                  {[1,2,3,4,5].map(star => (
-                    <button key={star} type="button" onClick={() => setReviewForm(f => ({ ...f, rating: star }))}
-                      className={`text-2xl ${star <= reviewForm.rating ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400 transition-colors`}>
-                      ★
-                    </button>
-                  ))}
+                <div>
+                  <label className="block text-xs mb-1 opacity-60" style={{ color: 'var(--color-primary)' }}>Review *</label>
+                  <textarea required maxLength={2000} rows={3} value={reviewForm.body} onChange={e => setReviewForm(f => ({ ...f, body: e.target.value }))}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ borderColor: 'var(--color-accent)', color: 'var(--color-primary)', backgroundColor: 'transparent' }} />
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs mb-1 opacity-60" style={{ color: 'var(--color-primary)' }}>Review *</label>
-                <textarea required maxLength={2000} rows={3} value={reviewForm.body} onChange={e => setReviewForm(f => ({ ...f, body: e.target.value }))}
-                  className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none" style={{ borderColor: 'var(--color-accent)', color: 'var(--color-primary)', backgroundColor: 'transparent' }} />
-              </div>
-              {submitReviewMutation.isError && <p className="text-xs text-red-500">{(submitReviewMutation.error as Error)?.message ?? 'Failed to submit review'}</p>}
-              <button type="submit" disabled={submitReviewMutation.isPending}
-                className="px-5 py-2 text-sm font-semibold rounded-full transition-all hover:opacity-80 disabled:opacity-50"
-                style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-bg)' }}>
-                {submitReviewMutation.isPending ? 'Submitting...' : 'Submit Review'}
-              </button>
-            </form>
-          )}
-        </div>
+                {submitReviewMutation.isError && <p className="text-xs text-red-500">{(submitReviewMutation.error as Error)?.message ?? 'Failed to submit review'}</p>}
+                <button type="submit" disabled={submitReviewMutation.isPending}
+                  className="px-5 py-2 text-sm font-semibold rounded-full transition-all hover:opacity-80 disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--color-primary)', color: 'var(--color-bg)' }}>
+                  {submitReviewMutation.isPending ? 'Submitting...' : 'Submit Review'}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

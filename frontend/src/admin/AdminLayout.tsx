@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Outlet, NavLink, Link, useLocation } from 'react-router-dom'
+import { ToastContainer } from './Toast'
 
 // Minimal inline SVG icons — single color, stroke-based, 16×16 viewBox
 function IconHome() {
@@ -160,7 +161,7 @@ function SidebarSection({ section, defaultOpen = true }: { section: NavSection; 
         className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
       >
         {section.title}
-        <span className={`transition-transform duration-200 text-gray-300 ${open ? 'rotate-180' : ''}`}>
+        <span className={`transition-transform duration-200 text-gray-400 ${open ? 'rotate-180' : ''}`}>
           <IconChevronDown />
         </span>
       </button>
@@ -283,6 +284,7 @@ export default function AdminLayout() {
       <main className="flex-1 p-4 sm:p-6 overflow-auto min-h-screen">
         <Outlet />
       </main>
+      <ToastContainer />
     </div>
   )
 }
