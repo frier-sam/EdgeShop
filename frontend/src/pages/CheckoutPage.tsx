@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useCartStore } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
 import { loadRazorpay, openRazorpayModal } from '../utils/razorpay'
+import { COUNTRY_CODES } from '../utils/countryCodes'
 
 interface Settings {
   store_name?: string
@@ -38,6 +39,7 @@ export default function CheckoutPage() {
     customer_name: '',
     customer_email: '',
     customer_phone: '',
+    country_code: '+91',
     shipping_address: '',
     shipping_city: '',
     shipping_state: '',
@@ -105,6 +107,12 @@ export default function CheckoutPage() {
       .catch(() => {})
   }, [token])
 
+  useEffect(() => {
+    if (settings?.default_country_code) {
+      setForm(f => ({ ...f, country_code: settings.default_country_code! }))
+    }
+  }, [settings?.default_country_code])
+
   if (items.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -153,6 +161,7 @@ export default function CheckoutPage() {
         },
         body: JSON.stringify({
           ...form,
+          customer_phone: form.country_code + form.customer_phone,
           payment_method: paymentMethod,
           items,
           total_amount: total,
@@ -190,7 +199,7 @@ export default function CheckoutPage() {
         prefill: {
           name: form.customer_name,
           email: form.customer_email,
-          contact: form.customer_phone,
+          contact: form.country_code + form.customer_phone,
         },
         onSuccess: () => {
           clearCart()
@@ -266,9 +275,28 @@ export default function CheckoutPage() {
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Phone</label>
-                <input type="tel" value={form.customer_phone} onChange={(e) => setForm({ ...form, customer_phone: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+                <label className="block text-xs text-gray-500 mb-1">Phone *</label>
+                <div className="flex gap-2">
+                  <select
+                    value={form.country_code}
+                    onChange={(e) => setForm({ ...form, country_code: e.target.value })}
+                    className="border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:border-gray-500 w-28 shrink-0"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code + c.name} value={c.code}>
+                        {c.code}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    required
+                    type="tel"
+                    value={form.customer_phone}
+                    onChange={(e) => setForm({ ...form, customer_phone: e.target.value })}
+                    placeholder="98765 43210"
+                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                  />
+                </div>
               </div>
             </div>
             <div>
