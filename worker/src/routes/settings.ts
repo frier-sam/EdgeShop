@@ -46,6 +46,8 @@ settings.put('/', async (c) => {
     'reviews_visibility',
     // v2 email notification
     'admin_email_notifications',
+    // store locale
+    'default_country_code',
   ]
   const stmts = Object.entries(body)
     .filter(([key]) => allowed.includes(key))
