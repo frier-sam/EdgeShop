@@ -29,6 +29,7 @@ interface Product {
   seo_title: string | null
   seo_description: string | null
   variants?: ProductVariant[]
+  images?: string[]
 }
 
 interface Review {
@@ -78,6 +79,7 @@ export default function ProductPage() {
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
+  const [manualImage, setManualImage] = useState<string | null>(null)
   const cartOpen = useCartStore((s) => s.isCartOpen)
   const openCart = useCartStore((s) => s.openCart)
   const closeCart = useCartStore((s) => s.closeCart)
@@ -126,6 +128,11 @@ export default function ProductPage() {
     setSelectedOptions(defaults)
   }, [product])
 
+  // Reset manual image override when variant selection changes
+  useEffect(() => {
+    setManualImage(null)
+  }, [selectedOptions])
+
   // Find the matching variant for current selections
   const variants = product?.variants ?? []
   const optionGroups = variants.length > 0 ? buildOptionGroups(variants) : new Map<string, string[]>()
@@ -139,7 +146,7 @@ export default function ProductPage() {
 
   const displayPrice = selectedVariant ? selectedVariant.price : (product?.price ?? 0)
   const displayStock = selectedVariant ? selectedVariant.stock_count : (product?.stock_count ?? 0)
-  const displayImage = (selectedVariant?.image_url || product?.image_url) ?? ''
+  const displayImage = manualImage ?? (selectedVariant?.image_url || product?.image_url) ?? ''
 
   const isDigital = product?.product_type === 'digital'
 
@@ -238,11 +245,39 @@ export default function ProductPage() {
         {/* Two-column product layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-16">
           {/* Image */}
-          <div className="aspect-square rounded-xl overflow-hidden bg-stone-100">
-            {displayImage
-              ? <img src={displayImage} alt={product.name} className="w-full h-full object-cover" />
-              : <div className="w-full h-full flex items-center justify-center text-sm" style={{ color: 'var(--color-accent)' }}>No image</div>
-            }
+          <div>
+            <div className="aspect-square rounded-xl overflow-hidden bg-stone-100">
+              {displayImage
+                ? <img src={displayImage} alt={product.name} className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center text-sm" style={{ color: 'var(--color-accent)' }}>No image</div>
+              }
+            </div>
+
+            {/* Gallery thumbnails */}
+            {(product.images ?? []).length > 0 && (
+              <div className="flex gap-2 mt-3 overflow-x-auto pb-1">
+                {/* Primary image thumbnail */}
+                <button
+                  onClick={() => setManualImage(null)}
+                  className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                    manualImage === null ? 'border-[var(--color-primary)]' : 'border-transparent'
+                  }`}
+                >
+                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                </button>
+                {(product.images ?? []).map((url, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setManualImage(url)}
+                    className={`shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors ${
+                      manualImage === url ? 'border-[var(--color-primary)]' : 'border-transparent'
+                    }`}
+                  >
+                    <img src={url} alt={`${product.name} ${idx + 1}`} className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Info column */}
