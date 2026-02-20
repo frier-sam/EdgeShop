@@ -122,7 +122,10 @@ function parseShopify(headers: string[], rows: string[][]): ImportedProduct[] {
       compare_price: isNaN(compareRaw) ? null : compareRaw,
       image_url: get('Image Src'),
       stock_count: variants.reduce((s, v) => s + v.stock_count, 0),
-      categoryPath: (() => { const c = get('Product Category') || get('Type'); return c ? [c] : [] })(),
+      categoryPath: (() => {
+        const c = get('Product Category') || get('Type')
+        return c ? [c] : []
+      })(),
       tags: get('Tags'),
       status,
       seo_title: get('SEO Title'),
@@ -215,7 +218,10 @@ function parseGeneric(headers: string[], rows: string[][]): ImportedProduct[] {
       compare_price: null,
       image_url: imageCol >= 0 ? row[imageCol].trim() : '',
       stock_count: stockCol >= 0 ? (parseInt(row[stockCol], 10) || 0) : 0,
-      categoryPath: (() => { const c = categoryCol >= 0 ? row[categoryCol].trim() : ''; return c ? [c] : [] })(),
+      categoryPath: (() => {
+        const c = categoryCol >= 0 ? row[categoryCol].trim() : ''
+        return c ? [c] : []
+      })(),
       tags: tagsCol >= 0 ? row[tagsCol].trim() : '',
       status: 'active',
       seo_title: '',
@@ -248,7 +254,7 @@ async function resolveCategory(
       parentSlug = cached.slug
       continue
     }
-    // Check existing collections
+    // Check existing collections (pre-import snapshot) and the in-session cache (tracks newly created collections)
     const existing = existingCollections.find(
       c => c.name.toLowerCase() === segment.toLowerCase() && c.parent_id === parentId
     )
@@ -396,13 +402,18 @@ export default function AdminImport() {
   async function startImport() {
     setProgress({ done: 0, errors: 0, total: products.length })
     setStep('importing')
-    const res = await importProducts(products, (done, errors) => {
-      setProgress({ done, errors, total: products.length })
-    })
-    setResult(res)
-    setStep('done')
-    if (res.failed === 0) showToast(`Imported ${res.imported} products`, 'success')
-    else showToast(`${res.imported} imported, ${res.failed} failed`, 'error')
+    try {
+      const res = await importProducts(products, (done, errors) => {
+        setProgress({ done, errors, total: products.length })
+      })
+      setResult(res)
+      setStep('done')
+      if (res.failed === 0) showToast(`Imported ${res.imported} products`, 'success')
+      else showToast(`${res.imported} imported, ${res.failed} failed`, 'error')
+    } catch {
+      setStep('upload')
+      showToast('Import failed unexpectedly. Please try again.', 'error')
+    }
   }
 
   const platformLabel: Record<Platform, string> = {
