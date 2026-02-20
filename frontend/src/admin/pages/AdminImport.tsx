@@ -46,7 +46,7 @@ interface ImportedProduct {
   compare_price: number | null
   image_url: string
   stock_count: number
-  category: string
+  categoryPath: string[]
   tags: string
   status: 'active' | 'draft'
   seo_title: string
@@ -122,7 +122,7 @@ function parseShopify(headers: string[], rows: string[][]): ImportedProduct[] {
       compare_price: isNaN(compareRaw) ? null : compareRaw,
       image_url: get('Image Src'),
       stock_count: variants.reduce((s, v) => s + v.stock_count, 0),
-      category: get('Product Category') || get('Type'),
+      categoryPath: (() => { const c = get('Product Category') || get('Type'); return c ? [c] : [] })(),
       tags: get('Tags'),
       status,
       seo_title: get('SEO Title'),
@@ -157,9 +157,10 @@ function parseWooCommerce(headers: string[], rows: string[][]): ImportedProduct[
     const imageRaw = get('images')
     const image_url = imageRaw.split(',')[0].trim()
 
-    // Categories: pipe or comma separated, take first
+    // Categories: pipe-separated list; take first entry, split on " > " for hierarchy
     const catRaw = get('categories')
-    const category = catRaw.split(/[|,]/)[0].trim()
+    const firstCat = catRaw.split('|')[0].trim()
+    const categoryPath = firstCat ? firstCat.split(' > ').map(s => s.trim()).filter(Boolean) : []
 
     products.push({
       name,
@@ -168,7 +169,7 @@ function parseWooCommerce(headers: string[], rows: string[][]): ImportedProduct[
       compare_price: (!isNaN(salePrice) && salePrice > 0 && !isNaN(regularPrice)) ? regularPrice : null,
       image_url,
       stock_count: parseInt(get('stock'), 10) || 0,
-      category,
+      categoryPath,
       tags: get('tags').replace(/[|]/g, ','),
       status: get('published') === '1' ? 'active' : 'draft',
       seo_title: '',
@@ -214,7 +215,7 @@ function parseGeneric(headers: string[], rows: string[][]): ImportedProduct[] {
       compare_price: null,
       image_url: imageCol >= 0 ? row[imageCol].trim() : '',
       stock_count: stockCol >= 0 ? (parseInt(row[stockCol], 10) || 0) : 0,
-      category: categoryCol >= 0 ? row[categoryCol].trim() : '',
+      categoryPath: (() => { const c = categoryCol >= 0 ? row[categoryCol].trim() : ''; return c ? [c] : [] })(),
       tags: tagsCol >= 0 ? row[tagsCol].trim() : '',
       status: 'active',
       seo_title: '',
@@ -225,12 +226,82 @@ function parseGeneric(headers: string[], rows: string[][]): ImportedProduct[] {
   return products
 }
 
+interface CollectionCache {
+  id: number
+  slug: string
+}
+
+async function resolveCategory(
+  path: string[],
+  existingCollections: Array<{ id: number; name: string; slug: string; parent_id: number | null }>,
+  cache: Map<string, CollectionCache>
+): Promise<number | null> {
+  if (!path.length) return null
+  let parentId: number | null = null
+  let parentSlug = ''
+
+  for (const segment of path) {
+    const cacheKey: string = `${parentId ?? 'root'}:${segment.toLowerCase()}`
+    if (cache.has(cacheKey)) {
+      const cached: CollectionCache = cache.get(cacheKey)!
+      parentId = cached.id
+      parentSlug = cached.slug
+      continue
+    }
+    // Check existing collections
+    const existing = existingCollections.find(
+      c => c.name.toLowerCase() === segment.toLowerCase() && c.parent_id === parentId
+    )
+    if (existing) {
+      cache.set(cacheKey, { id: existing.id, slug: existing.slug })
+      parentId = existing.id
+      parentSlug = existing.slug
+      continue
+    }
+    // Create the collection
+    const segSlug = segment.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const slug = parentSlug ? `${parentSlug}-${segSlug}` : segSlug
+    const res = await fetch('/api/admin/collections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: segment, slug, parent_id: parentId }),
+    })
+    if (res.ok) {
+      const { id } = await res.json() as { id: number }
+      cache.set(cacheKey, { id, slug })
+      parentId = id
+      parentSlug = slug
+    } else {
+      // Slug conflict — try with timestamp suffix
+      const slug2 = `${slug}-${Date.now()}`
+      const res2 = await fetch('/api/admin/collections', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: segment, slug: slug2, parent_id: parentId }),
+      })
+      if (!res2.ok) return parentId  // Best effort: use last successfully resolved level
+      const { id } = await res2.json() as { id: number }
+      cache.set(cacheKey, { id, slug: slug2 })
+      parentId = id
+      parentSlug = slug2
+    }
+  }
+  return parentId
+}
+
 async function importProducts(
   products: ImportedProduct[],
   onProgress: (done: number, errors: number) => void
 ): Promise<{ imported: number; failed: number }> {
   let imported = 0
   let failed = 0
+
+  // Pre-fetch all existing collections for category resolution
+  const collRes = await fetch('/api/admin/collections')
+  const { collections: existingCollections = [] } = collRes.ok
+    ? await collRes.json() as { collections: Array<{ id: number; name: string; slug: string; parent_id: number | null }> }
+    : { collections: [] }
+  const collectionCache = new Map<string, CollectionCache>()
 
   for (const p of products) {
     try {
@@ -244,7 +315,6 @@ async function importProducts(
           compare_price: p.compare_price,
           image_url: p.image_url,
           stock_count: p.stock_count,
-          category: p.category,
           tags: p.tags,
           status: p.status,
           seo_title: p.seo_title,
@@ -255,7 +325,19 @@ async function importProducts(
       if (!res.ok) throw new Error('API error')
       const { id } = await res.json() as { id: number }
 
-      // Import variants if any
+      // Assign to collection hierarchy
+      if (p.categoryPath.length > 0) {
+        const collectionId = await resolveCategory(p.categoryPath, existingCollections, collectionCache)
+        if (collectionId !== null) {
+          await fetch(`/api/admin/products/${id}/collections`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ collection_ids: [collectionId] }),
+          })
+        }
+      }
+
+      // Import variants
       if (p.variants.length > 0) {
         for (const v of p.variants) {
           await fetch(`/api/admin/products/${id}/variants`, {
@@ -410,7 +492,7 @@ export default function AdminImport() {
                         <td className="px-3 py-2 text-gray-800 font-medium truncate max-w-[160px]">{p.name}</td>
                         <td className="px-3 py-2 text-gray-600">&#8377;{p.price.toFixed(2)}</td>
                         <td className="px-3 py-2 text-gray-600">{p.stock_count}</td>
-                        <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">{p.category || '—'}</td>
+                        <td className="px-3 py-2 text-gray-500 hidden sm:table-cell">{p.categoryPath.join(' > ') || '—'}</td>
                         <td className="px-3 py-2 text-gray-500">{p.variants.length || '—'}</td>
                       </tr>
                     ))}
