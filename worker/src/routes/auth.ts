@@ -1,6 +1,8 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
 import { hashPassword, verifyPassword, createJWT, getOrCreateJwtSecret } from '../lib/auth'
+import { passwordResetHtml } from '../lib/emailTemplates'
+import { sendEmail } from '../lib/email'
 
 const auth = new Hono<{ Bindings: Env }>()
 
@@ -68,6 +70,78 @@ auth.post('/login', async (c) => {
   const token = await createJWT({ sub: customer.id, email: customer.email }, secret)
 
   return c.json({ token, customer_id: customer.id, name: customer.name })
+})
+
+auth.post('/forgot-password', async (c) => {
+  let body: { email?: string }
+  try { body = await c.req.json() } catch { return c.json({ ok: true }) }
+
+  const email = typeof body.email === 'string' ? body.email.toLowerCase().trim() : ''
+  if (!email) return c.json({ ok: true }) // always 200 — don't leak whether email exists
+
+  const customer = await c.env.DB.prepare(
+    'SELECT id, name FROM customers WHERE email = ?'
+  ).bind(email).first<{ id: number; name: string }>()
+
+  if (!customer) return c.json({ ok: true }) // silent — don't leak existence
+
+  const token = crypto.randomUUID()
+  const expiresAt = Math.floor(Date.now() / 1000) + 3600 // 1 hour
+
+  await c.env.DB.prepare(
+    'UPDATE customers SET reset_token = ?, reset_token_expires_at = ? WHERE id = ?'
+  ).bind(token, expiresAt, customer.id).run()
+
+  // Fire-and-forget email — silently skips if email not configured
+  try {
+    const emailRows = await c.env.DB.prepare(
+      "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address')"
+    ).all<{ key: string; value: string }>()
+    const eCfg: Record<string, string> = {}
+    for (const row of emailRows.results) eCfg[row.key] = row.value
+
+    const frontendUrl = c.env.FRONTEND_URL ?? ''
+    const resetUrl = `${frontendUrl}/account/reset-password?token=${token}`
+
+    await sendEmail(
+      {
+        to: email,
+        subject: 'Reset your password',
+        html: passwordResetHtml({ customer_name: customer.name || 'there', reset_url: resetUrl }),
+      },
+      { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
+    )
+  } catch {
+    // Email not configured or failed — token is still saved, user can still reset
+  }
+
+  return c.json({ ok: true })
+})
+
+auth.post('/reset-password', async (c) => {
+  let body: { token?: string; password?: string }
+  try { body = await c.req.json() } catch { return c.json({ error: 'Invalid request' }, 400) }
+
+  const { token, password } = body
+
+  if (typeof token !== 'string' || !token) return c.json({ error: 'Invalid token' }, 400)
+  if (typeof password !== 'string' || password.length < 8) {
+    return c.json({ error: 'Password must be at least 8 characters' }, 400)
+  }
+
+  const now = Math.floor(Date.now() / 1000)
+  const customer = await c.env.DB.prepare(
+    'SELECT id FROM customers WHERE reset_token = ? AND reset_token_expires_at > ?'
+  ).bind(token, now).first<{ id: number }>()
+
+  if (!customer) return c.json({ error: 'Token invalid or expired' }, 400)
+
+  const password_hash = await hashPassword(password)
+  await c.env.DB.prepare(
+    'UPDATE customers SET password_hash = ?, reset_token = NULL, reset_token_expires_at = NULL WHERE id = ?'
+  ).bind(password_hash, customer.id).run()
+
+  return c.json({ ok: true })
 })
 
 export default auth
