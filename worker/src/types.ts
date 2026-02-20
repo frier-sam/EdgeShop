@@ -46,6 +46,7 @@ export interface Collection {
   sort_order: number
   seo_title: string
   seo_description: string
+  parent_id: number | null
   created_at: string
 }
 
