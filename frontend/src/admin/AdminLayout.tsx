@@ -270,8 +270,8 @@ export default function AdminLayout() {
             Dashboard
           </NavLink>
           <div className="border-t border-gray-100 pt-3 space-y-1">
-            {sections.map(section => (
-              <SidebarSection key={section.title} section={section} role={adminRole} permissions={adminPermissions} />
+            {sections.map((section, index) => (
+              <SidebarSection key={section.title} section={section} role={adminRole} permissions={adminPermissions} defaultOpen={index === 0} />
             ))}
           </div>
         </nav>
@@ -335,8 +335,8 @@ export default function AdminLayout() {
             Dashboard
           </NavLink>
           <div className="border-t border-gray-100 pt-3 space-y-1">
-            {sections.map(section => (
-              <SidebarSection key={section.title} section={section} role={adminRole} permissions={adminPermissions} />
+            {sections.map((section, index) => (
+              <SidebarSection key={section.title} section={section} role={adminRole} permissions={adminPermissions} defaultOpen={index === 0} />
             ))}
           </div>
         </nav>

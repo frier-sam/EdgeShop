@@ -1,5 +1,6 @@
 import { useState, useRef, type DragEvent } from 'react'
 import { processImage } from '../utils/imageProcessor'
+import { adminFetch } from './lib/adminFetch'
 
 interface Props {
   onUploadComplete: (url: string) => void
@@ -28,7 +29,7 @@ export default function ImageUploader({ onUploadComplete, existingUrl }: Props) 
       setPreview(previewUrl)
 
       setStatus('uploading')
-      const presignRes = await fetch('/api/admin/upload/presign', {
+      const presignRes = await adminFetch('/api/admin/upload/presign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filename: file.name }),
@@ -36,7 +37,7 @@ export default function ImageUploader({ onUploadComplete, existingUrl }: Props) 
       if (!presignRes.ok) throw new Error('Failed to get upload key')
       const { key } = await presignRes.json() as { key: string }
 
-      const uploadRes = await fetch(`/api/admin/upload/put?key=${encodeURIComponent(key)}`, {
+      const uploadRes = await adminFetch(`/api/admin/upload/put?key=${encodeURIComponent(key)}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'image/webp' },
         body: webpBlob,
