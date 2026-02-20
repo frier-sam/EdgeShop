@@ -78,6 +78,22 @@ webhook.post('/razorpay', async (c) => {
         ).bind(order.discount_code).run()
       }
 
+      // Decrement stock now that payment is confirmed (not at order creation, to avoid
+      // reducing stock for abandoned Razorpay sessions)
+      try {
+        const items = JSON.parse(order.items_json) as Array<{ product_id: number; quantity: number }>
+        const stockStmts = items.map(item =>
+          c.env.DB.prepare(
+            'UPDATE products SET stock_count = MAX(0, stock_count - ?) WHERE id = ?'
+          ).bind(item.quantity, item.product_id)
+        )
+        if (stockStmts.length > 0) {
+          await c.env.DB.batch(stockStmts)
+        }
+      } catch (err) {
+        console.error('Stock decrement failed for order:', order.id, err)
+      }
+
       try {
         const emailRows = await c.env.DB.prepare(
           "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address','merchant_email')"

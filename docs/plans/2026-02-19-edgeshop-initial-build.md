@@ -1734,4 +1734,7 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 | 2026-02-19 | Zustand with persist middleware for cart | Lightweight, edge-compatible, auto localStorage sync |
 | 2026-02-19 | Razorpay webhook uses Web Crypto API (crypto.subtle) | Node-specific `crypto.createHmac` not available in Workers runtime |
 | 2026-02-19 | Cloudflare Access protects /admin (no React auth code needed) | Zero-trust at edge layer is more secure and simpler |
+| 2026-02-19 | V2-1: ALTER TABLE ADD COLUMN without CHECK constraints | SQLite ALTER TABLE does not support CHECK on ADD COLUMN; validation is enforced at app layer and on CREATE TABLE only |
+| 2026-02-19 | V2-1: FTS5 virtual table + 3 triggers for products search | D1 supports FTS5; content= option keeps FTS in sync with base table; triggers maintain the index on INSERT/UPDATE/DELETE |
+| 2026-02-19 | V2-1: ProductVariant and ProductImage added as separate interfaces | Normalised schema; variants hold price+stock, images hold gallery URLs with sort_order |
 | 2026-02-19 | TanStack Query with 5-min staleTime for settings | Avoids re-fetching theme config on every render; settings change rarely |

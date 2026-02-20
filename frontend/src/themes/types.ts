@@ -4,7 +4,9 @@ export interface ProductCardProps {
   id: number
   name: string
   price: number
+  compare_price?: number | null
   image_url: string
+  images?: string[]
   currency: string
   onAddToCart: () => void
 }
@@ -59,7 +61,9 @@ export interface ProductGridProps {
     id: number
     name: string
     price: number
+    compare_price?: number | null
     image_url: string
+    images?: string[]
     category: string
   }>
   currency: string

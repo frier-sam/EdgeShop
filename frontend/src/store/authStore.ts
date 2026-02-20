@@ -6,6 +6,7 @@ interface AuthState {
   customerId: number | null
   customerName: string
   setAuth: (token: string, customerId: number, name: string) => void
+  setCustomerName: (name: string) => void
   logout: () => void
 }
 
@@ -16,6 +17,7 @@ export const useAuthStore = create<AuthState>()(
       customerId: null,
       customerName: '',
       setAuth: (token, customerId, customerName) => set({ token, customerId, customerName }),
+      setCustomerName: (customerName) => set({ customerName }),
       logout: () => set({ token: null, customerId: null, customerName: '' }),
     }),
     { name: 'edgeshop-auth' }

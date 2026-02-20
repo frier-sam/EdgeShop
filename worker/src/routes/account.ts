@@ -72,7 +72,7 @@ account.get('/addresses', async (c) => {
   if (!customerId) return c.json({ error: 'Unauthorized' }, 401)
 
   const { results } = await c.env.DB.prepare(
-    'SELECT id, label, address_line, city, state, postal_code, country FROM customer_addresses WHERE customer_id = ? ORDER BY id DESC'
+    'SELECT id, label, address_line, city, state, pincode, country FROM customer_addresses WHERE customer_id = ? ORDER BY id DESC'
   ).bind(customerId).all()
 
   return c.json({ addresses: results })

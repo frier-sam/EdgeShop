@@ -5,6 +5,12 @@ import { sendEmail } from '../lib/email'
 import { orderConfirmationHtml, newOrderAlertHtml } from '../lib/emailTemplates'
 import { createDownloadToken, verifyJWT, getOrCreateJwtSecret } from '../lib/auth'
 
+async function logOrderEmail(db: D1Database, orderId: string, type: string, recipient: string, subject: string, status: 'sent' | 'failed') {
+  await db.prepare(
+    'INSERT INTO order_emails (order_id, type, recipient, subject, status) VALUES (?, ?, ?, ?, ?)'
+  ).bind(orderId, type, recipient, subject, status).run().catch(() => {/* non-fatal */})
+}
+
 const checkout = new Hono<{ Bindings: Env }>()
 
 async function getCustomerIdFromHeader(authHeader: string, db: D1Database): Promise<number | null> {
@@ -26,6 +32,10 @@ checkout.post('/', async (c) => {
     customer_email: string
     customer_phone: string
     shipping_address: string
+    shipping_city?: string
+    shipping_state?: string
+    shipping_pincode?: string
+    shipping_country?: string
     payment_method: 'razorpay' | 'cod'
     items: OrderItem[]
     total_amount: number
@@ -47,15 +57,20 @@ checkout.post('/', async (c) => {
   if (body.payment_method === 'cod') {
     await c.env.DB.prepare(`
       INSERT INTO orders (id, customer_name, customer_email, customer_phone,
-        shipping_address, total_amount, payment_method, payment_status,
+        shipping_address, shipping_city, shipping_state, shipping_pincode, shipping_country,
+        total_amount, payment_method, payment_status,
         order_status, items_json, discount_code, discount_amount, shipping_amount)
-      VALUES (?, ?, ?, ?, ?, ?, 'cod', 'pending', 'placed', ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', 'pending', 'placed', ?, ?, ?, ?)
     `).bind(
       orderId,
       body.customer_name,
       body.customer_email,
       body.customer_phone ?? '',
       body.shipping_address,
+      body.shipping_city ?? '',
+      body.shipping_state ?? '',
+      body.shipping_pincode ?? '',
+      body.shipping_country ?? 'India',
       body.total_amount,
       JSON.stringify(body.items),
       body.discount_code ?? '',
@@ -71,8 +86,8 @@ checkout.post('/', async (c) => {
         .bind(customerIdCod, orderId).run()
       // Save shipping address to customer_addresses
       await c.env.DB.prepare(
-        "INSERT OR IGNORE INTO customer_addresses (customer_id, label, address_line, city, state, pincode, country) VALUES (?, 'Shipping', ?, '', '', '', '')"
-      ).bind(customerIdCod, body.shipping_address).run()
+        "INSERT OR IGNORE INTO customer_addresses (customer_id, label, address_line, city, state, pincode, country) VALUES (?, 'Shipping', ?, ?, ?, ?, ?)"
+      ).bind(customerIdCod, body.shipping_address, body.shipping_city ?? '', body.shipping_state ?? '', body.shipping_pincode ?? '', body.shipping_country ?? 'India').run()
     }
 
     if (body.discount_code) {
@@ -101,38 +116,48 @@ checkout.post('/', async (c) => {
       for (const row of emailRows.results) eCfg[row.key] = row.value
 
       // Send order confirmation to customer
-      await sendEmail(
-        {
-          to: body.customer_email,
-          subject: `Order ${orderId} Confirmed`,
-          html: orderConfirmationHtml({
-            id: orderId,
-            customer_name: body.customer_name,
-            items_json: JSON.stringify(body.items),
-            total_amount: body.total_amount,
-            payment_method: 'cod',
-            shipping_address: body.shipping_address,
-          }),
-        },
-        { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
-      )
-
-      // Send new order alert to merchant
-      if (eCfg.merchant_email) {
+      const confirmSubject = `Order ${orderId} Confirmed`
+      let confirmStatus: 'sent' | 'failed' = 'sent'
+      try {
         await sendEmail(
           {
-            to: eCfg.merchant_email,
-            subject: `New Order: ${orderId}`,
-            html: newOrderAlertHtml({
+            to: body.customer_email,
+            subject: confirmSubject,
+            html: orderConfirmationHtml({
               id: orderId,
               customer_name: body.customer_name,
-              customer_email: body.customer_email,
+              items_json: JSON.stringify(body.items),
               total_amount: body.total_amount,
               payment_method: 'cod',
+              shipping_address: body.shipping_address,
             }),
           },
           { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
         )
+      } catch { confirmStatus = 'failed' }
+      await logOrderEmail(c.env.DB, orderId, 'order_confirmation', body.customer_email, confirmSubject, confirmStatus)
+
+      // Send new order alert to merchant
+      if (eCfg.merchant_email) {
+        const alertSubject = `New Order: ${orderId}`
+        let alertStatus: 'sent' | 'failed' = 'sent'
+        try {
+          await sendEmail(
+            {
+              to: eCfg.merchant_email,
+              subject: alertSubject,
+              html: newOrderAlertHtml({
+                id: orderId,
+                customer_name: body.customer_name,
+                customer_email: body.customer_email,
+                total_amount: body.total_amount,
+                payment_method: 'cod',
+              }),
+            },
+            { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
+          )
+        } catch { alertStatus = 'failed' }
+        await logOrderEmail(c.env.DB, orderId, 'new_order_alert', eCfg.merchant_email, alertSubject, alertStatus)
       }
     } catch (err) {
       console.error('COD confirmation email failed:', err)
@@ -190,15 +215,20 @@ checkout.post('/', async (c) => {
 
   await c.env.DB.prepare(`
     INSERT INTO orders (id, customer_name, customer_email, customer_phone,
-      shipping_address, total_amount, payment_method, payment_status,
+      shipping_address, shipping_city, shipping_state, shipping_pincode, shipping_country,
+      total_amount, payment_method, payment_status,
       order_status, razorpay_order_id, items_json, discount_code, discount_amount, shipping_amount)
-    VALUES (?, ?, ?, ?, ?, ?, 'razorpay', 'pending', 'placed', ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'razorpay', 'pending', 'placed', ?, ?, ?, ?, ?)
   `).bind(
     orderId,
     body.customer_name,
     body.customer_email,
     body.customer_phone ?? '',
     body.shipping_address,
+    body.shipping_city ?? '',
+    body.shipping_state ?? '',
+    body.shipping_pincode ?? '',
+    body.shipping_country ?? 'India',
     body.total_amount,
     rzpOrder.id,
     JSON.stringify(body.items),
@@ -215,8 +245,8 @@ checkout.post('/', async (c) => {
       .bind(customerIdRzp, orderId).run()
     // Save shipping address to customer_addresses
     await c.env.DB.prepare(
-      "INSERT OR IGNORE INTO customer_addresses (customer_id, label, address_line, city, state, pincode, country) VALUES (?, 'Shipping', ?, '', '', '', '')"
-    ).bind(customerIdRzp, body.shipping_address).run()
+      "INSERT OR IGNORE INTO customer_addresses (customer_id, label, address_line, city, state, pincode, country) VALUES (?, 'Shipping', ?, ?, ?, ?, ?)"
+    ).bind(customerIdRzp, body.shipping_address, body.shipping_city ?? '', body.shipping_state ?? '', body.shipping_pincode ?? '', body.shipping_country ?? 'India').run()
   }
 
   return c.json({

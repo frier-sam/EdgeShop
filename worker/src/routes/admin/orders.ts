@@ -34,7 +34,16 @@ adminOrders.get('/:id', async (c) => {
   const id = c.req.param('id')
   const order = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first()
   if (!order) return c.json({ error: 'Not found' }, 404)
-  return c.json(order)
+  let emails: Array<{ id: number; type: string; recipient: string; subject: string; status: string; sent_at: number }> = []
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, type, recipient, subject, status, sent_at FROM order_emails WHERE order_id = ? ORDER BY sent_at ASC'
+    ).bind(id).all<{ id: number; type: string; recipient: string; subject: string; status: string; sent_at: number }>()
+    emails = results
+  } catch {
+    // order_emails table may not exist yet (migration pending) — return empty list
+  }
+  return c.json({ ...order, emails })
 })
 
 adminOrders.put('/:id', async (c) => {
@@ -47,7 +56,11 @@ adminOrders.put('/:id', async (c) => {
     return c.json({ error: 'Invalid JSON body' }, 400)
   }
 
-  const allowed = ['order_status', 'payment_status', 'tracking_number', 'internal_notes']
+  const allowed = [
+    'order_status', 'payment_status', 'tracking_number', 'internal_notes',
+    'customer_name', 'customer_email', 'customer_phone',
+    'shipping_address', 'shipping_city', 'shipping_state', 'shipping_pincode', 'shipping_country',
+  ]
   const entries = Object.entries(body).filter(([k]) => allowed.includes(k))
   if (!entries.length) return c.json({ error: 'Nothing to update' }, 400)
 
@@ -133,22 +146,29 @@ adminOrders.patch('/:id/tracking', async (c) => {
       const eCfg: Record<string, string> = {}
       for (const row of emailRows.results) eCfg[row.key] = row.value
 
-      await sendEmail(
-        {
-          to: order.customer_email,
-          subject: `Your order ${id} has shipped!`,
-          html: shippingUpdateHtml({
-            id: order.id,
-            customer_name: order.customer_name,
-            tracking_number: trimmedTracking,
-          }),
-        },
-        {
-          email_api_key: eCfg.email_api_key ?? '',
-          email_from_name: eCfg.email_from_name ?? '',
-          email_from_address: eCfg.email_from_address ?? '',
-        }
-      )
+      const shipSubject = `Your order ${id} has shipped!`
+      let shipStatus: 'sent' | 'failed' = 'sent'
+      try {
+        await sendEmail(
+          {
+            to: order.customer_email,
+            subject: shipSubject,
+            html: shippingUpdateHtml({
+              id: order.id,
+              customer_name: order.customer_name,
+              tracking_number: trimmedTracking,
+            }),
+          },
+          {
+            email_api_key: eCfg.email_api_key ?? '',
+            email_from_name: eCfg.email_from_name ?? '',
+            email_from_address: eCfg.email_from_address ?? '',
+          }
+        )
+      } catch { shipStatus = 'failed' }
+      await c.env.DB.prepare(
+        'INSERT INTO order_emails (order_id, type, recipient, subject, status) VALUES (?, ?, ?, ?, ?)'
+      ).bind(id, 'shipping_update', order.customer_email, shipSubject, shipStatus).run().catch(() => {})
     }
   } catch (err) {
     console.error('Failed to send shipping email:', err)

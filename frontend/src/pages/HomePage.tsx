@@ -9,7 +9,9 @@ interface Product {
   name: string
   description: string
   price: number
+  compare_price?: number | null
   image_url: string
+  images?: string[]
   stock_count: number
   category: string
 }

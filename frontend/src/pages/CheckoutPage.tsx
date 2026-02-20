@@ -39,7 +39,10 @@ export default function CheckoutPage() {
     customer_email: '',
     customer_phone: '',
     shipping_address: '',
-    country: 'India',
+    shipping_city: '',
+    shipping_state: '',
+    shipping_pincode: '',
+    shipping_country: 'India',
   })
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod')
   const [submitting, setSubmitting] = useState(false)
@@ -63,14 +66,14 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     setShippingResult(null)
-    if (!form.country) return
+    if (!form.shipping_country) return
     let cancelled = false
     async function run() {
       try {
         const res = await fetch('/api/shipping/calculate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cart_total: cartTotal, country: form.country }),
+          body: JSON.stringify({ cart_total: cartTotal, country: form.shipping_country }),
         })
         if (res.ok && !cancelled) {
           const data = await res.json() as { shipping_amount: number; rate_name: string }
@@ -82,7 +85,7 @@ export default function CheckoutPage() {
     }
     run()
     return () => { cancelled = true }
-  }, [form.country, cartTotal])
+  }, [form.shipping_country, cartTotal])
 
   useEffect(() => {
     if (!token) return
@@ -269,18 +272,36 @@ export default function CheckoutPage() {
               </div>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Shipping Address *</label>
-              <textarea required rows={3} value={form.shipping_address} onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
+              <label className="block text-xs text-gray-500 mb-1">Address Line *</label>
+              <input required value={form.shipping_address} onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
+                placeholder="House / Flat no., Street, Locality"
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
             </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Country</label>
-              <input
-                value={form.country}
-                onChange={(e) => setForm({ ...form, country: e.target.value })}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-                placeholder="India"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">City *</label>
+                <input required value={form.shipping_city} onChange={(e) => setForm({ ...form, shipping_city: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">State *</label>
+                <input required value={form.shipping_state} onChange={(e) => setForm({ ...form, shipping_state: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Pincode *</label>
+                <input required value={form.shipping_pincode} onChange={(e) => setForm({ ...form, shipping_pincode: e.target.value })}
+                  placeholder="e.g. 400001"
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Country</label>
+                <input value={form.shipping_country} onChange={(e) => setForm({ ...form, shipping_country: e.target.value })}
+                  placeholder="India"
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+              </div>
             </div>
           </div>
 

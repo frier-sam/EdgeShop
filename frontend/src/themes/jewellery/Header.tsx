@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { HeaderProps } from '../types'
+import { useAuthStore } from '../../store/authStore'
 
 export default function Header({ storeName, cartCount, onCartOpen, navItems }: HeaderProps) {
+  const token = useAuthStore((s) => s.token)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [openDropdown, setOpenDropdown] = useState<string | null>(null)
 
@@ -81,16 +83,33 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
             </nav>
           )}
 
-          {/* Right: cart + hamburger */}
+          {/* Right: account + cart + hamburger */}
           <div className="flex items-center gap-4 shrink-0">
+            <Link
+              to={token ? '/account/orders' : '/account/login'}
+              style={{ color: 'var(--color-primary)' }}
+              className="text-xs tracking-widest uppercase transition-all hover:opacity-70 border-b border-transparent hover:border-current pb-0.5"
+            >
+              {token ? 'Account' : 'Login'}
+            </Link>
             <button
               onClick={onCartOpen}
               style={{ color: 'var(--color-primary)' }}
-              className="text-sm tracking-wider uppercase transition-colors hover:opacity-70"
+              className="relative transition-colors hover:opacity-70"
+              aria-label={`Open cart, ${cartCount} items`}
             >
-              Bag
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
               {cartCount > 0 && (
-                <span className="ml-1 font-semibold" style={{ color: 'var(--color-accent)' }}>({cartCount})</span>
+                <span
+                  className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 rounded-full text-[10px] font-semibold flex items-center justify-center text-white"
+                  style={{ backgroundColor: 'var(--color-accent)' }}
+                >
+                  {cartCount}
+                </span>
               )}
             </button>
             {navItems.length > 0 && (

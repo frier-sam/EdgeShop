@@ -8,14 +8,38 @@ adminProducts.get('/', async (c) => {
   const q = (c.req.query('q') ?? '').trim()
   const rawStatus = (c.req.query('status') ?? '').trim()
   const status = VALID_PRODUCT_STATUSES.includes(rawStatus) ? rawStatus : ''
-  let sql = 'SELECT * FROM products WHERE 1=1'
+  const page = Math.max(1, parseInt(c.req.query('page') ?? '1', 10) || 1)
+  const limit = 20
+  const offset = (page - 1) * limit
+  const rawCollectionId = c.req.query('collection_id') ?? ''
+  const collectionId = rawCollectionId ? parseInt(rawCollectionId, 10) : null
+  const tag = (c.req.query('tag') ?? '').trim()
+
+  // Use JOIN when filtering by collection to avoid duplicates
+  const useCollectionJoin = collectionId !== null && !isNaN(collectionId)
+  const fromClause = useCollectionJoin
+    ? 'products p JOIN product_collections pc ON p.id = pc.product_id'
+    : 'products p'
+  const selectPrefix = useCollectionJoin ? 'DISTINCT p.*' : 'p.*'
+
+  let where = 'WHERE 1=1'
   const params: (string | number)[] = []
-  if (q) { sql += ' AND (name LIKE ? OR category LIKE ?)'; params.push(`%${q}%`, `%${q}%`) }
-  if (status) { sql += ' AND status = ?'; params.push(status) }
-  sql += ' ORDER BY created_at DESC LIMIT 200'
+  if (q) { where += ' AND (p.name LIKE ? OR p.category LIKE ?)'; params.push(`%${q}%`, `%${q}%`) }
+  if (status) { where += ' AND p.status = ?'; params.push(status) }
+  if (useCollectionJoin) { where += ' AND pc.collection_id = ?'; params.push(collectionId!) }
+  if (tag) { where += ' AND p.tags LIKE ?'; params.push(`%${tag}%`) }
+
   try {
-    const { results } = await c.env.DB.prepare(sql).bind(...params).all()
-    return c.json({ products: results })
+    const countRow = await c.env.DB.prepare(
+      `SELECT COUNT(${useCollectionJoin ? 'DISTINCT p.id' : '*'}) as total FROM ${fromClause} ${where}`
+    ).bind(...params).first<{ total: number }>()
+    const total = countRow?.total ?? 0
+
+    const { results } = await c.env.DB.prepare(
+      `SELECT ${selectPrefix} FROM ${fromClause} ${where} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`
+    ).bind(...params, limit, offset).all()
+
+    return c.json({ products: results, total, page, limit, pages: Math.ceil(total / limit) })
   } catch (err) {
     console.error('Admin products list error:', err)
     return c.json({ error: 'Failed to load products' }, 500)

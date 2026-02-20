@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../../themes/ThemeProvider'
 import { useCartStore } from '../../store/cartStore'
@@ -112,7 +112,7 @@ export default function AccountOrdersPage() {
       <main className="max-w-3xl mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">My Orders</h1>
+            <h1 className="text-2xl font-semibold text-gray-900">My Account</h1>
             {customerName && (
               <p className="text-sm text-gray-500 mt-1">Welcome back, {customerName}</p>
             )}
@@ -123,6 +123,19 @@ export default function AccountOrdersPage() {
           >
             Logout
           </button>
+        </div>
+
+        {/* Nav tabs */}
+        <div className="flex gap-6 border-b border-gray-200 mb-8">
+          <span className="pb-3 text-sm font-medium border-b-2 border-gray-900 text-gray-900">
+            Orders
+          </span>
+          <Link
+            to="/account/profile"
+            className="pb-3 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors"
+          >
+            Profile
+          </Link>
         </div>
 
         {ordersLoading && (
