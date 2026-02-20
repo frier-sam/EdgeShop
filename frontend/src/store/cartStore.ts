@@ -4,10 +4,13 @@ import type { CartItem } from '../themes/types'
 
 interface CartStore {
   items: CartItem[]
+  isCartOpen: boolean
   addItem: (item: CartItem) => void
   updateQuantity: (productId: number, quantity: number) => void
   removeItem: (productId: number) => void
   clearCart: () => void
+  openCart: () => void
+  closeCart: () => void
   totalAmount: () => number
   totalItems: () => number
 }
@@ -16,19 +19,22 @@ export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
+      isCartOpen: false,
+      openCart: () => set({ isCartOpen: true }),
+      closeCart: () => set({ isCartOpen: false }),
       addItem: (item) =>
         set((state) => {
           const existing = state.items.find((i) => i.product_id === item.product_id)
-          if (existing) {
-            return {
-              items: state.items.map((i) =>
-                i.product_id === item.product_id
-                  ? { ...i, quantity: i.quantity + item.quantity }
-                  : i
-              ),
-            }
+          return {
+            isCartOpen: true,
+            items: existing
+              ? state.items.map((i) =>
+                  i.product_id === item.product_id
+                    ? { ...i, quantity: i.quantity + item.quantity }
+                    : i
+                )
+              : [...state.items, item],
           }
-          return { items: [...state.items, item] }
         }),
       updateQuantity: (productId, quantity) =>
         set((state) => ({
@@ -49,6 +55,6 @@ export const useCartStore = create<CartStore>()(
       totalItems: () =>
         get().items.reduce((sum, i) => sum + i.quantity, 0),
     }),
-    { name: 'edgeshop-cart' }
+    { name: 'edgeshop-cart', partialize: (state) => ({ items: state.items }) }
   )
 )

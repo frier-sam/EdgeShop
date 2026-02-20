@@ -20,7 +20,9 @@ export default function SearchPage() {
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const items = useCartStore((s) => s.items)
   const totalItems = useCartStore((s) => s.totalItems)
-  const [cartOpen, setCartOpen] = useState(false)
+  const cartOpen = useCartStore((s) => s.isCartOpen)
+  const openCart = useCartStore((s) => s.openCart)
+  const closeCart = useCartStore((s) => s.closeCart)
 
   const q = searchParams.get('q') ?? ''
   const [inputValue, setInputValue] = useState(q)
@@ -59,7 +61,7 @@ export default function SearchPage() {
       <Header
         storeName={storeName}
         cartCount={totalItems()}
-        onCartOpen={() => setCartOpen(true)}
+        onCartOpen={() => openCart()}
         navItems={navItems}
       />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -132,10 +134,10 @@ export default function SearchPage() {
         isOpen={cartOpen}
         items={items}
         currency={currency}
-        onClose={() => setCartOpen(false)}
+        onClose={() => closeCart()}
         onUpdateQuantity={updateQuantity}
         onCheckout={() => {
-          setCartOpen(false)
+          closeCart()
           navigate('/checkout')
         }}
       />

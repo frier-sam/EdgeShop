@@ -31,7 +31,9 @@ interface ProductsData {
 
 export default function HomePage() {
   const { theme, isLoading: themeLoading, navItems, footerData } = useTheme()
-  const [cartOpen, setCartOpen] = useState(false)
+  const cartOpen = useCartStore((s) => s.isCartOpen)
+  const openCart = useCartStore((s) => s.openCart)
+  const closeCart = useCartStore((s) => s.closeCart)
   const [page, setPage] = useState(1)
   const navigate = useNavigate()
   const addItem = useCartStore((s) => s.addItem)
@@ -67,7 +69,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <Header storeName={storeName} cartCount={totalItems()} onCartOpen={() => setCartOpen(true)} navItems={navItems} />
+      <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={navItems} />
       <main>
         <Hero storeName={storeName} tagline="Discover our collection" />
         <ProductGrid
@@ -100,7 +102,7 @@ export default function HomePage() {
         )}
       </main>
       <Footer storeName={storeName} footerData={footerData} />
-      <CartDrawer isOpen={cartOpen} items={items} currency={currency} onClose={() => setCartOpen(false)} onUpdateQuantity={updateQuantity} onCheckout={() => { setCartOpen(false); navigate('/checkout') }} />
+      <CartDrawer isOpen={cartOpen} items={items} currency={currency} onClose={closeCart} onUpdateQuantity={updateQuantity} onCheckout={() => { closeCart(); navigate('/checkout') }} />
     </div>
   )
 }

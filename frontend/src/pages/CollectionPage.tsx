@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
@@ -28,7 +28,9 @@ export default function CollectionPage() {
   const updateQuantity = useCartStore((s) => s.updateQuantity)
   const items = useCartStore((s) => s.items)
   const totalItems = useCartStore((s) => s.totalItems)
-  const [cartOpen, setCartOpen] = useState(false)
+  const cartOpen = useCartStore((s) => s.isCartOpen)
+  const openCart = useCartStore((s) => s.openCart)
+  const closeCart = useCartStore((s) => s.closeCart)
 
   const sort = searchParams.get('sort') ?? 'newest'
   const currency = settings.currency === 'INR' ? '₹' : (settings.currency ?? '₹')
@@ -95,7 +97,7 @@ export default function CollectionPage() {
       <Header
         storeName={storeName}
         cartCount={totalItems()}
-        onCartOpen={() => setCartOpen(true)}
+        onCartOpen={() => openCart()}
         navItems={navItems}
       />
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -150,10 +152,10 @@ export default function CollectionPage() {
         isOpen={cartOpen}
         items={items}
         currency={currency}
-        onClose={() => setCartOpen(false)}
+        onClose={() => closeCart()}
         onUpdateQuantity={updateQuantity}
         onCheckout={() => {
-          setCartOpen(false)
+          closeCart()
           navigate('/checkout')
         }}
       />
