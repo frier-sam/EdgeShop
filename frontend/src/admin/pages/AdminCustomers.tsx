@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { adminFetch } from '../lib/adminFetch'
 
 interface Customer {
   id: number
@@ -33,7 +34,7 @@ export default function AdminCustomers() {
 
   const { data: settingsData } = useQuery<Record<string, string>>({
     queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then(r => r.json()),
+    queryFn: () => adminFetch('/api/settings').then(r => r.json()),
     staleTime: 5 * 60 * 1000,
   })
   const currency = CURRENCY_SYMBOLS[settingsData?.currency ?? 'INR'] ?? '₹'
@@ -43,7 +44,7 @@ export default function AdminCustomers() {
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page) })
       if (search) params.set('search', search)
-      return fetch(`/api/admin/customers?${params}`).then(r => r.json()) as Promise<{
+      return adminFetch(`/api/admin/customers?${params}`).then(r => r.json()) as Promise<{
         customers: Customer[]; total: number; pages: number; page: number
       }>
     },
@@ -51,13 +52,13 @@ export default function AdminCustomers() {
 
   const { data: detail } = useQuery<CustomerDetail>({
     queryKey: ['admin-customer', expandedId],
-    queryFn: () => fetch(`/api/admin/customers/${expandedId}`).then(r => r.json()),
+    queryFn: () => adminFetch(`/api/admin/customers/${expandedId}`).then(r => r.json()),
     enabled: expandedId !== null,
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch(`/api/admin/customers/${id}`, { method: 'DELETE' }).then(r => r.json()),
+      adminFetch(`/api/admin/customers/${id}`, { method: 'DELETE' }).then(r => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-customers'] })
       setExpandedId(null)

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ImageUploader from '../ImageUploader'
+import { adminFetch } from '../lib/adminFetch'
 
 interface BlogPostSummary {
   id: number
@@ -43,7 +44,7 @@ export default function AdminBlog() {
   const { data, isLoading } = useQuery<{ posts: BlogPostSummary[] }>({
     queryKey: ['admin-blog'],
     queryFn: () =>
-      fetch('/api/admin/blog').then(r => {
+      adminFetch('/api/admin/blog').then(r => {
         if (!r.ok) throw new Error('Failed to load posts')
         return r.json() as Promise<{ posts: BlogPostSummary[] }>
       }),
@@ -52,7 +53,7 @@ export default function AdminBlog() {
   const { data: fullPost } = useQuery<BlogPostFull>({
     queryKey: ['admin-blog-post', editing?.id],
     queryFn: () =>
-      fetch(`/api/admin/blog/${editing!.id}`).then(r => {
+      adminFetch(`/api/admin/blog/${editing!.id}`).then(r => {
         if (!r.ok) throw new Error('Failed to load post')
         return r.json() as Promise<BlogPostFull>
       }),
@@ -82,14 +83,14 @@ export default function AdminBlog() {
         published_at: body.published_at ? new Date(body.published_at).toISOString() : null,
       }
       if (editing) {
-        const res = await fetch(`/api/admin/blog/${editing.id}`, {
+        const res = await adminFetch(`/api/admin/blog/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
         if (!res.ok) throw new Error('Failed to save')
       } else {
-        const res = await fetch('/api/admin/blog', {
+        const res = await adminFetch('/api/admin/blog', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -108,7 +109,7 @@ export default function AdminBlog() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch(`/api/admin/blog/${id}`, { method: 'DELETE' }).then(r => {
+      adminFetch(`/api/admin/blog/${id}`, { method: 'DELETE' }).then(r => {
         if (!r.ok) throw new Error('Delete failed')
       }),
     onSuccess: () => {

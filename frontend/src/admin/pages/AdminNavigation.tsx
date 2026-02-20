@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { NavItem } from '../../themes/types'
 import { showToast } from '../Toast'
+import { adminFetch } from '../lib/adminFetch'
 
 type AddTarget = { parentIndex: number | null }
 
@@ -10,17 +11,17 @@ export default function AdminNavigation() {
 
   const { data: settings, isLoading } = useQuery<Record<string, string>>({
     queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then(r => r.json()),
+    queryFn: () => adminFetch('/api/settings').then(r => r.json()),
   })
 
   const { data: collectionsData } = useQuery<{ collections: Array<{ id: number; name: string; slug: string; depth: number }> }>({
     queryKey: ['admin-collections'],
-    queryFn: () => fetch('/api/admin/collections').then(r => r.json()),
+    queryFn: () => adminFetch('/api/admin/collections').then(r => r.json()),
   })
 
   const { data: pagesData } = useQuery<{ pages: Array<{ id: number; title: string; slug: string }> }>({
     queryKey: ['admin-pages'],
-    queryFn: () => fetch('/api/admin/pages').then(r => r.json()),
+    queryFn: () => adminFetch('/api/admin/pages').then(r => r.json()),
   })
 
   const [items, setItems] = useState<NavItem[]>([])
@@ -36,7 +37,7 @@ export default function AdminNavigation() {
 
   const saveMutation = useMutation({
     mutationFn: async (newItems: NavItem[]) => {
-      const res = await fetch('/api/settings', {
+      const res = await adminFetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ navigation_json: JSON.stringify(newItems) }),

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { adminFetch } from '../lib/adminFetch'
 
 interface ShippingZone {
   id: number
@@ -63,7 +64,7 @@ export default function AdminShipping() {
   const { data: zonesData, isLoading: zonesLoading } = useQuery<{ zones: ShippingZone[] }>({
     queryKey: ['admin-shipping-zones'],
     queryFn: () =>
-      fetch('/api/admin/shipping/zones').then(r => {
+      adminFetch('/api/admin/shipping/zones').then(r => {
         if (!r.ok) throw new Error('Failed to load zones')
         return r.json() as Promise<{ zones: ShippingZone[] }>
       }),
@@ -73,7 +74,7 @@ export default function AdminShipping() {
   const { data: ratesData, isLoading: ratesLoading } = useQuery<{ rates: ShippingRate[] }>({
     queryKey: ['admin-shipping-rates', selectedZoneId],
     queryFn: () =>
-      fetch(`/api/admin/shipping/zones/${selectedZoneId}/rates`).then(r => {
+      adminFetch(`/api/admin/shipping/zones/${selectedZoneId}/rates`).then(r => {
         if (!r.ok) throw new Error('Failed to load rates')
         return r.json() as Promise<{ rates: ShippingRate[] }>
       }),
@@ -83,7 +84,7 @@ export default function AdminShipping() {
   // Zone mutations
   const createZoneMutation = useMutation({
     mutationFn: (body: { name: string; countries_json: string }) =>
-      fetch('/api/admin/shipping/zones', {
+      adminFetch('/api/admin/shipping/zones', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -98,7 +99,7 @@ export default function AdminShipping() {
 
   const updateZoneMutation = useMutation({
     mutationFn: (body: { name: string; countries_json: string }) =>
-      fetch(`/api/admin/shipping/zones/${editingZone!.id}`, {
+      adminFetch(`/api/admin/shipping/zones/${editingZone!.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -113,7 +114,7 @@ export default function AdminShipping() {
 
   const deleteZoneMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch(`/api/admin/shipping/zones/${id}`, { method: 'DELETE' }).then(r => {
+      adminFetch(`/api/admin/shipping/zones/${id}`, { method: 'DELETE' }).then(r => {
         if (!r.ok) throw new Error('Failed to delete zone')
       }),
     onSuccess: () => {
@@ -125,7 +126,7 @@ export default function AdminShipping() {
   // Rate mutations
   const createRateMutation = useMutation({
     mutationFn: (body: Omit<ShippingRate, 'id' | 'zone_id'>) =>
-      fetch(`/api/admin/shipping/zones/${selectedZoneId}/rates`, {
+      adminFetch(`/api/admin/shipping/zones/${selectedZoneId}/rates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -140,7 +141,7 @@ export default function AdminShipping() {
 
   const updateRateMutation = useMutation({
     mutationFn: (body: Partial<Omit<ShippingRate, 'id' | 'zone_id'>>) =>
-      fetch(`/api/admin/shipping/rates/${editingRate!.id}`, {
+      adminFetch(`/api/admin/shipping/rates/${editingRate!.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -155,7 +156,7 @@ export default function AdminShipping() {
 
   const deleteRateMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch(`/api/admin/shipping/rates/${id}`, { method: 'DELETE' }).then(r => {
+      adminFetch(`/api/admin/shipping/rates/${id}`, { method: 'DELETE' }).then(r => {
         if (!r.ok) throw new Error('Failed to delete rate')
       }),
     onSuccess: () => {

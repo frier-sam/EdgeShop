@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showToast } from '../Toast'
+import { adminFetch } from '../lib/adminFetch'
 
 interface Collection {
   id: number
@@ -66,18 +67,18 @@ export default function AdminCollections() {
 
   const { data, isLoading } = useQuery<{ collections: Collection[] }>({
     queryKey: ['admin-collections'],
-    queryFn: () => fetch('/api/admin/collections').then(r => r.json()),
+    queryFn: () => adminFetch('/api/admin/collections').then(r => r.json()),
   })
 
   const { data: productsData } = useQuery<{ products: Product[] }>({
     queryKey: ['admin-products'],
-    queryFn: () => fetch('/api/admin/products').then(r => r.json()),
+    queryFn: () => adminFetch('/api/admin/products').then(r => r.json()),
     enabled: !!assignCollection,
   })
 
   const { data: collectionDetail } = useQuery<{ collection: Collection; products: Product[] }>({
     queryKey: ['collection-detail', assignCollection?.id],
-    queryFn: () => fetch(`/api/collections/${assignCollection!.slug}`).then(r => r.json()),
+    queryFn: () => adminFetch(`/api/collections/${assignCollection!.slug}`).then(r => r.json()),
     enabled: !!assignCollection,
   })
 
@@ -85,7 +86,7 @@ export default function AdminCollections() {
     mutationFn: async ({ body, editingId }: { body: typeof emptyForm; editingId: number | null }) => {
       const url = editingId ? `/api/admin/collections/${editingId}` : '/api/admin/collections'
       const method = editingId ? 'PUT' : 'POST'
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -102,7 +103,7 @@ export default function AdminCollections() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch(`/api/admin/collections/${id}`, { method: 'DELETE' }).then(r => {
+      adminFetch(`/api/admin/collections/${id}`, { method: 'DELETE' }).then(r => {
         if (!r.ok) throw new Error('Delete failed')
       }),
     onSuccess: () => {
@@ -115,7 +116,7 @@ export default function AdminCollections() {
 
   const assignMutation = useMutation({
     mutationFn: async ({ id, product_ids }: { id: number; product_ids: number[] }) => {
-      const res = await fetch(`/api/admin/collections/${id}/products`, {
+      const res = await adminFetch(`/api/admin/collections/${id}/products`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ product_ids }),

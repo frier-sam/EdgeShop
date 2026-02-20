@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { themes } from '../../themes'
 import ImageUploader from '../ImageUploader'
+import { adminFetch } from '../lib/adminFetch'
 
 export default function AdminAppearance() {
   const qc = useQueryClient()
@@ -9,7 +10,7 @@ export default function AdminAppearance() {
 
   const { data: settings, isLoading } = useQuery<Record<string, string>>({
     queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then(r => r.json()),
+    queryFn: () => adminFetch('/api/settings').then(r => r.json()),
   })
 
   const [activeTheme, setActiveTheme] = useState('jewellery')
@@ -47,7 +48,7 @@ export default function AdminAppearance() {
         if (settings?.theme_overrides_json) existingOverrides = JSON.parse(settings.theme_overrides_json)
       } catch { /* ignore */ }
       const mergedOverrides = { ...existingOverrides, [activeTheme]: overrideForm }
-      const res = await fetch('/api/settings', {
+      const res = await adminFetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

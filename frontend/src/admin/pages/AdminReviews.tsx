@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { adminFetch } from '../lib/adminFetch'
 
 interface Review {
   id: number
@@ -37,7 +38,7 @@ export default function AdminReviews() {
   const { data, isLoading } = useQuery<{ reviews: Review[] }>({
     queryKey: ['admin-reviews', tab],
     queryFn: () =>
-      fetch(`/api/admin/reviews?status=${tab}`).then(r => {
+      adminFetch(`/api/admin/reviews?status=${tab}`).then(r => {
         if (!r.ok) throw new Error('Failed to load reviews')
         return r.json()
       }),
@@ -45,7 +46,7 @@ export default function AdminReviews() {
 
   const approveMutation = useMutation({
     mutationFn: ({ id, is_approved }: { id: number; is_approved: boolean }) =>
-      fetch(`/api/admin/reviews/${id}`, {
+      adminFetch(`/api/admin/reviews/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_approved }),
@@ -58,7 +59,7 @@ export default function AdminReviews() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch(`/api/admin/reviews/${id}`, { method: 'DELETE' }).then(r => {
+      adminFetch(`/api/admin/reviews/${id}`, { method: 'DELETE' }).then(r => {
         if (!r.ok) throw new Error('Delete failed')
       }),
     onSuccess: () => {

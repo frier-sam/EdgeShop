@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ImageUploader from '../ImageUploader'
+import { adminFetch } from '../lib/adminFetch'
 
 interface Product {
   id: number
@@ -49,6 +50,12 @@ interface Variant {
   sku: string
 }
 
+interface GalleryImage {
+  id: number
+  url: string
+  sort_order: number
+}
+
 const emptyForm: ProductForm = {
   name: '', description: '', price: '', image_url: '', stock_count: '0', category: '',
   seo_title: '', seo_description: '', compare_price: '', tags: '',
@@ -63,23 +70,32 @@ export default function AdminProducts() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [collectionFilter, setCollectionFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
+  const [page, setPage] = useState(1)
   const [selectedCollections, setSelectedCollections] = useState<number[]>([])
   const [variantForm, setVariantForm] = useState({ name: '', price: '', stock_count: '0', sku: '', options: [{ key: '', value: '' }] })
 
-  const { data, isLoading } = useQuery<{ products: Product[] }>({
-    queryKey: ['admin-products', q, statusFilter],
+  const { data, isLoading } = useQuery<{ products: Product[]; total: number; page: number; pages: number }>({
+    queryKey: ['admin-products', q, statusFilter, collectionFilter, tagFilter, page],
     queryFn: () =>
-      fetch('/api/admin/products?' + new URLSearchParams({ ...(q && { q }), ...(statusFilter && { status: statusFilter }) })).then((r) => r.json()),
+      adminFetch('/api/admin/products?' + new URLSearchParams({
+        ...(q && { q }),
+        ...(statusFilter && { status: statusFilter }),
+        ...(collectionFilter && { collection_id: collectionFilter }),
+        ...(tagFilter && { tag: tagFilter }),
+        page: String(page),
+      })).then((r) => r.json()),
   })
 
   const { data: collectionsData } = useQuery<{ collections: Collection[] }>({
     queryKey: ['collections'],
-    queryFn: () => fetch('/api/collections').then(r => r.json()),
+    queryFn: () => adminFetch('/api/collections').then(r => r.json()),
   })
 
   const { data: productCollectionsData } = useQuery<{ collection_ids: number[] }>({
     queryKey: ['product-collections', editingId],
-    queryFn: () => fetch(`/api/admin/products/${editingId}/collections`).then(r => r.json()),
+    queryFn: () => adminFetch(`/api/admin/products/${editingId}/collections`).then(r => r.json()),
     enabled: editingId !== null,
   })
 
@@ -89,16 +105,39 @@ export default function AdminProducts() {
     }
   }, [productCollectionsData])
 
+  const { data: galleryData, refetch: refetchGallery } = useQuery<{ images: GalleryImage[] }>({
+    queryKey: ['product-gallery', editingId],
+    queryFn: () => adminFetch(`/api/admin/products/${editingId}/images`).then(r => r.json()),
+    enabled: editingId !== null,
+  })
+  const galleryImages = galleryData?.images ?? []
+
+  const addGalleryMutation = useMutation({
+    mutationFn: (url: string) =>
+      adminFetch(`/api/admin/products/${editingId}/images`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, sort_order: galleryImages.length }),
+      }).then(r => r.json()),
+    onSuccess: () => refetchGallery(),
+  })
+
+  const removeGalleryMutation = useMutation({
+    mutationFn: (imageId: number) =>
+      adminFetch(`/api/admin/products/${editingId}/images/${imageId}`, { method: 'DELETE' }).then(r => r.json()),
+    onSuccess: () => refetchGallery(),
+  })
+
   const { data: variantsData, refetch: refetchVariants } = useQuery<{ variants: Variant[] }>({
     queryKey: ['product-variants', editingId],
-    queryFn: () => fetch(`/api/admin/products/${editingId}/variants`).then(r => r.json()),
+    queryFn: () => adminFetch(`/api/admin/products/${editingId}/variants`).then(r => r.json()),
     enabled: editingId !== null,
   })
   const variants = variantsData?.variants ?? []
 
   const addVariantMutation = useMutation({
     mutationFn: (v: { name: string; options_json: string; price: number; stock_count: number; sku: string }) =>
-      fetch(`/api/admin/products/${editingId}/variants`, {
+      adminFetch(`/api/admin/products/${editingId}/variants`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(v),
@@ -111,20 +150,20 @@ export default function AdminProducts() {
 
   const deleteVariantMutation = useMutation({
     mutationFn: (variantId: number) =>
-      fetch(`/api/admin/products/${editingId}/variants/${variantId}`, { method: 'DELETE' }).then(r => r.json()),
+      adminFetch(`/api/admin/products/${editingId}/variants/${variantId}`, { method: 'DELETE' }).then(r => r.json()),
     onSuccess: () => refetchVariants(),
   })
 
   const createMutation = useMutation({
     mutationFn: (body: Omit<ProductForm, 'price' | 'stock_count' | 'compare_price'> & { price: number; stock_count: number; compare_price: number | null }) =>
-      fetch('/api/admin/products', {
+      adminFetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }).then((r) => r.json()),
     onSuccess: async (data: { id?: number }) => {
       if (selectedCollections.length > 0 && data.id) {
-        await fetch(`/api/admin/products/${data.id}/collections`, {
+        await adminFetch(`/api/admin/products/${data.id}/collections`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ collection_ids: selectedCollections }),
@@ -137,14 +176,14 @@ export default function AdminProducts() {
 
   const updateMutation = useMutation({
     mutationFn: ({ id, ...body }: { id: number } & Omit<ProductForm, 'price' | 'stock_count' | 'compare_price'> & { price: number; stock_count: number; compare_price: number | null }) =>
-      fetch(`/api/admin/products/${id}`, {
+      adminFetch(`/api/admin/products/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }).then((r) => r.json()),
     onSuccess: async () => {
       if (editingId !== null) {
-        await fetch(`/api/admin/products/${editingId}/collections`, {
+        await adminFetch(`/api/admin/products/${editingId}/collections`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ collection_ids: selectedCollections }),
@@ -157,7 +196,7 @@ export default function AdminProducts() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch(`/api/admin/products/${id}`, { method: 'DELETE' }).then((r) => r.json()),
+      adminFetch(`/api/admin/products/${id}`, { method: 'DELETE' }).then((r) => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-products'] }); setDeleteId(null) },
   })
 
@@ -165,6 +204,7 @@ export default function AdminProducts() {
     setForm(emptyForm)
     setEditingId(null)
     setSelectedCollections([])
+    setVariantForm({ name: '', price: '', stock_count: '0', sku: '', options: [{ key: '', value: '' }] })
     setShowForm(true)
   }
 
@@ -226,6 +266,8 @@ export default function AdminProducts() {
   }
 
   const products = data?.products ?? []
+  const totalPages = data?.pages ?? 1
+  const totalProducts = data?.total ?? 0
   const collections = collectionsData?.collections ?? []
   const isSaving = createMutation.isPending || updateMutation.isPending
 
@@ -238,17 +280,17 @@ export default function AdminProducts() {
         </button>
       </div>
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-4">
         <input
           type="search"
           placeholder="Search products..."
           value={q}
-          onChange={e => setQ(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:border-gray-500"
+          onChange={e => { setQ(e.target.value); setPage(1) }}
+          className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 min-w-40 focus:outline-none focus:border-gray-500"
         />
         <select
           value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
+          onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
           className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
         >
           <option value="">All statuses</option>
@@ -256,6 +298,23 @@ export default function AdminProducts() {
           <option value="draft">Draft</option>
           <option value="archived">Archived</option>
         </select>
+        <select
+          value={collectionFilter}
+          onChange={e => { setCollectionFilter(e.target.value); setPage(1) }}
+          className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+        >
+          <option value="">All collections</option>
+          {collections.map(col => (
+            <option key={col.id} value={String(col.id)}>{col.name}</option>
+          ))}
+        </select>
+        <input
+          type="search"
+          placeholder="Filter by tag..."
+          value={tagFilter}
+          onChange={e => { setTagFilter(e.target.value); setPage(1) }}
+          className="border border-gray-300 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:border-gray-500"
+        />
       </div>
 
       {isLoading ? (
@@ -298,6 +357,29 @@ export default function AdminProducts() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+          <span>{totalProducts} product{totalProducts !== 1 ? 's' : ''} — page {page} of {totalPages}</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ← Prev
+            </button>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next →
+            </button>
+          </div>
         </div>
       )}
 
@@ -404,7 +486,11 @@ export default function AdminProducts() {
               {/* Variants */}
               {editingId !== null && (
                 <div>
-                  <p className="text-xs font-medium text-gray-500 mb-2">Variants</p>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Variants</p>
+                  <p className="text-xs text-gray-400 mb-2">
+                    Use variants for options like size or color. Each variant has its own price, stock, and SKU.
+                    e.g. "Small / Red" with options Size → S, Color → Red.
+                  </p>
 
                   {/* Existing variants list */}
                   {variants.length > 0 && (
@@ -547,12 +633,46 @@ export default function AdminProducts() {
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-gray-500 mb-2">Product Image</label>
+                <label className="block text-xs text-gray-500 mb-2">Primary Image</label>
                 <ImageUploader
                   existingUrl={form.image_url}
                   onUploadComplete={(url) => setForm({ ...form, image_url: url })}
                 />
               </div>
+
+              {/* Gallery images — only available after the product is saved */}
+              {editingId !== null ? (
+                <div>
+                  <p className="text-xs font-medium text-gray-500 mb-1">Gallery Images</p>
+                  <p className="text-xs text-gray-400 mb-2">
+                    Additional images shown on the product page. On hover in the storefront, images cycle through automatically.
+                  </p>
+                  {galleryImages.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {galleryImages.map(img => (
+                        <div key={img.id} className="relative w-16 h-16 group/thumb">
+                          <img src={img.url} alt="" className="w-full h-full object-cover rounded border border-gray-200" />
+                          <button
+                            type="button"
+                            onClick={() => removeGalleryMutation.mutate(img.id)}
+                            className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white rounded-full text-xs flex items-center justify-center leading-none opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <ImageUploader
+                    onUploadComplete={(url) => addGalleryMutation.mutate(url)}
+                  />
+                </div>
+              ) : (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                  Gallery images and variants can be added after saving the product.
+                </p>
+              )}
+
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeForm}
                   className="flex-1 py-2 border border-gray-300 text-sm rounded text-gray-600 hover:bg-gray-50">

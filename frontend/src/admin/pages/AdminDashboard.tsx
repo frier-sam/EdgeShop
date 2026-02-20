@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { adminFetch } from '../lib/adminFetch'
 
 interface DashboardData {
   revenue_all_time: number
@@ -21,9 +22,9 @@ interface DashboardData {
 }
 
 export default function AdminDashboard() {
-  const { data, isLoading } = useQuery<DashboardData>({
+  const { data, isLoading, isError } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
-    queryFn: () => fetch('/api/admin/dashboard').then(r => {
+    queryFn: () => adminFetch('/api/admin/dashboard').then(r => {
       if (!r.ok) throw new Error('Failed to load dashboard')
       return r.json()
     }),
@@ -31,6 +32,7 @@ export default function AdminDashboard() {
   })
 
   if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
+  if (isError) return <p className="text-sm text-red-500">Failed to load dashboard. Please refresh.</p>
   if (!data) return null
 
   const stats = [

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { showToast } from '../Toast'
+import { adminFetch } from '../lib/adminFetch'
 
 // RFC-4180 compliant CSV parser
 function parseCSV(text: string): string[][] {
@@ -237,14 +238,16 @@ interface CollectionCache {
   slug: string
 }
 
+// Returns IDs for every level of the path so a product gets assigned to all ancestor collections.
 async function resolveCategory(
   path: string[],
   existingCollections: Array<{ id: number; name: string; slug: string; parent_id: number | null }>,
   cache: Map<string, CollectionCache>
-): Promise<number | null> {
-  if (!path.length) return null
+): Promise<number[]> {
+  if (!path.length) return []
   let parentId: number | null = null
   let parentSlug = ''
+  const allIds: number[] = []
 
   for (const segment of path) {
     const cacheKey: string = `${parentId ?? 'root'}:${segment.toLowerCase()}`
@@ -252,6 +255,7 @@ async function resolveCategory(
       const cached: CollectionCache = cache.get(cacheKey)!
       parentId = cached.id
       parentSlug = cached.slug
+      allIds.push(parentId)
       continue
     }
     // Check existing collections (pre-import snapshot) and the in-session cache (tracks newly created collections)
@@ -262,12 +266,13 @@ async function resolveCategory(
       cache.set(cacheKey, { id: existing.id, slug: existing.slug })
       parentId = existing.id
       parentSlug = existing.slug
+      allIds.push(parentId)
       continue
     }
     // Create the collection
     const segSlug = segment.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
     const slug = parentSlug ? `${parentSlug}-${segSlug}` : segSlug
-    const res = await fetch('/api/admin/collections', {
+    const res = await adminFetch('/api/admin/collections', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: segment, slug, parent_id: parentId }),
@@ -277,22 +282,24 @@ async function resolveCategory(
       cache.set(cacheKey, { id, slug })
       parentId = id
       parentSlug = slug
+      allIds.push(parentId)
     } else {
       // Slug conflict — try with timestamp suffix
       const slug2 = `${slug}-${Date.now()}`
-      const res2 = await fetch('/api/admin/collections', {
+      const res2 = await adminFetch('/api/admin/collections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: segment, slug: slug2, parent_id: parentId }),
       })
-      if (!res2.ok) return parentId  // Best effort: use last successfully resolved level
+      if (!res2.ok) { if (parentId !== null) allIds.push(parentId); continue }
       const { id } = await res2.json() as { id: number }
       cache.set(cacheKey, { id, slug: slug2 })
       parentId = id
       parentSlug = slug2
+      allIds.push(parentId)
     }
   }
-  return parentId
+  return allIds
 }
 
 async function importProducts(
@@ -303,7 +310,7 @@ async function importProducts(
   let failed = 0
 
   // Pre-fetch all existing collections for category resolution
-  const collRes = await fetch('/api/admin/collections')
+  const collRes = await adminFetch('/api/admin/collections')
   const { collections: existingCollections = [] } = collRes.ok
     ? await collRes.json() as { collections: Array<{ id: number; name: string; slug: string; parent_id: number | null }> }
     : { collections: [] }
@@ -311,7 +318,7 @@ async function importProducts(
 
   for (const p of products) {
     try {
-      const res = await fetch('/api/admin/products', {
+      const res = await adminFetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -331,14 +338,14 @@ async function importProducts(
       if (!res.ok) throw new Error('API error')
       const { id } = await res.json() as { id: number }
 
-      // Assign to collection hierarchy
+      // Assign to every collection in the hierarchy (leaf + all ancestors)
       if (p.categoryPath.length > 0) {
-        const collectionId = await resolveCategory(p.categoryPath, existingCollections, collectionCache)
-        if (collectionId !== null) {
-          await fetch(`/api/admin/products/${id}/collections`, {
+        const collectionIds = await resolveCategory(p.categoryPath, existingCollections, collectionCache)
+        if (collectionIds.length > 0) {
+          await adminFetch(`/api/admin/products/${id}/collections`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ collection_ids: [collectionId] }),
+            body: JSON.stringify({ collection_ids: collectionIds }),
           })
         }
       }
@@ -346,7 +353,7 @@ async function importProducts(
       // Import variants
       if (p.variants.length > 0) {
         for (const v of p.variants) {
-          await fetch(`/api/admin/products/${id}/variants`, {
+          await adminFetch(`/api/admin/products/${id}/variants`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(v),

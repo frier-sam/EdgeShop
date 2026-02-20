@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { adminFetch } from '../lib/adminFetch'
 
 interface Order {
   id: string
@@ -35,13 +36,13 @@ export default function AdminOrders() {
   const { data, isLoading } = useQuery<{ orders: Order[] }>({
     queryKey: ['admin-orders', q, statusFilter],
     queryFn: () =>
-      fetch('/api/admin/orders?' + new URLSearchParams({ ...(q && { q }), ...(statusFilter && { status: statusFilter }) })).then((r) => r.json()),
+      adminFetch('/api/admin/orders?' + new URLSearchParams({ ...(q && { q }), ...(statusFilter && { status: statusFilter }) })).then((r) => r.json()),
     refetchInterval: 30_000, // refresh every 30s
   })
 
   const statusMutation = useMutation({
     mutationFn: ({ id, updates }: { id: string; updates: { order_status?: string; payment_status?: string } }) =>
-      fetch(`/api/admin/orders/${id}/status`, {
+      adminFetch(`/api/admin/orders/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),

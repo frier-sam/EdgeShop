@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { adminFetch } from '../lib/adminFetch'
 
 interface DiscountCode {
   id: number
@@ -54,7 +55,7 @@ export default function AdminDiscounts() {
   const { data, isLoading, isError } = useQuery<{ discounts: DiscountCode[] }>({
     queryKey: ['admin-discounts'],
     queryFn: () =>
-      fetch('/api/admin/discounts').then(r => {
+      adminFetch('/api/admin/discounts').then(r => {
         if (!r.ok) throw new Error('Failed to load discounts')
         return r.json() as Promise<{ discounts: DiscountCode[] }>
       }),
@@ -72,14 +73,14 @@ export default function AdminDiscounts() {
         expires_at: body.expires_at || null,
       }
       if (editing) {
-        const res = await fetch(`/api/admin/discounts/${editing.id}`, {
+        const res = await adminFetch(`/api/admin/discounts/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         })
         if (!res.ok) throw new Error('Failed to save')
       } else {
-        const res = await fetch('/api/admin/discounts', {
+        const res = await adminFetch('/api/admin/discounts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
@@ -95,7 +96,7 @@ export default function AdminDiscounts() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch(`/api/admin/discounts/${id}`, { method: 'DELETE' }).then(r => {
+      adminFetch(`/api/admin/discounts/${id}`, { method: 'DELETE' }).then(r => {
         if (!r.ok) throw new Error('Delete failed')
       }),
     onSuccess: () => {

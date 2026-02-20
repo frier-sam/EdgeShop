@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { adminFetch } from '../lib/adminFetch'
 
 interface Page {
   id: number
@@ -32,7 +33,7 @@ export default function AdminPages() {
 
   const { data, isLoading } = useQuery<{ pages: Page[] }>({
     queryKey: ['admin-pages'],
-    queryFn: () => fetch('/api/admin/pages').then(r => {
+    queryFn: () => adminFetch('/api/admin/pages').then(r => {
       if (!r.ok) throw new Error('Failed to load pages')
       return r.json() as Promise<{ pages: Page[] }>
     }),
@@ -41,7 +42,7 @@ export default function AdminPages() {
   // When editing, fetch full page content
   const { data: fullPage } = useQuery<Page>({
     queryKey: ['admin-page', editing?.id],
-    queryFn: () => fetch(`/api/admin/pages/${editing!.id}`).then(r => {
+    queryFn: () => adminFetch(`/api/admin/pages/${editing!.id}`).then(r => {
       if (!r.ok) throw new Error('Failed to load page')
       return r.json() as Promise<Page>
     }),
@@ -58,14 +59,14 @@ export default function AdminPages() {
   const saveMutation = useMutation({
     mutationFn: async (body: typeof emptyForm) => {
       if (editing) {
-        const res = await fetch(`/api/admin/pages/${editing.id}`, {
+        const res = await adminFetch(`/api/admin/pages/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         })
         if (!res.ok) throw new Error('Failed to save')
       } else {
-        const res = await fetch('/api/admin/pages', {
+        const res = await adminFetch('/api/admin/pages', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -84,7 +85,7 @@ export default function AdminPages() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) =>
-      fetch(`/api/admin/pages/${id}`, { method: 'DELETE' }).then(r => {
+      adminFetch(`/api/admin/pages/${id}`, { method: 'DELETE' }).then(r => {
         if (!r.ok) throw new Error('Delete failed')
       }),
     onSuccess: () => {

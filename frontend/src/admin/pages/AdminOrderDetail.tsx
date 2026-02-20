@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { adminFetch } from '../lib/adminFetch'
 
 interface OrderItem {
   product_id: number
@@ -8,6 +9,15 @@ interface OrderItem {
   price: number
   quantity: number
   image_url?: string
+}
+
+interface EmailLog {
+  id: number
+  type: string
+  recipient: string
+  subject: string
+  status: 'sent' | 'failed'
+  sent_at: number  // unix seconds
 }
 
 interface Order {
@@ -24,12 +34,17 @@ interface Order {
   payment_status: string
   payment_method: string
   shipping_address: string
+  shipping_city?: string
+  shipping_state?: string
+  shipping_pincode?: string
+  shipping_country?: string
   tracking_number?: string
   customer_notes?: string
   internal_notes?: string
   created_at: string
   razorpay_order_id?: string
   razorpay_payment_id?: string
+  emails?: EmailLog[]
 }
 
 const ORDER_STATUSES = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled']
@@ -71,7 +86,7 @@ export default function AdminOrderDetail() {
   const { data: order, isLoading, isError } = useQuery<Order>({
     queryKey: ['admin-order', id],
     queryFn: () =>
-      fetch(`/api/admin/orders/${id}`).then((r) => {
+      adminFetch(`/api/admin/orders/${id}`).then((r) => {
         if (!r.ok) throw new Error('Order not found')
         return r.json()
       }),
@@ -79,8 +94,17 @@ export default function AdminOrderDetail() {
   })
 
   const [orderStatus, setOrderStatus] = useState('')
+  const [paymentStatus, setPaymentStatus] = useState('')
   const [trackingNumber, setTrackingNumber] = useState('')
-  const [internalNotes, setInternalNotes] = useState('')
+  const [privateNote, setPrivateNote] = useState('')
+  const [customerName, setCustomerName] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [shippingAddress, setShippingAddress] = useState('')
+  const [shippingCity, setShippingCity] = useState('')
+  const [shippingState, setShippingState] = useState('')
+  const [shippingPincode, setShippingPincode] = useState('')
+  const [shippingCountry, setShippingCountry] = useState('')
 
   const seeded = useRef(false)
 
@@ -88,14 +112,23 @@ export default function AdminOrderDetail() {
     if (order && !seeded.current) {
       seeded.current = true
       setOrderStatus(order.order_status)
+      setPaymentStatus(order.payment_status)
       setTrackingNumber(order.tracking_number ?? '')
-      setInternalNotes(order.internal_notes ?? '')
+      setPrivateNote(order.internal_notes ?? '')
+      setCustomerName(order.customer_name)
+      setCustomerEmail(order.customer_email)
+      setCustomerPhone(order.customer_phone ?? '')
+      setShippingAddress(order.shipping_address)
+      setShippingCity(order.shipping_city ?? '')
+      setShippingState(order.shipping_state ?? '')
+      setShippingPincode(order.shipping_pincode ?? '')
+      setShippingCountry(order.shipping_country ?? 'India')
     }
   }, [order])
 
   const refundMutation = useMutation({
     mutationFn: async (payload: { notes: string }) => {
-      const r = await fetch(`/api/admin/orders/${id}/refund`, {
+      const r = await adminFetch(`/api/admin/orders/${id}/refund`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -113,7 +146,7 @@ export default function AdminOrderDetail() {
 
   const updateMutation = useMutation({
     mutationFn: async (update: Partial<Order>) => {
-      const r = await fetch(`/api/admin/orders/${id}`, {
+      const r = await adminFetch(`/api/admin/orders/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(update),
@@ -184,41 +217,169 @@ export default function AdminOrderDetail() {
           {/* Customer info */}
           <section className="bg-white rounded-lg border border-gray-200 p-4">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Customer</h2>
-            <dl className="space-y-1 text-sm">
-              <div className="flex gap-2">
-                <dt className="text-gray-400 w-20 shrink-0">Name</dt>
-                <dd className="text-gray-900 font-medium">{order.customer_name}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="text-gray-400 w-20 shrink-0">Email</dt>
-                <dd className="text-gray-900">{order.customer_email}</dd>
-              </div>
-              {order.customer_phone && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Name</label>
                 <div className="flex gap-2">
-                  <dt className="text-gray-400 w-20 shrink-0">Phone</dt>
-                  <dd className="text-gray-900">{order.customer_phone}</dd>
+                  <input
+                    value={customerName}
+                    onChange={e => setCustomerName(e.target.value)}
+                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                  />
+                  <button
+                    onClick={() => updateMutation.mutate({ customer_name: customerName })}
+                    disabled={updateMutation.isPending || customerName === order.customer_name}
+                    className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >Save</button>
                 </div>
-              )}
-            </dl>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Email</label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={customerEmail}
+                    onChange={e => setCustomerEmail(e.target.value)}
+                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                  />
+                  <button
+                    onClick={() => updateMutation.mutate({ customer_email: customerEmail })}
+                    disabled={updateMutation.isPending || customerEmail === order.customer_email}
+                    className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >Save</button>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Phone</label>
+                <div className="flex gap-2">
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={e => setCustomerPhone(e.target.value)}
+                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                  />
+                  <button
+                    onClick={() => updateMutation.mutate({ customer_phone: customerPhone })}
+                    disabled={updateMutation.isPending || customerPhone === (order.customer_phone ?? '')}
+                    className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >Save</button>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* Shipping address */}
           <section className="bg-white rounded-lg border border-gray-200 p-4">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Shipping Address</h2>
-            <p className="text-sm text-gray-700 whitespace-pre-line">{order.shipping_address}</p>
+            <div className="space-y-2">
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">Address Line</label>
+                <div className="flex gap-2">
+                  <input
+                    value={shippingAddress}
+                    onChange={e => setShippingAddress(e.target.value)}
+                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                  />
+                  <button
+                    onClick={() => updateMutation.mutate({ shipping_address: shippingAddress })}
+                    disabled={updateMutation.isPending || shippingAddress === order.shipping_address}
+                    className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                  >Save</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">City</label>
+                  <div className="flex gap-1">
+                    <input
+                      value={shippingCity}
+                      onChange={e => setShippingCity(e.target.value)}
+                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                    />
+                    <button
+                      onClick={() => updateMutation.mutate({ shipping_city: shippingCity })}
+                      disabled={updateMutation.isPending || shippingCity === (order.shipping_city ?? '')}
+                      className="px-2 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    >✓</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">State</label>
+                  <div className="flex gap-1">
+                    <input
+                      value={shippingState}
+                      onChange={e => setShippingState(e.target.value)}
+                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                    />
+                    <button
+                      onClick={() => updateMutation.mutate({ shipping_state: shippingState })}
+                      disabled={updateMutation.isPending || shippingState === (order.shipping_state ?? '')}
+                      className="px-2 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    >✓</button>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Pincode</label>
+                  <div className="flex gap-1">
+                    <input
+                      value={shippingPincode}
+                      onChange={e => setShippingPincode(e.target.value)}
+                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                    />
+                    <button
+                      onClick={() => updateMutation.mutate({ shipping_pincode: shippingPincode })}
+                      disabled={updateMutation.isPending || shippingPincode === (order.shipping_pincode ?? '')}
+                      className="px-2 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    >✓</button>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Country</label>
+                  <div className="flex gap-1">
+                    <input
+                      value={shippingCountry}
+                      onChange={e => setShippingCountry(e.target.value)}
+                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                    />
+                    <button
+                      onClick={() => updateMutation.mutate({ shipping_country: shippingCountry })}
+                      disabled={updateMutation.isPending || shippingCountry === (order.shipping_country ?? 'India')}
+                      className="px-2 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+                    >✓</button>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* Payment info */}
           <section className="bg-white rounded-lg border border-gray-200 p-4">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Payment</h2>
-            <dl className="space-y-1 text-sm">
-              <div className="flex gap-2">
+            <dl className="space-y-2 text-sm">
+              <div className="flex gap-2 items-center">
                 <dt className="text-gray-400 w-32 shrink-0">Method</dt>
                 <dd className="text-gray-900 capitalize">{order.payment_method}</dd>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center">
                 <dt className="text-gray-400 w-32 shrink-0">Status</dt>
-                <dd><StatusBadge label={order.payment_status} /></dd>
+                <dd className="flex items-center gap-2">
+                  <select
+                    value={paymentStatus}
+                    onChange={e => setPaymentStatus(e.target.value)}
+                    className="text-sm border border-gray-300 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-500"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="refunded">Refunded</option>
+                  </select>
+                  <button
+                    onClick={() => updateMutation.mutate({ payment_status: paymentStatus })}
+                    disabled={updateMutation.isPending || paymentStatus === order.payment_status}
+                    className="px-2.5 py-1 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >Save</button>
+                </dd>
               </div>
               {order.razorpay_order_id && (
                 <div className="flex gap-2">
@@ -316,6 +477,90 @@ export default function AdminOrderDetail() {
         </div>
       </div>
 
+      {/* Timeline + Private Notes */}
+      <section className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">Timeline</h2>
+
+        {/* Private note input */}
+        <div className="mb-5">
+          <textarea
+            value={privateNote}
+            onChange={e => setPrivateNote(e.target.value)}
+            rows={2}
+            placeholder="Add a private note (only visible to admins)…"
+            className="w-full text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 resize-none focus:outline-none focus:border-gray-500"
+          />
+          <button
+            onClick={() => updateMutation.mutate({ internal_notes: privateNote })}
+            disabled={updateMutation.isPending || privateNote === (order.internal_notes ?? '')}
+            className="mt-1.5 px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Save note
+          </button>
+        </div>
+
+        {/* Timeline events */}
+        <div className="relative pl-5 space-y-4">
+          <div className="absolute left-1.5 top-2 bottom-2 w-px bg-gray-200" />
+
+          {/* Order placed */}
+          <div className="relative">
+            <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-gray-400 border-2 border-white" />
+            <p className="text-xs font-medium text-gray-700">Order placed</p>
+            <p className="text-xs text-gray-400">{formatDate(order.created_at)}</p>
+          </div>
+
+          {/* Payment */}
+          {order.payment_status === 'paid' && (
+            <div className="relative">
+              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-white" />
+              <p className="text-xs font-medium text-gray-700">Payment received</p>
+              <p className="text-xs text-gray-400 capitalize">{order.payment_method}</p>
+            </div>
+          )}
+
+          {/* Tracking set */}
+          {order.tracking_number && (
+            <div className="relative">
+              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-yellow-400 border-2 border-white" />
+              <p className="text-xs font-medium text-gray-700">Shipped</p>
+              <p className="text-xs text-gray-400">Tracking: {order.tracking_number}</p>
+            </div>
+          )}
+
+          {/* Refunded */}
+          {order.payment_status === 'refunded' && (
+            <div className="relative">
+              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-orange-400 border-2 border-white" />
+              <p className="text-xs font-medium text-gray-700">Refunded</p>
+            </div>
+          )}
+
+          {/* Emails */}
+          {(order.emails ?? []).map(email => (
+            <div key={email.id} className="relative">
+              <div className={`absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full border-2 border-white ${email.status === 'failed' ? 'bg-red-400' : 'bg-blue-400'}`} />
+              <p className="text-xs font-medium text-gray-700 capitalize">
+                {email.type.replace(/_/g, ' ')}
+                {email.status === 'failed' && <span className="ml-1 text-red-500">(failed)</span>}
+              </p>
+              <p className="text-xs text-gray-400">
+                To: {email.recipient} · {new Date(email.sent_at * 1000).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          ))}
+
+          {/* Private note */}
+          {order.internal_notes && (
+            <div className="relative">
+              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-white" />
+              <p className="text-xs font-medium text-gray-700">Private note</p>
+              <p className="text-xs text-gray-500 whitespace-pre-line mt-0.5">{order.internal_notes}</p>
+            </div>
+          )}
+        </div>
+      </section>
+
       {/* Admin actions */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-5">
         <h2 className="text-sm font-semibold text-gray-700">Admin Actions</h2>
@@ -366,24 +611,7 @@ export default function AdminOrderDetail() {
           </button>
         </div>
 
-        {/* Internal notes */}
-        <div className="flex flex-wrap items-start gap-3">
-          <label className="text-sm text-gray-600 w-32 shrink-0 pt-1.5">Internal Notes</label>
-          <textarea
-            value={internalNotes}
-            onChange={(e) => setInternalNotes(e.target.value)}
-            rows={3}
-            placeholder="Notes visible only to admins..."
-            className="text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-700 w-64 resize-y"
-          />
-          <button
-            onClick={() => updateMutation.mutate({ internal_notes: internalNotes })}
-            disabled={updateMutation.isPending || internalNotes === (order.internal_notes ?? '')}
-            className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed self-start mt-0"
-          >
-            Save
-          </button>
-        </div>
+        {/* (Private note moved to Timeline section below) */}
 
         {/* Refund */}
         {order.payment_status !== 'refunded' && (
@@ -392,7 +620,7 @@ export default function AdminOrderDetail() {
             <button
               onClick={() => {
                 if (window.confirm('Mark this order as refunded? This cannot be undone.')) {
-                  refundMutation.mutate({ notes: internalNotes })
+                  refundMutation.mutate({ notes: privateNote })
                 }
               }}
               disabled={refundMutation.isPending}

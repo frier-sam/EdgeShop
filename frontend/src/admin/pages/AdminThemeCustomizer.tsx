@@ -2,12 +2,13 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { themes } from '../../themes'
+import { adminFetch } from '../lib/adminFetch'
 
 export default function AdminThemeCustomizer() {
   const qc = useQueryClient()
   const { data: settings, isLoading } = useQuery({
     queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then(r => r.json()) as Promise<Record<string, string>>,
+    queryFn: () => adminFetch('/api/settings').then(r => r.json()) as Promise<Record<string, string>>,
   })
 
   const activeThemeId = settings?.active_theme ?? 'jewellery'
@@ -37,7 +38,7 @@ export default function AdminThemeCustomizer() {
         // ignore malformed stored JSON
       }
       const merged = { ...existingOverrides, [activeThemeId]: form }
-      const res = await fetch('/api/settings', {
+      const res = await adminFetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ theme_overrides_json: JSON.stringify(merged) }),

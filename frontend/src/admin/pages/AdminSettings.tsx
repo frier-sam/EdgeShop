@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showToast } from '../Toast'
+import { adminFetch } from '../lib/adminFetch'
 
 interface Settings {
   store_name: string
@@ -16,7 +17,7 @@ export default function AdminSettings() {
 
   const { data: settings, isLoading } = useQuery<Settings>({
     queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then((r) => r.json()),
+    queryFn: () => adminFetch('/api/settings').then((r) => r.json()),
   })
 
   const [form, setForm] = useState<Settings>({
@@ -38,7 +39,7 @@ export default function AdminSettings() {
 
   const saveMutation = useMutation({
     mutationFn: (body: Partial<Settings>) =>
-      fetch('/api/settings', {
+      adminFetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

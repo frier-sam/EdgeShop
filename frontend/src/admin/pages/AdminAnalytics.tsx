@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { adminFetch } from '../lib/adminFetch'
 
 interface RevenueDay {
   day: string
@@ -26,7 +27,7 @@ export default function AdminAnalytics() {
   const { data, isLoading, isError } = useQuery<RevenueResponse>({
     queryKey: ['analytics-revenue', days],
     queryFn: () =>
-      fetch(`/api/admin/analytics/revenue?days=${days}`).then(r => {
+      adminFetch(`/api/admin/analytics/revenue?days=${days}`).then(r => {
         if (!r.ok) throw new Error('Failed to load analytics')
         return r.json()
       }),

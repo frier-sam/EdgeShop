@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { FooterData, FooterColumn } from '../../themes/types'
 import { showToast } from '../Toast'
+import { adminFetch } from '../lib/adminFetch'
 
 export default function AdminFooter() {
   const qc = useQueryClient()
 
   const { data: settings, isLoading } = useQuery<Record<string, string>>({
     queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then(r => r.json()),
+    queryFn: () => adminFetch('/api/settings').then(r => r.json()),
   })
 
   const [form, setForm] = useState<FooterData>({
@@ -25,7 +26,7 @@ export default function AdminFooter() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/settings', {
+      const res = await adminFetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ footer_json: JSON.stringify(form) }),
