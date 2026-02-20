@@ -27,6 +27,8 @@ import AdminImport from './admin/pages/AdminImport'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
+import ForgotPasswordPage from './pages/account/ForgotPasswordPage'
+import ResetPasswordPage from './pages/account/ResetPasswordPage'
 import CollectionPage from './pages/CollectionPage'
 import SearchPage from './pages/SearchPage'
 import BlogListPage from './pages/BlogListPage'
@@ -50,6 +52,8 @@ export default function App() {
             <Route path="/account/login" element={<LoginPage />} />
             <Route path="/account/register" element={<RegisterPage />} />
             <Route path="/account/orders" element={<AccountOrdersPage />} />
+            <Route path="/account/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/account/reset-password" element={<ResetPasswordPage />} />
             <Route path="/collections/:slug" element={<CollectionPage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/blog" element={<BlogListPage />} />

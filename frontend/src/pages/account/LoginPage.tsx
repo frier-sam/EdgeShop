@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../../themes/ThemeProvider'
 import { useCartStore } from '../../store/cartStore'
@@ -12,6 +12,8 @@ interface Settings {
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const resetSuccess = searchParams.get('reset') === '1'
   const { theme, isLoading: themeLoading, navItems } = useTheme()
   const totalItems = useCartStore((s) => s.totalItems)
   const setAuth = useAuthStore((s) => s.setAuth)
@@ -75,6 +77,11 @@ export default function LoginPage() {
       />
       <main className="max-w-md mx-auto px-4 py-16">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Sign In</h1>
+        {resetSuccess && (
+          <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+            Password updated successfully. Please log in.
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
@@ -103,6 +110,11 @@ export default function LoginPage() {
               autoComplete="current-password"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
             />
+            <div className="text-right mt-1">
+              <Link to="/account/forgot-password" className="text-xs text-gray-500 hover:text-gray-700 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
           </div>
           {error && (
             <p className="text-sm text-red-600">{error}</p>

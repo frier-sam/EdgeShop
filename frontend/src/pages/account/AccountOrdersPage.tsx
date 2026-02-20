@@ -1,9 +1,17 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../../themes/ThemeProvider'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
+
+interface OrderItem {
+  product_id: string
+  name: string
+  price: number
+  quantity: number
+  image_url: string
+}
 
 interface Order {
   id: string
@@ -11,6 +19,8 @@ interface Order {
   order_status: string
   payment_status: string
   created_at: string
+  items_json: string
+  tracking_number: string | null
 }
 
 interface Settings {
@@ -29,6 +39,7 @@ export default function AccountOrdersPage() {
   const customerName = useAuthStore((s) => s.customerName)
   const logout = useAuthStore((s) => s.logout)
   const queryClient = useQueryClient()
+  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) {
@@ -62,6 +73,18 @@ export default function AccountOrdersPage() {
     queryClient.removeQueries({ queryKey: ['account-orders'] })
     logout()
     navigate('/')
+  }
+
+  const toggleOrder = (id: string) => {
+    setExpandedOrderId((prev) => (prev === id ? null : id))
+  }
+
+  const parseItems = (itemsJson: string): OrderItem[] => {
+    try {
+      return JSON.parse(itemsJson) ?? []
+    } catch {
+      return []
+    }
   }
 
   if (themeLoading || !theme) {
@@ -118,43 +141,90 @@ export default function AccountOrdersPage() {
 
         {!ordersLoading && !error && orders.length > 0 && (
           <div className="space-y-4">
-            {orders.map((order) => (
-              <div
-                key={order.id}
-                className="border border-gray-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
-              >
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-gray-900">Order #{order.id}</p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(order.created_at).toLocaleDateString('en-IN', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
-                  </p>
+            {orders.map((order) => {
+              const isExpanded = expandedOrderId === order.id
+              const items = parseItems(order.items_json)
+              return (
+                <div
+                  key={order.id}
+                  className="border border-gray-200 rounded-lg p-4"
+                >
+                  {/* Summary row */}
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-gray-900">Order #{order.id}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(order.created_at).toLocaleDateString('en-IN', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-right sm:text-center">
+                        <p className="text-xs text-gray-400 mb-0.5">Total</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {currency}{order.total_amount.toFixed(2)}
+                        </p>
+                      </div>
+                      <div className="text-right sm:text-center">
+                        <p className="text-xs text-gray-400 mb-0.5">Status</p>
+                        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 capitalize">
+                          {order.order_status}
+                        </span>
+                      </div>
+                      <div className="text-right sm:text-center">
+                        <p className="text-xs text-gray-400 mb-0.5">Payment</p>
+                        <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 capitalize">
+                          {order.payment_status}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => toggleOrder(order.id)}
+                        className="text-xs text-gray-500 hover:text-gray-700 transition-colors whitespace-nowrap"
+                        aria-expanded={isExpanded}
+                      >
+                        {isExpanded ? 'Hide ▲' : 'Details ▼'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Expanded section */}
+                  {isExpanded && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      {/* Items list */}
+                      {items.length > 0 && (
+                        <div className="space-y-2 mb-3">
+                          {items.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="flex items-center justify-between text-sm text-gray-700"
+                            >
+                              <span>
+                                <span className="text-gray-500">{item.quantity}×</span>{' '}
+                                {item.name}
+                              </span>
+                              <span className="text-gray-900 font-medium">
+                                {currency}{(item.price * item.quantity).toFixed(2)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Tracking number */}
+                      {order.tracking_number && (
+                        <p className="text-xs text-gray-500 mt-2">
+                          Shipped — Tracking:{' '}
+                          <span className="font-medium text-gray-700">{order.tracking_number}</span>
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-right sm:text-center">
-                    <p className="text-xs text-gray-400 mb-0.5">Total</p>
-                    <p className="text-sm font-medium text-gray-900">
-                      {currency}{order.total_amount.toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="text-right sm:text-center">
-                    <p className="text-xs text-gray-400 mb-0.5">Status</p>
-                    <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 capitalize">
-                      {order.order_status}
-                    </span>
-                  </div>
-                  <div className="text-right sm:text-center">
-                    <p className="text-xs text-gray-400 mb-0.5">Payment</p>
-                    <span className="inline-block text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 capitalize">
-                      {order.payment_status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </main>
