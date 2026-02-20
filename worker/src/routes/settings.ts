@@ -41,6 +41,11 @@ settings.put('/', async (c) => {
     'announcement_bar_text', 'announcement_bar_enabled', 'announcement_bar_color',
     // v2 theme customizer
     'theme_overrides_json',
+    // v2 footer + review settings
+    'footer_json',
+    'reviews_visibility',
+    // v2 email notification
+    'admin_email_notifications',
   ]
   const stmts = Object.entries(body)
     .filter(([key]) => allowed.includes(key))
