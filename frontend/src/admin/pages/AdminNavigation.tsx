@@ -193,6 +193,30 @@ export default function AdminNavigation() {
               ))}
             </div>
 
+            {/* Quick links (shown for Custom Link) */}
+            {itemType === 'link' && (
+              <div>
+                <p className="text-xs text-gray-400 mb-1.5">Quick fill</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { label: 'All Products', href: '/search' },
+                    { label: 'Home', href: '/' },
+                    { label: 'Blog', href: '/blog' },
+                    { label: 'Contact', href: '/contact' },
+                  ].map(q => (
+                    <button
+                      key={q.href}
+                      type="button"
+                      onClick={() => { setNewLabel(q.label); setNewHref(q.href) }}
+                      className="px-2.5 py-1 text-xs border border-gray-200 rounded-full text-gray-500 hover:border-gray-400 hover:text-gray-800 transition-colors"
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Fields */}
             {itemType === 'collection' && (
               <div>

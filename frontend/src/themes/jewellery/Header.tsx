@@ -56,10 +56,10 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
                         {hasChildren && <span className="ml-1 opacity-50">▾</span>}
                       </Link>
                     )}
-                    {/* Dropdown */}
+                    {/* Dropdown — no mt-2 gap so onMouseLeave isn't triggered mid-air */}
                     {hasChildren && openDropdown === item.href && (
                       <div
-                        className="absolute top-full left-0 mt-2 min-w-40 border border-stone-200 shadow-lg z-50"
+                        className="absolute top-full left-0 min-w-40 border border-stone-200 shadow-lg z-50 pt-1"
                         style={{ backgroundColor: 'var(--color-bg)' }}
                       >
                         {item.children!.map(child => (
