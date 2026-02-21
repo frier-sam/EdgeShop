@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showToast } from '../Toast'
 import { adminFetch } from '../lib/adminFetch'
@@ -44,6 +44,7 @@ function useSection<T extends Record<string, unknown>>(initial: T) {
 
 export default function AdminProductEdit() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const qc = useQueryClient()
 
   const { data: product, isLoading, error } = useQuery<Product>({
@@ -53,7 +54,7 @@ export default function AdminProductEdit() {
         if (!r.ok) throw new Error('Not found')
         return r.json()
       }),
-    enabled: !!id,
+    enabled: !!id && id !== 'new',
   })
 
   // One useMutation shared — called with different field subsets per section
@@ -78,6 +79,28 @@ export default function AdminProductEdit() {
     },
   })
 
+  const createMutation = useMutation({
+    mutationFn: (fields: Omit<Product, 'id'>) =>
+      adminFetch('/api/admin/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+      }).then(async (r) => {
+        if (!r.ok) {
+          const err = await r.json() as { error?: string }
+          throw new Error(err.error ?? 'Create failed')
+        }
+        return r.json() as Promise<{ id: number }>
+      }),
+    onSuccess: (data) => {
+      showToast('Product created', 'success')
+      navigate(`/admin/products/${data.id}`)
+    },
+    onError: (err: Error) => {
+      showToast(err.message, 'error')
+    },
+  })
+
   // Section state — basic info
   const basicInfo = useSection({ name: '', description: '' })
   // Section state — pricing
@@ -90,6 +113,13 @@ export default function AdminProductEdit() {
 
   const [savingSection, setSavingSection] = useState<'basicInfo' | 'pricing' | 'stock' | 'image' | 'details' | 'seo' | null>(null)
 
+  const [createForm, setCreateForm] = useState({
+    name: '', description: '', price: '', compare_price: '',
+    image_url: '', stock_count: '0', category: '', tags: '',
+    status: 'active', product_type: 'physical',
+    seo_title: '', seo_description: '',
+  })
+
   useEffect(() => {
     if (!product) return
     basicInfo.seed({ name: product.name, description: product.description })
@@ -100,6 +130,113 @@ export default function AdminProductEdit() {
     seo.seed({ seo_title: product.seo_title ?? '', seo_description: product.seo_description ?? '' })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product])
+
+  const isCreateMode = id === 'new'
+
+  if (isCreateMode) {
+    return (
+      <div className="max-w-2xl space-y-6">
+        <div>
+          <Link to="/admin/products" className="text-xs text-gray-400 hover:text-gray-700 mb-1 inline-block">
+            ← Back to Products
+          </Link>
+          <h1 className="text-xl font-semibold text-gray-900">New Product</h1>
+        </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Name *</label>
+            <input
+              value={createForm.name}
+              onChange={e => setCreateForm(f => ({ ...f, name: e.target.value }))}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Description</label>
+            <textarea
+              rows={3}
+              value={createForm.description}
+              onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))}
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500 resize-y"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Price (₹) *</label>
+              <input
+                type="number" min="0" step="0.01"
+                value={createForm.price}
+                onChange={e => setCreateForm(f => ({ ...f, price: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Stock</label>
+              <input
+                type="number" min="0"
+                value={createForm.stock_count}
+                onChange={e => setCreateForm(f => ({ ...f, stock_count: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Category</label>
+              <input
+                value={createForm.category}
+                onChange={e => setCreateForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Status</label>
+              <select
+                value={createForm.status}
+                onChange={e => setCreateForm(f => ({ ...f, status: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+              >
+                <option value="active">Active</option>
+                <option value="draft">Draft</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-2">Primary Image</label>
+            <ImageUploader
+              existingUrl={createForm.image_url || undefined}
+              onUploadComplete={(url) => setCreateForm(f => ({ ...f, image_url: url }))}
+            />
+          </div>
+          <button
+            onClick={() => {
+              if (!createForm.name.trim() || !createForm.price) return
+              createMutation.mutate({
+                name: createForm.name.trim(),
+                description: createForm.description,
+                price: parseFloat(createForm.price),
+                compare_price: createForm.compare_price ? parseFloat(createForm.compare_price) : null,
+                image_url: createForm.image_url || null,
+                stock_count: parseInt(createForm.stock_count, 10) || 0,
+                category: createForm.category,
+                tags: createForm.tags,
+                status: createForm.status,
+                product_type: createForm.product_type,
+                seo_title: createForm.seo_title || null,
+                seo_description: createForm.seo_description || null,
+              })
+            }}
+            disabled={createMutation.isPending || !createForm.name.trim() || !createForm.price}
+            className="w-full py-2.5 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          >
+            {createMutation.isPending ? 'Creating…' : 'Create Product'}
+          </button>
+          <p className="text-xs text-gray-400 text-center">Gallery, variants and collections can be added after creating the product.</p>
+        </div>
+      </div>
+    )
+  }
 
   if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
   if (error || !product) return <p className="text-sm text-red-500">Product not found.</p>
