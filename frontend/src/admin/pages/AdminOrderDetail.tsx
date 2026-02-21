@@ -220,56 +220,53 @@ export default function AdminOrderDetail() {
         <div className="space-y-4">
           {/* Customer info */}
           <section className="bg-white rounded-lg border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Customer</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-700">Customer</h2>
+              {!editingCustomer && (
+                <button
+                  onClick={() => setEditingCustomer(true)}
+                  className="text-xs text-gray-500 hover:text-gray-800 underline"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Name</label>
-                <div className="flex gap-2">
+                {editingCustomer ? (
                   <input
                     value={customerName}
                     onChange={e => setCustomerName(e.target.value)}
-                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                    className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
                   />
-                  <button
-                    onClick={() => updateMutation.mutate({ customer_name: customerName })}
-                    disabled={updateMutation.isPending || customerName === order.customer_name}
-                    className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  >Save</button>
-                </div>
+                ) : (
+                  <p className="text-sm text-gray-800">{order.customer_name}</p>
+                )}
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Email</label>
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={customerEmail}
-                    onChange={e => setCustomerEmail(e.target.value)}
-                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
-                  />
-                  <button
-                    onClick={() => updateMutation.mutate({ customer_email: customerEmail })}
-                    disabled={updateMutation.isPending || customerEmail === order.customer_email}
-                    className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  >Save</button>
-                </div>
+                <p className="text-sm text-gray-800">{order.customer_email}</p>
               </div>
               <div>
                 <label className="block text-xs text-gray-400 mb-1">Phone</label>
-                <div className="flex gap-2">
-                  <input
-                    type="tel"
-                    value={customerPhone}
-                    onChange={e => setCustomerPhone(e.target.value)}
-                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
-                  />
-                  <button
-                    onClick={() => updateMutation.mutate({ customer_phone: customerPhone })}
-                    disabled={updateMutation.isPending || customerPhone === (order.customer_phone ?? '')}
-                    className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  >Save</button>
-                </div>
+                <p className="text-sm text-gray-800">{order.customer_phone ?? '—'}</p>
               </div>
             </div>
+            {editingCustomer && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    updateMutation.mutate({ customer_name: customerName })
+                    setEditingCustomer(false)
+                  }}
+                  disabled={updateMutation.isPending}
+                  className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updateMutation.isPending ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            )}
           </section>
 
           {/* Shipping address */}
