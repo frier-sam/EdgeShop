@@ -594,57 +594,74 @@ export default function AdminOrderDetail() {
 
       {/* Admin actions */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-5">
-        <h2 className="text-sm font-semibold text-gray-700">Admin Actions</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700">Admin Actions</h2>
+          {!editingAdminActions && (
+            <button
+              onClick={() => setEditingAdminActions(true)}
+              className="text-xs text-gray-500 hover:text-gray-800 underline"
+            >
+              Edit
+            </button>
+          )}
+        </div>
 
         {updateMutation.isError && (
           <p className="text-xs text-red-500">Update failed. Please try again.</p>
         )}
 
-        {/* Order status */}
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="text-sm text-gray-600 w-32 shrink-0">Order Status</label>
-          <select
-            value={orderStatus}
-            onChange={(e) => setOrderStatus(e.target.value)}
-            className="text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-700"
-          >
-            {ORDER_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => updateMutation.mutate({ order_status: orderStatus })}
-            disabled={updateMutation.isPending || orderStatus === order.order_status}
-            className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Save
-          </button>
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-600 w-32 shrink-0">Order Status</label>
+            {editingAdminActions ? (
+              <select
+                value={orderStatus}
+                onChange={(e) => setOrderStatus(e.target.value)}
+                className="text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-700"
+              >
+                {ORDER_STATUSES.map((s) => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            ) : (
+              <StatusBadge label={order.order_status} />
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="text-sm text-gray-600 w-32 shrink-0">Tracking Number</label>
+            {editingAdminActions ? (
+              <input
+                type="text"
+                value={trackingNumber}
+                onChange={(e) => setTrackingNumber(e.target.value)}
+                placeholder="e.g. 1Z999AA10123456784"
+                className="text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-700 w-64"
+              />
+            ) : (
+              <span className="text-sm text-gray-800">{order.tracking_number ?? '—'}</span>
+            )}
+          </div>
         </div>
 
-        {/* Tracking number */}
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="text-sm text-gray-600 w-32 shrink-0">Tracking Number</label>
-          <input
-            type="text"
-            value={trackingNumber}
-            onChange={(e) => setTrackingNumber(e.target.value)}
-            placeholder="e.g. 1Z999AA10123456784"
-            className="text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-700 w-64"
-          />
-          <button
-            onClick={() => updateMutation.mutate({ tracking_number: trackingNumber })}
-            disabled={updateMutation.isPending || trackingNumber === (order.tracking_number ?? '')}
-            className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Save
-          </button>
-        </div>
+        {editingAdminActions && (
+          <div className="flex justify-end">
+            <button
+              onClick={() => {
+                updateMutation.mutate({
+                  order_status: orderStatus,
+                  tracking_number: trackingNumber,
+                })
+                setEditingAdminActions(false)
+              }}
+              disabled={updateMutation.isPending}
+              className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {updateMutation.isPending ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        )}
 
-        {/* (Private note moved to Timeline section below) */}
-
-        {/* Refund */}
+        {/* Refund — destructive action, stays separate */}
         {order.payment_status !== 'refunded' && (
           <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
             <label className="text-sm text-gray-600 w-32 shrink-0">Refund</label>
