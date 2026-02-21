@@ -94,6 +94,7 @@ export default function AdminProductEdit() {
       }),
     onSuccess: (data) => {
       showToast('Product created', 'success')
+      qc.invalidateQueries({ queryKey: ['admin-products'] })
       navigate(`/admin/products/${data.id}`)
     },
     onError: (err: Error) => {
@@ -211,7 +212,7 @@ export default function AdminProductEdit() {
           </div>
           <button
             onClick={() => {
-              if (!createForm.name.trim() || !createForm.price) return
+              if (!createForm.name.trim() || createForm.price === '') return
               createMutation.mutate({
                 name: createForm.name.trim(),
                 description: createForm.description,
@@ -227,7 +228,7 @@ export default function AdminProductEdit() {
                 seo_description: createForm.seo_description || null,
               })
             }}
-            disabled={createMutation.isPending || !createForm.name.trim() || !createForm.price}
+            disabled={createMutation.isPending || !createForm.name.trim() || createForm.price === ''}
             className="w-full py-2.5 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             {createMutation.isPending ? 'Creating…' : 'Create Product'}
