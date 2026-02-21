@@ -21,6 +21,12 @@ interface Product {
   seo_description: string | null
 }
 
+interface GalleryImage {
+  id: number
+  url: string
+  sort_order: number
+}
+
 // Generic section editor — controls edit/save/cancel for one section
 function useSection<T extends Record<string, unknown>>(initial: T) {
   const [editing, setEditing] = useState(false)
@@ -77,6 +83,29 @@ export default function AdminProductEdit() {
     onError: (err: Error) => {
       showToast(err.message, 'error')
     },
+  })
+
+  const { data: galleryData, refetch: refetchGallery } = useQuery<{ images: GalleryImage[] }>({
+    queryKey: ['product-gallery', id],
+    queryFn: () => adminFetch(`/api/admin/products/${id}/images`).then(r => r.json()),
+    enabled: !!id && id !== 'new',
+  })
+  const galleryImages = galleryData?.images ?? []
+
+  const addGalleryMutation = useMutation({
+    mutationFn: (url: string) =>
+      adminFetch(`/api/admin/products/${id}/images`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, sort_order: galleryImages.length }),
+      }).then(r => r.json()),
+    onSuccess: () => refetchGallery(),
+  })
+
+  const removeGalleryMutation = useMutation({
+    mutationFn: (imageId: number) =>
+      adminFetch(`/api/admin/products/${id}/images/${imageId}`, { method: 'DELETE' }).then(r => r.json()),
+    onSuccess: () => refetchGallery(),
   })
 
   const createMutation = useMutation({
@@ -656,6 +685,29 @@ export default function AdminProductEdit() {
             <p><span className="text-gray-400 text-xs">Description</span> {product.seo_description || <span className="italic text-gray-400">Not set</span>}</p>
           </div>
         )}
+      </div>
+
+      {/* Section: Gallery */}
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <h2 className="font-medium text-gray-800 mb-4">Gallery Images</h2>
+        <p className="text-xs text-gray-400 mb-3">Additional images shown on the product page.</p>
+        {galleryImages.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-4">
+            {galleryImages.map(img => (
+              <div key={img.id} className="relative w-20 h-20 group/thumb">
+                <img src={img.url} alt="" className="w-full h-full object-cover rounded border border-gray-200" />
+                <button
+                  type="button"
+                  onClick={() => removeGalleryMutation.mutate(img.id)}
+                  className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <ImageUploader onUploadComplete={(url) => addGalleryMutation.mutate(url)} />
       </div>
     </div>
   )
