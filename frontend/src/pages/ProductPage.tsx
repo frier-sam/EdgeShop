@@ -216,6 +216,7 @@ export default function ProductPage() {
       price: displayPrice,
       quantity: qty,
       image_url: displayImage,
+      stock_count: displayStock,
     })
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
