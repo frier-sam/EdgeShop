@@ -3,7 +3,7 @@ import type { Env } from '../index'
 
 const settings = new Hono<{ Bindings: Env }>()
 
-const SENSITIVE_KEYS = new Set(['razorpay_key_secret', 'email_api_key', 'jwt_secret'])
+const SENSITIVE_KEYS = new Set(['razorpay_key_secret', 'email_api_key', 'jwt_secret', 'shiprocket_password', 'shiprocket_token'])
 
 settings.get('/', async (c) => {
   const rows = await c.env.DB.prepare('SELECT key, value FROM settings').all()
@@ -48,6 +48,9 @@ settings.put('/', async (c) => {
     'admin_email_notifications',
     // store locale
     'default_country_code',
+    // ShipRocket integration
+    'shiprocket_email', 'shiprocket_password', 'shiprocket_pickup_location',
+    'shiprocket_enabled', 'shiprocket_token', 'shiprocket_token_expires_at',
   ]
   const stmts = Object.entries(body)
     .filter(([key]) => allowed.includes(key))
