@@ -1,5 +1,6 @@
 #\!/usr/bin/env bash
 set -e
+set -o pipefail
 
 # ─── Colours ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -22,7 +23,7 @@ success "Prerequisites OK"
 
 # ─── Install dependencies ────────────────────────────────────────────────────
 info "Installing dependencies..."
-npm install --silent
+npm install
 success "Dependencies installed"
 
 # ─── D1 Database ─────────────────────────────────────────────────────────────
@@ -31,12 +32,10 @@ DB_OUTPUT=$(wrangler d1 create edgeshop-db 2>&1 || true)
 
 if echo "$DB_OUTPUT" | grep -q "already exists"; then
   warn "D1 database already exists — fetching existing ID..."
-  DB_ID=$(wrangler d1 info edgeshop-db 2>&1 | grep -i "database_id" | awk '{print $NF}' | tr -d '",' || true)
-  if [ -z "$DB_ID" ]; then
-    DB_ID=$(wrangler d1 info edgeshop-db --json 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('uuid',''))" 2>/dev/null || true)
-  fi
+  DB_ID=$(wrangler d1 info edgeshop-db --json 2>/dev/null \
+    | python3 -c "import sys,json; print(json.load(sys.stdin).get('uuid',''))" 2>/dev/null || true)
 else
-  DB_ID=$(echo "$DB_OUTPUT" | grep "database_id" | awk '{print $NF}' | tr -d '",' || true)
+  DB_ID=$(echo "$DB_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)
 fi
 
 if [ -z "$DB_ID" ]; then
@@ -46,13 +45,13 @@ fi
 # Patch wrangler.toml
 sed -i.bak "s/database_id = \"placeholder-replace-after-creation\"/database_id = \"$DB_ID\"/" worker/wrangler.toml
 rm -f worker/wrangler.toml.bak
+grep -q "database_id = \"$DB_ID\"" worker/wrangler.toml \
+  || error "Failed to patch database_id in worker/wrangler.toml. Please update it manually: database_id = \"$DB_ID\""
 success "D1 database ready (ID: $DB_ID)"
 
 # ─── D1 Migrations ───────────────────────────────────────────────────────────
 info "Applying D1 migrations..."
-cd worker
-wrangler d1 migrations apply edgeshop-db --remote --yes
-cd "$REPO_ROOT"
+(cd worker && wrangler d1 migrations apply edgeshop-db --remote --yes)
 success "All migrations applied"
 
 # ─── R2 Bucket ───────────────────────────────────────────────────────────────
@@ -72,8 +71,21 @@ echo ""
 read -rp "$(echo -e "${CYAN}Paste your R2 public URL (press Enter to skip):${NC} ")" R2_PUBLIC_URL
 
 if [ -n "$R2_PUBLIC_URL" ]; then
-  sed -i.bak "s|R2_PUBLIC_URL = \"https://pub-REPLACE.r2.dev\"|R2_PUBLIC_URL = \"$R2_PUBLIC_URL\"|" worker/wrangler.toml
-  rm -f worker/wrangler.toml.bak
+  if [[ \! "$R2_PUBLIC_URL" =~ ^https?:// ]]; then
+    warn "URL doesn't start with https:// — skipping. Update R2_PUBLIC_URL in worker/wrangler.toml manually."
+    R2_PUBLIC_URL=""
+  fi
+fi
+
+if [ -n "$R2_PUBLIC_URL" ]; then
+  python3 -c "
+import sys
+path = 'worker/wrangler.toml'
+old = 'R2_PUBLIC_URL = \"https://pub-REPLACE.r2.dev\"'
+new = 'R2_PUBLIC_URL = \"' + sys.argv[1] + '\"'
+content = open(path).read()
+open(path, 'w').write(content.replace(old, new, 1))
+" "$R2_PUBLIC_URL"
   success "R2 public URL set"
 else
   warn "Skipped — update R2_PUBLIC_URL in worker/wrangler.toml manually before images will work"
@@ -83,7 +95,7 @@ fi
 info "Setting secrets..."
 
 JWT_SECRET=$(openssl rand -hex 32)
-echo "$JWT_SECRET" | wrangler secret put JWT_SECRET --name edgeshop-worker
+printf '%s' "$JWT_SECRET" | wrangler secret put JWT_SECRET --name edgeshop-worker
 success "JWT_SECRET auto-generated and set"
 
 echo ""
@@ -91,7 +103,7 @@ warn "Razorpay webhook secret is optional — Razorpay API keys are configured i
 warn "You only need this if you use Razorpay webhooks for payment confirmation."
 read -rp "$(echo -e "${CYAN}RAZORPAY_WEBHOOK_SECRET (press Enter to skip):${NC} ")" RZP_SECRET
 if [ -n "$RZP_SECRET" ]; then
-  echo "$RZP_SECRET" | wrangler secret put RAZORPAY_WEBHOOK_SECRET --name edgeshop-worker
+  printf '%s' "$RZP_SECRET" | wrangler secret put RAZORPAY_WEBHOOK_SECRET --name edgeshop-worker
   success "RAZORPAY_WEBHOOK_SECRET set"
 else
   warn "Skipped — set later with: wrangler secret put RAZORPAY_WEBHOOK_SECRET"
@@ -99,9 +111,7 @@ fi
 
 # ─── Deploy Worker ────────────────────────────────────────────────────────────
 info "Deploying Worker..."
-cd worker
-npm run deploy
-cd "$REPO_ROOT"
+(cd worker && npm run deploy)
 success "Worker deployed"
 
 # ─── Update FRONTEND_URL ─────────────────────────────────────────────────────
@@ -111,20 +121,22 @@ warn "You can update this later in worker/wrangler.toml if unsure."
 read -rp "$(echo -e "${CYAN}Pages URL (press Enter for default):${NC} ")" PAGES_URL
 PAGES_URL="${PAGES_URL:-https://edgeshop.pages.dev}"
 
-sed -i.bak "s|FRONTEND_URL = \"https://edgeshop.pages.dev\"|FRONTEND_URL = \"$PAGES_URL\"|" worker/wrangler.toml
-rm -f worker/wrangler.toml.bak
+python3 -c "
+import sys
+path = 'worker/wrangler.toml'
+old = 'FRONTEND_URL = \"https://edgeshop.pages.dev\"'
+new = 'FRONTEND_URL = \"' + sys.argv[1] + '\"'
+content = open(path).read()
+open(path, 'w').write(content.replace(old, new, 1))
+" "$PAGES_URL"
 
 info "Re-deploying Worker with updated FRONTEND_URL..."
-cd worker && wrangler deploy && cd "$REPO_ROOT"
+(cd worker && npm run deploy)
 success "Worker re-deployed"
 
 # ─── Deploy Frontend ──────────────────────────────────────────────────────────
 info "Building and deploying frontend..."
-cd frontend
-npm install --silent
-npm run build
-../worker/node_modules/.bin/wrangler pages deploy dist --project-name edgeshop
-cd "$REPO_ROOT"
+(cd frontend && npm install && npm run build && "$REPO_ROOT/worker/node_modules/.bin/wrangler" pages deploy dist --project-name edgeshop)
 success "Frontend deployed"
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
