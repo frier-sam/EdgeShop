@@ -875,14 +875,13 @@ export default function AdminProductEdit() {
                   </div>
                 )
               }
-              let opts: Record<string, string> = {}
-              try { opts = JSON.parse(v.options_json) } catch {}
+              const parsedOpts = parseOptions(v.options_json)
               return (
                 <div key={v.id} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-medium text-gray-800">{v.name}</p>
                     <p className="text-xs text-gray-400">
-                      {Object.entries(opts).map(([k, val]) => `${k}: ${val}`).join(' · ')}
+                      {parsedOpts.filter(o => o.key.trim()).map(o => `${o.key}: ${o.value}`).join(' · ')}
                       {v.sku && ` · SKU: ${v.sku}`}
                     </p>
                     <p className="text-xs text-gray-600">₹{v.price} · {v.stock_count} in stock</p>
