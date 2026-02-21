@@ -26,11 +26,28 @@ upload.put('/put', async (c) => {
   return c.json({ url: `${publicBase}/${key}` })
 })
 
-// Step 3 (alternative): Worker fetches an external URL and uploads to R2
+// POST /put-from-url — fetches an external image URL and uploads it to R2
 upload.post('/put-from-url', async (c) => {
   const { url } = await c.req.json<{ url: string }>()
-  if (!url || !url.startsWith('http')) {
+  let parsedUrl: URL
+  try {
+    parsedUrl = new URL(url)
+  } catch {
     return c.json({ error: 'Invalid URL' }, 400)
+  }
+  if (parsedUrl.protocol !== 'https:') {
+    return c.json({ error: 'Only HTTPS URLs are allowed' }, 400)
+  }
+  const hostname = parsedUrl.hostname.toLowerCase()
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.startsWith('169.254.') ||
+    hostname.startsWith('10.') ||
+    hostname.startsWith('192.168.') ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname)
+  ) {
+    return c.json({ error: 'URL points to a private address' }, 400)
   }
 
   let res: Response
@@ -56,7 +73,10 @@ upload.post('/put-from-url', async (c) => {
   const ext = extMap[contentType.split(';')[0].trim()] ?? (urlExt && ['jpg','jpeg','png','webp','gif','svg'].includes(urlExt) ? urlExt : 'jpg')
 
   const key = `products/${crypto.randomUUID()}.${ext}`
-  await c.env.BUCKET.put(key, res.body!, {
+  if (!res.body) {
+    return c.json({ error: 'Remote returned empty body' }, 400)
+  }
+  await c.env.BUCKET.put(key, res.body, {
     httpMetadata: { contentType: contentType.split(';')[0].trim() },
   })
 
