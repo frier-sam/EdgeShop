@@ -13,7 +13,7 @@ export default function CartDrawer({ isOpen, items, currency, onClose, onUpdateQ
       />
       {/* Drawer */}
       <div
-        className={`fixed right-0 top-0 h-full w-full sm:w-96 z-50 flex flex-col transition-transform duration-300 ease-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed right-0 top-0 h-full w-full sm:w-96 z-50 flex flex-col transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
         style={{ backgroundColor: 'var(--color-bg)' }}
       >
         {/* Header */}

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../themes/ThemeProvider'
 import { useCartStore } from '../store/cartStore'
+import { SkeletonCards } from '../components/Skeleton'
 
 interface Product {
   id: number
@@ -49,7 +50,7 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const { data: productsData } = useQuery<ProductsData>({
+  const { data: productsData, isLoading: productsLoading } = useQuery<ProductsData>({
     queryKey: ['products', page],
     queryFn: () => fetch(`/api/products?page=${page}&limit=12`).then((r) => r.json()),
     staleTime: 60 * 1000,
@@ -74,15 +75,21 @@ export default function HomePage() {
       <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={navItems} />
       <main>
         <Hero storeName={storeName} tagline="Discover our collection" />
-        <ProductGrid
-          products={products}
-          currency={currency}
-          onAddToCart={(productId) => {
-            const product = products.find((p) => p.id === productId)
-            if (!product) return
-            addItem({ product_id: product.id, name: product.name, price: product.price, quantity: 1, image_url: product.image_url })
-          }}
-        />
+        {productsLoading ? (
+          <div className="max-w-6xl mx-auto px-4 py-8">
+            <SkeletonCards count={8} />
+          </div>
+        ) : (
+          <ProductGrid
+            products={products}
+            currency={currency}
+            onAddToCart={(productId) => {
+              const product = products.find((p) => p.id === productId)
+              if (!product) return
+              addItem({ product_id: product.id, name: product.name, price: product.price, quantity: 1, image_url: product.image_url })
+            }}
+          />
+        )}
         {productsData && productsData.pages > 1 && (
           <div className="flex items-center justify-center gap-4 py-8">
             <button
