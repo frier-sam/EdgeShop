@@ -271,88 +271,95 @@ export default function AdminOrderDetail() {
 
           {/* Shipping address */}
           <section className="bg-white rounded-lg border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Shipping Address</h2>
-            <div className="space-y-2">
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">Address Line</label>
-                <div className="flex gap-2">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-700">Shipping Address</h2>
+              {!editingShipping && (
+                <button
+                  onClick={() => setEditingShipping(true)}
+                  className="text-xs text-gray-500 hover:text-gray-800 underline"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
+            {editingShipping ? (
+              <div className="space-y-2">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">Address Line</label>
                   <input
                     value={shippingAddress}
                     onChange={e => setShippingAddress(e.target.value)}
-                    className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                    className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
                   />
-                  <button
-                    onClick={() => updateMutation.mutate({ shipping_address: shippingAddress })}
-                    disabled={updateMutation.isPending || shippingAddress === order.shipping_address}
-                    className="px-2.5 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                  >Save</button>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">City</label>
-                  <div className="flex gap-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">City</label>
                     <input
                       value={shippingCity}
                       onChange={e => setShippingCity(e.target.value)}
-                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
                     />
-                    <button
-                      onClick={() => updateMutation.mutate({ shipping_city: shippingCity })}
-                      disabled={updateMutation.isPending || shippingCity === (order.shipping_city ?? '')}
-                      className="px-2 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                    >✓</button>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">State</label>
-                  <div className="flex gap-1">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">State</label>
                     <input
                       value={shippingState}
                       onChange={e => setShippingState(e.target.value)}
-                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
                     />
-                    <button
-                      onClick={() => updateMutation.mutate({ shipping_state: shippingState })}
-                      disabled={updateMutation.isPending || shippingState === (order.shipping_state ?? '')}
-                      className="px-2 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                    >✓</button>
                   </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Pincode</label>
-                  <div className="flex gap-1">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Pincode</label>
                     <input
                       value={shippingPincode}
                       onChange={e => setShippingPincode(e.target.value)}
-                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
                     />
-                    <button
-                      onClick={() => updateMutation.mutate({ shipping_pincode: shippingPincode })}
-                      disabled={updateMutation.isPending || shippingPincode === (order.shipping_pincode ?? '')}
-                      className="px-2 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                    >✓</button>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Country</label>
-                  <div className="flex gap-1">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Country</label>
                     <input
                       value={shippingCountry}
                       onChange={e => setShippingCountry(e.target.value)}
-                      className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
                     />
-                    <button
-                      onClick={() => updateMutation.mutate({ shipping_country: shippingCountry })}
-                      disabled={updateMutation.isPending || shippingCountry === (order.shipping_country ?? 'India')}
-                      className="px-2 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
-                    >✓</button>
                   </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-sm text-gray-800 space-y-0.5">
+                <p>{order.shipping_address}</p>
+                <p>
+                  {[order.shipping_city, order.shipping_state, order.shipping_pincode]
+                    .filter(Boolean)
+                    .join(', ')}
+                </p>
+                <p>{order.shipping_country}</p>
+              </div>
+            )}
+            {editingShipping && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    updateMutation.mutate({
+                      shipping_address: shippingAddress,
+                      shipping_city: shippingCity,
+                      shipping_state: shippingState,
+                      shipping_pincode: shippingPincode,
+                      shipping_country: shippingCountry,
+                    })
+                    setEditingShipping(false)
+                  }}
+                  disabled={updateMutation.isPending}
+                  className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updateMutation.isPending ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            )}
           </section>
 
           {/* Payment info */}
