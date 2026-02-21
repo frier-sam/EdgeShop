@@ -20,7 +20,6 @@ interface Product {
 interface Collection {
   id: number
   name: string
-  slug: string
 }
 
 export default function AdminProducts() {
