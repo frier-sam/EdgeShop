@@ -318,6 +318,14 @@ deploy_frontend() {
   sed_i "s|FRONTEND_URL = \"https://edgeshop.pages.dev\"|FRONTEND_URL = \"${PAGES_URL}\"|" wrangler.toml
   wrangler deploy >/dev/null 2>&1
   success "Worker redeployed with CORS for $PAGES_URL"
+
+  # Set WORKER_URL env var for Pages Functions (bot detection middleware)
+  log "Setting WORKER_URL in Pages environment..."
+  cd "$WORKER_DIR"
+  echo "$WORKER_URL" | wrangler pages secret put WORKER_URL \
+    --project-name "${PROJECT_NAME}" 2>/dev/null || \
+    warn "Could not auto-set WORKER_URL. Set it manually in Cloudflare Pages dashboard:"$'\n'"  Settings → Environment variables → Add: WORKER_URL = $WORKER_URL"
+  success "WORKER_URL set to $WORKER_URL"
 }
 
 # ── Summary ───────────────────────────────────────────────────
@@ -330,6 +338,11 @@ print_summary() {
   echo -e "  ${BOLD}Storefront :${NC}  $PAGES_URL"
   echo -e "  ${BOLD}Admin Panel:${NC}  $PAGES_URL/admin"
   echo -e "  ${BOLD}Worker API :${NC}  $WORKER_URL"
+  echo ""
+  echo -e "  ${BOLD}SEO note:${NC}   Bot detection middleware active."
+  echo "             If WORKER_URL was not auto-set, add it in:"
+  echo "             Cloudflare Pages → ${PROJECT_NAME} → Settings → Env Vars"
+  echo "             Key: WORKER_URL   Value: \$WORKER_URL"
   echo -e "  ${BOLD}Webhook URL:${NC}  $WORKER_URL/api/webhook/razorpay"
   echo ""
   hr
