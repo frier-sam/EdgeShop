@@ -1,6 +1,20 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 
+function setNoIndex() {
+  let el = document.querySelector('meta[name="robots"]')
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute('name', 'robots')
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', 'noindex, nofollow')
+  return () => el!.setAttribute('content', '')
+}
+
 export default function OrderSuccessPage() {
+  useEffect(() => setNoIndex(), [])
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center max-w-sm px-4">

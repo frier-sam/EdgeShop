@@ -20,6 +20,17 @@ interface CheckoutResponse {
   razorpay_key_id?: string
 }
 
+function setNoIndex() {
+  let el = document.querySelector('meta[name="robots"]')
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute('name', 'robots')
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', 'noindex, nofollow')
+  return () => el!.setAttribute('content', '')
+}
+
 export default function CheckoutPage() {
   const navigate = useNavigate()
   const items = useCartStore((s) => s.items)
@@ -112,6 +123,7 @@ export default function CheckoutPage() {
       setForm(f => ({ ...f, country_code: settings.default_country_code! }))
     }
   }, [settings?.default_country_code])
+  useEffect(() => setNoIndex(), [])
 
   if (items.length === 0) {
     return (

@@ -12,6 +12,17 @@ interface Product {
   category: string
 }
 
+function setNoIndex() {
+  let el = document.querySelector('meta[name="robots"]')
+  if (!el) {
+    el = document.createElement('meta')
+    el.setAttribute('name', 'robots')
+    document.head.appendChild(el)
+  }
+  el.setAttribute('content', 'noindex, nofollow')
+  return () => el!.setAttribute('content', '')
+}
+
 export default function SearchPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
@@ -28,6 +39,7 @@ export default function SearchPage() {
   const [inputValue, setInputValue] = useState(q)
 
   useEffect(() => { setInputValue(q) }, [q])
+  useEffect(() => setNoIndex(), [])
 
   const currency = settings.currency === 'INR' ? '₹' : (settings.currency ?? '₹')
   const storeName = settings.store_name ?? 'EdgeShop'
