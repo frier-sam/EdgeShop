@@ -5,7 +5,7 @@
   "scripts": {
     "dev:worker": "cd worker && wrangler dev",
     "dev:frontend": "cd frontend && vite",
-    "deploy:worker": "cd worker && wrangler deploy",
-    "deploy:frontend": "cd frontend && vite build && wrangler pages deploy dist"
+    "deploy:worker": "cd worker && npm run deploy",
+    "deploy:frontend": "cd frontend && npm run build && npx wrangler pages deploy dist --project-name edgeshop"
   }
 }
