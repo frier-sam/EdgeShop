@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from './themes/ThemeProvider'
+import PageTransition from './components/PageTransition'
 import HomePage from './pages/HomePage'
 import ProductPage from './pages/ProductPage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
@@ -50,49 +51,49 @@ export default function App() {
       <ThemeProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/product/:id" element={<ProductPage />} />
-            <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/order-success" element={<OrderSuccessPage />} />
-            <Route path="/pages/:slug" element={<StaticPage />} />
-            <Route path="/account/login" element={<LoginPage />} />
-            <Route path="/account/register" element={<RegisterPage />} />
-            <Route path="/account/orders" element={<AccountOrdersPage />} />
-            <Route path="/account/profile" element={<AccountProfilePage />} />
-            <Route path="/account/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/account/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/collections/:slug" element={<CollectionPage />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/shop" element={<ShopPage />} />
-            <Route path="/blog" element={<BlogListPage />} />
-            <Route path="/blog/:slug" element={<BlogPostPage />} />
-            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/" element={<PageTransition><HomePage /></PageTransition>} />
+            <Route path="/product/:id" element={<PageTransition><ProductPage /></PageTransition>} />
+            <Route path="/checkout" element={<PageTransition><CheckoutPage /></PageTransition>} />
+            <Route path="/order-success" element={<PageTransition><OrderSuccessPage /></PageTransition>} />
+            <Route path="/pages/:slug" element={<PageTransition><StaticPage /></PageTransition>} />
+            <Route path="/account/login" element={<PageTransition><LoginPage /></PageTransition>} />
+            <Route path="/account/register" element={<PageTransition><RegisterPage /></PageTransition>} />
+            <Route path="/account/orders" element={<PageTransition><AccountOrdersPage /></PageTransition>} />
+            <Route path="/account/profile" element={<PageTransition><AccountProfilePage /></PageTransition>} />
+            <Route path="/account/forgot-password" element={<PageTransition><ForgotPasswordPage /></PageTransition>} />
+            <Route path="/account/reset-password" element={<PageTransition><ResetPasswordPage /></PageTransition>} />
+            <Route path="/collections/:slug" element={<PageTransition><CollectionPage /></PageTransition>} />
+            <Route path="/search" element={<PageTransition><SearchPage /></PageTransition>} />
+            <Route path="/shop" element={<PageTransition><ShopPage /></PageTransition>} />
+            <Route path="/blog" element={<PageTransition><BlogListPage /></PageTransition>} />
+            <Route path="/blog/:slug" element={<PageTransition><BlogPostPage /></PageTransition>} />
+            <Route path="/admin/login" element={<PageTransition><AdminLogin /></PageTransition>} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="/admin/products" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="products/new" element={<AdminProductEdit />} />
-              <Route path="products/:id" element={<AdminProductEdit />} />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="orders/:id" element={<AdminOrderDetail />} />
-              <Route path="settings" element={<AdminSettings />} />
+              <Route path="dashboard" element={<PageTransition><AdminDashboard /></PageTransition>} />
+              <Route path="products" element={<PageTransition><AdminProducts /></PageTransition>} />
+              <Route path="products/new" element={<PageTransition><AdminProductEdit /></PageTransition>} />
+              <Route path="products/:id" element={<PageTransition><AdminProductEdit /></PageTransition>} />
+              <Route path="orders" element={<PageTransition><AdminOrders /></PageTransition>} />
+              <Route path="orders/:id" element={<PageTransition><AdminOrderDetail /></PageTransition>} />
+              <Route path="settings" element={<PageTransition><AdminSettings /></PageTransition>} />
               <Route path="theme" element={<Navigate to="/admin/appearance" replace />} />
-              <Route path="appearance" element={<AdminAppearance />} />
-              <Route path="footer" element={<AdminFooter />} />
-              <Route path="collections" element={<AdminCollections />} />
-              <Route path="pages" element={<AdminPages />} />
-              <Route path="navigation" element={<AdminNavigation />} />
-              <Route path="discounts" element={<AdminDiscounts />} />
-              <Route path="analytics" element={<AdminAnalytics />} />
-              <Route path="blog" element={<AdminBlog />} />
-              <Route path="shipping" element={<AdminShipping />} />
-              <Route path="reviews" element={<AdminReviews />} />
-              <Route path="import" element={<AdminImport />} />
-              <Route path="customers" element={<AdminCustomers />} />
-              <Route path="staff" element={<AdminStaff />} />
+              <Route path="appearance" element={<PageTransition><AdminAppearance /></PageTransition>} />
+              <Route path="footer" element={<PageTransition><AdminFooter /></PageTransition>} />
+              <Route path="collections" element={<PageTransition><AdminCollections /></PageTransition>} />
+              <Route path="pages" element={<PageTransition><AdminPages /></PageTransition>} />
+              <Route path="navigation" element={<PageTransition><AdminNavigation /></PageTransition>} />
+              <Route path="discounts" element={<PageTransition><AdminDiscounts /></PageTransition>} />
+              <Route path="analytics" element={<PageTransition><AdminAnalytics /></PageTransition>} />
+              <Route path="blog" element={<PageTransition><AdminBlog /></PageTransition>} />
+              <Route path="shipping" element={<PageTransition><AdminShipping /></PageTransition>} />
+              <Route path="reviews" element={<PageTransition><AdminReviews /></PageTransition>} />
+              <Route path="import" element={<PageTransition><AdminImport /></PageTransition>} />
+              <Route path="customers" element={<PageTransition><AdminCustomers /></PageTransition>} />
+              <Route path="staff" element={<PageTransition><AdminStaff /></PageTransition>} />
             </Route>
-            <Route path="/contact" element={<ContactPage />} />
-            <Route path="*" element={<NotFoundPage />} />
+            <Route path="/contact" element={<PageTransition><ContactPage /></PageTransition>} />
+            <Route path="*" element={<PageTransition><NotFoundPage /></PageTransition>} />
           </Routes>
         </BrowserRouter>
       </ThemeProvider>
