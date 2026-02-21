@@ -290,6 +290,10 @@ deploy_frontend() {
   log "Installing frontend dependencies..."
   npm install --silent
 
+  log "Patching robots.txt with Worker URL..."
+  sed_i "s|https://YOUR-WORKER-URL/sitemap.xml|${WORKER_URL}/sitemap.xml|" "$FRONTEND_DIR/public/robots.txt"
+  success "robots.txt sitemap URL set to ${WORKER_URL}/sitemap.xml"
+
   log "Building frontend..."
   npm run build
 
