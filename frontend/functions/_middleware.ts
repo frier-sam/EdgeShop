@@ -37,6 +37,7 @@ function buildHtml(opts: {
   image?: string
   url: string
   type?: string
+  /** Pre-escaped HTML for the body. Caller is responsible for escaping all dynamic values (use esc()). */
   bodyHtml?: string
 }): string {
   const { title, description, image = '', url, type = 'website', bodyHtml = '' } = opts
@@ -79,8 +80,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     const productMatch = path.match(/^\/product\/(\d+)$/)
     if (productMatch) {
       const [productRes, settingsRes] = await Promise.all([
-        fetch(`${apiBase}/api/products/${productMatch[1]}`),
-        fetch(`${apiBase}/api/settings`),
+        fetch(`${apiBase}/api/products/${productMatch[1]}`, { signal: AbortSignal.timeout(3000) }),
+        fetch(`${apiBase}/api/settings`, { signal: AbortSignal.timeout(3000) }),
       ])
       if (productRes.ok) {
         const p = await productRes.json() as {
@@ -108,15 +109,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             type: 'product',
             bodyHtml: `<h1>${esc(p.name)}</h1><p>${esc(desc)}</p>`,
           }),
-          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
         )
       }
     }
 
     // ── /collections/:slug ───────────────────────────────────────
-    const collectionMatch = path.match(/^\/collections\/([^/]+)$/)
+    const collectionMatch = path.match(/^\/collections\/([a-zA-Z0-9_-]+)$/)
     if (collectionMatch) {
-      const res = await fetch(`${apiBase}/api/collections/${collectionMatch[1]}`)
+      const res = await fetch(`${apiBase}/api/collections/${collectionMatch[1]}`, { signal: AbortSignal.timeout(3000) })
       if (res.ok) {
         const data = await res.json() as {
           collection: {
@@ -138,15 +139,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             url: url.href,
             bodyHtml: `<h1>${esc(col.name)}</h1><p>${esc(desc)}</p>`,
           }),
-          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
         )
       }
     }
 
     // ── /blog/:slug ──────────────────────────────────────────────
-    const blogMatch = path.match(/^\/blog\/([^/]+)$/)
+    const blogMatch = path.match(/^\/blog\/([a-zA-Z0-9_-]+)$/)
     if (blogMatch) {
-      const res = await fetch(`${apiBase}/api/blog/${blogMatch[1]}`)
+      const res = await fetch(`${apiBase}/api/blog/${blogMatch[1]}`, { signal: AbortSignal.timeout(3000) })
       if (res.ok) {
         const post = await res.json() as {
           title: string
@@ -165,15 +166,15 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             type: 'article',
             bodyHtml: `<h1>${esc(post.title)}</h1>`,
           }),
-          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
         )
       }
     }
 
     // ── /pages/:slug ─────────────────────────────────────────────
-    const pageMatch = path.match(/^\/pages\/([^/]+)$/)
+    const pageMatch = path.match(/^\/pages\/([a-zA-Z0-9_-]+)$/)
     if (pageMatch) {
-      const res = await fetch(`${apiBase}/api/pages/${pageMatch[1]}`)
+      const res = await fetch(`${apiBase}/api/pages/${pageMatch[1]}`, { signal: AbortSignal.timeout(3000) })
       if (res.ok) {
         const pg = await res.json() as {
           title: string
@@ -189,14 +190,14 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             url: url.href,
             bodyHtml: `<h1>${esc(pg.title)}</h1>`,
           }),
-          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
         )
       }
     }
 
     // ── / (homepage) ─────────────────────────────────────────────
     if (path === '/') {
-      const res = await fetch(`${apiBase}/api/settings`)
+      const res = await fetch(`${apiBase}/api/settings`, { signal: AbortSignal.timeout(3000) })
       if (res.ok) {
         const settings = await res.json() as Record<string, string>
         const name = settings.store_name || 'EdgeShop'
@@ -208,7 +209,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
             url: url.href,
             bodyHtml: `<h1>${esc(name)}</h1><p>${esc(desc)}</p>`,
           }),
-          { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+          { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
         )
       }
     }
