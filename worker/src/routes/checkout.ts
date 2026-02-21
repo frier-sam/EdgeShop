@@ -26,6 +26,29 @@ async function getCustomerIdFromHeader(authHeader: string, db: D1Database): Prom
   }
 }
 
+async function validateStock(
+  db: D1Database,
+  items: OrderItem[]
+): Promise<Array<{ id: number; name: string; available: number }> | null> {
+  if (!items.length) return null
+  const ids = items.map(i => i.product_id)
+  const placeholders = ids.map(() => '?').join(', ')
+  const { results } = await db.prepare(
+    `SELECT id, name, stock_count FROM products WHERE id IN (${placeholders})`
+  ).bind(...ids).all<{ id: number; name: string; stock_count: number }>()
+
+  const stockMap = new Map(results.map(r => [r.id, r]))
+  const insufficient: Array<{ id: number; name: string; available: number }> = []
+
+  for (const item of items) {
+    const product = stockMap.get(item.product_id)
+    if (product && item.quantity > product.stock_count) {
+      insufficient.push({ id: product.id, name: product.name, available: product.stock_count })
+    }
+  }
+  return insufficient.length > 0 ? insufficient : null
+}
+
 checkout.post('/', async (c) => {
   const body = await c.req.json<{
     customer_name: string
@@ -55,6 +78,12 @@ checkout.post('/', async (c) => {
   const orderId = `ORD-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
 
   if (body.payment_method === 'cod') {
+    // Stock check — must happen before INSERT
+    const stockIssues = await validateStock(c.env.DB, body.items)
+    if (stockIssues) {
+      return c.json({ error: 'stock_error', items: stockIssues }, 400)
+    }
+
     await c.env.DB.prepare(`
       INSERT INTO orders (id, customer_name, customer_email, customer_phone,
         shipping_address, shipping_city, shipping_state, shipping_pincode, shipping_country,
@@ -196,6 +225,12 @@ checkout.post('/', async (c) => {
 
   if (!cfg.razorpay_key_id || !cfg.razorpay_key_secret) {
     return c.json({ error: 'Razorpay not configured' }, 503)
+  }
+
+  // Stock check before creating Razorpay order
+  const rzpStockIssues = await validateStock(c.env.DB, body.items)
+  if (rzpStockIssues) {
+    return c.json({ error: 'stock_error', items: rzpStockIssues }, 400)
   }
 
   const authHeader = 'Basic ' + btoa(`${cfg.razorpay_key_id}:${cfg.razorpay_key_secret}`)
