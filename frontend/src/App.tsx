@@ -28,7 +28,6 @@ import AdminReviews from './admin/pages/AdminReviews'
 import AdminImport from './admin/pages/AdminImport'
 import AdminCustomers from './admin/pages/AdminCustomers'
 import AdminStaff from './admin/pages/AdminStaff'
-// @ts-expect-error — created in Task 8
 import AdminIntegrations from './admin/pages/AdminIntegrations'
 import AdminProductEdit from './admin/pages/AdminProductEdit'
 import LoginPage from './pages/account/LoginPage'
