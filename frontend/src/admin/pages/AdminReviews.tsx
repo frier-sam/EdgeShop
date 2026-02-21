@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
+import { SkeletonTable } from '../../components/Skeleton'
 
 interface Review {
   id: number
@@ -91,6 +92,9 @@ export default function AdminReviews() {
         ))}
       </div>
 
+      {isLoading ? (
+        <SkeletonTable rows={8} cols={5} />
+      ) : (
       <div className="bg-white rounded border border-gray-200 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -104,14 +108,7 @@ export default function AdminReviews() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {isLoading && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {!isLoading && reviews.length === 0 && (
+            {reviews.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                   No {tab} reviews.
@@ -183,6 +180,7 @@ export default function AdminReviews() {
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }

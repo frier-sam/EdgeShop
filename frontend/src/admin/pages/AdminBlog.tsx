@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import ImageUploader from '../ImageUploader'
 import { adminFetch } from '../lib/adminFetch'
+import { SkeletonTable } from '../../components/Skeleton'
 
 interface BlogPostSummary {
   id: number
@@ -157,7 +158,7 @@ export default function AdminBlog() {
     setDeleteId(null)
   }
 
-  if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
+  if (isLoading) return <SkeletonTable rows={8} cols={4} />
 
   const posts = data?.posts ?? []
 

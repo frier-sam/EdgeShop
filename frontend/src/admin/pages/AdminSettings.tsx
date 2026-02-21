@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showToast } from '../Toast'
 import { adminFetch } from '../lib/adminFetch'
 import { COUNTRY_CODES } from '../../utils/countryCodes'
+import { Skeleton } from '../../components/Skeleton'
 
 interface Settings {
   store_name: string
@@ -52,7 +53,18 @@ export default function AdminSettings() {
     },
   })
 
-  if (isLoading) return <p className="text-sm text-gray-400">Loading...</p>
+  if (isLoading) return (
+    <div className="max-w-2xl space-y-6">
+      <Skeleton className="h-7 w-24" />
+      {Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} className="bg-white rounded-lg border border-gray-200 p-5 space-y-3">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-9 w-full" />
+        </div>
+      ))}
+    </div>
+  )
 
   return (
     <div className="max-w-2xl">

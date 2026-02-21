@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminFetch } from '../lib/adminFetch'
+import { SkeletonStatCards, Skeleton } from '../../components/Skeleton'
 
 interface DashboardData {
   revenue_all_time: number
@@ -31,7 +32,16 @@ export default function AdminDashboard() {
     refetchInterval: 60_000, // auto-refresh every minute
   })
 
-  if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
+  if (isLoading) return (
+    <div className="space-y-6">
+      <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
+      <SkeletonStatCards count={4} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg border border-gray-200 h-64 animate-pulse" />
+        <div className="bg-white rounded-lg border border-gray-200 h-64 animate-pulse" />
+      </div>
+    </div>
+  )
   if (isError) return <p className="text-sm text-red-500">Failed to load dashboard. Please refresh.</p>
   if (!data) return null
 

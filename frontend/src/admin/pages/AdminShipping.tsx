@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
+import { SkeletonTable } from '../../components/Skeleton'
 
 interface ShippingZone {
   id: number
@@ -283,6 +284,9 @@ export default function AdminShipping() {
         </div>
 
         {/* Rates table */}
+        {ratesLoading ? (
+          <SkeletonTable rows={8} cols={5} />
+        ) : (
         <div className="bg-white rounded border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -295,14 +299,7 @@ export default function AdminShipping() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {ratesLoading && (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                    Loading…
-                  </td>
-                </tr>
-              )}
-              {!ratesLoading && rates.length === 0 && (
+              {rates.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
                     No rates yet. Add your first shipping rate.
@@ -355,6 +352,7 @@ export default function AdminShipping() {
             </tbody>
           </table>
         </div>
+        )}
 
         {/* Rate modal */}
         {rateModal && (
@@ -481,6 +479,9 @@ export default function AdminShipping() {
         </button>
       </div>
 
+      {zonesLoading ? (
+        <SkeletonTable rows={8} cols={5} />
+      ) : (
       <div className="bg-white rounded border border-gray-200 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-200">
@@ -491,14 +492,7 @@ export default function AdminShipping() {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {zonesLoading && (
-              <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {!zonesLoading && zones.length === 0 && (
+            {zones.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
                   No shipping zones yet. Add your first zone.
@@ -565,6 +559,7 @@ export default function AdminShipping() {
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Zone modal */}
       {zoneModal && (

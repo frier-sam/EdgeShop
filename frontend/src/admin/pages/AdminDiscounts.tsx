@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
+import { SkeletonTable } from '../../components/Skeleton'
 
 interface DiscountCode {
   id: number
@@ -137,7 +138,7 @@ export default function AdminDiscounts() {
     setForm(emptyForm)
   }
 
-  if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
+  if (isLoading) return <SkeletonTable rows={8} cols={5} />
   if (isError) return <p className="text-sm text-red-500">Failed to load discount codes. Please refresh.</p>
 
   const discounts = data?.discounts ?? []

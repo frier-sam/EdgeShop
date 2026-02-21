@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminFetch } from '../lib/adminFetch'
+import { SkeletonTable } from '../../components/Skeleton'
 
 interface Customer {
   id: number
@@ -84,7 +85,7 @@ export default function AdminCustomers() {
         />
       </div>
 
-      {isLoading && <p className="text-sm text-gray-400">Loading...</p>}
+      {isLoading && <SkeletonTable rows={8} cols={5} />}
 
       {!isLoading && customers.length === 0 && (
         <p className="text-sm text-gray-500 py-8 text-center">No customers found.</p>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
+import { SkeletonTable } from '../../components/Skeleton'
 
 interface RevenueDay {
   day: string
@@ -67,7 +68,7 @@ export default function AdminAnalytics() {
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-gray-400">Loading…</p>}
+      {isLoading && <SkeletonTable rows={8} cols={4} />}
       {isError && <p className="text-sm text-red-500">Failed to load. Please refresh.</p>}
 
       {!isLoading && !isError && (

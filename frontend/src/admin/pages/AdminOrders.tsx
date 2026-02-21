@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminFetch } from '../lib/adminFetch'
+import { SkeletonTable } from '../../components/Skeleton'
 
 interface Order {
   id: string
@@ -83,7 +84,7 @@ export default function AdminOrders() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading...</p>
+        <SkeletonTable rows={8} cols={7} />
       ) : orders.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p>No orders yet</p>

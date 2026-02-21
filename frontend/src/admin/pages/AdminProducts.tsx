@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
+import { SkeletonTable } from '../../components/Skeleton'
 
 interface Product {
   id: number
@@ -110,7 +111,7 @@ export default function AdminProducts() {
       </div>
 
       {isLoading ? (
-        <p className="text-sm text-gray-400">Loading...</p>
+        <SkeletonTable rows={8} cols={5} />
       ) : products.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="mb-2">No products yet</p>
