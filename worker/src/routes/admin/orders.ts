@@ -91,6 +91,30 @@ adminOrders.put('/:id', async (c) => {
 
   if (result.meta.changes === 0) return c.json({ error: 'Not found' }, 404)
 
+  // Insert timeline events for relevant field changes (non-fatal)
+  const eventStmts: ReturnType<typeof c.env.DB.prepare>[] = []
+  for (const [k, v] of entries) {
+    if (k === 'order_status') {
+      eventStmts.push(
+        c.env.DB.prepare("INSERT INTO order_events (order_id, event_type, data_json) VALUES (?, 'status_change', ?)")
+          .bind(id, JSON.stringify({ to: v }))
+      )
+    } else if (k === 'tracking_number') {
+      eventStmts.push(
+        c.env.DB.prepare("INSERT INTO order_events (order_id, event_type, data_json) VALUES (?, 'tracking_set', ?)")
+          .bind(id, JSON.stringify({ tracking_number: v }))
+      )
+    } else if (k === 'payment_status') {
+      eventStmts.push(
+        c.env.DB.prepare("INSERT INTO order_events (order_id, event_type, data_json) VALUES (?, 'payment_change', ?)")
+          .bind(id, JSON.stringify({ to: v }))
+      )
+    }
+  }
+  if (eventStmts.length > 0) {
+    await c.env.DB.batch(eventStmts).catch(() => {})
+  }
+
   return c.json({ ok: true })
 })
 
