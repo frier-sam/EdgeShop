@@ -43,7 +43,16 @@ adminOrders.get('/:id', async (c) => {
   } catch {
     // order_emails table may not exist yet (migration pending) — return empty list
   }
-  return c.json({ ...order, emails })
+  let events: Array<{ id: number; event_type: string; data_json: string; created_at: string }> = []
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, event_type, data_json, created_at FROM order_events WHERE order_id = ? ORDER BY created_at ASC'
+    ).bind(id).all<{ id: number; event_type: string; data_json: string; created_at: string }>()
+    events = results
+  } catch {
+    // order_events table may not exist yet (migration pending) — return empty list
+  }
+  return c.json({ ...order, emails, events })
 })
 
 adminOrders.put('/:id', async (c) => {
@@ -201,6 +210,31 @@ adminOrders.patch('/:id/refund', async (c) => {
   await c.env.DB.prepare(
     `UPDATE orders SET payment_status = 'refunded', internal_notes = COALESCE(NULLIF(?, ''), internal_notes) WHERE id = ?`
   ).bind(notes ?? '', id).run()
+
+  await c.env.DB.prepare(
+    "INSERT INTO order_events (order_id, event_type, data_json) VALUES (?, 'refund', '{}')"
+  ).bind(id).run().catch(() => {})
+
+  return c.json({ ok: true })
+})
+
+adminOrders.post('/:id/notes', async (c) => {
+  const id = c.req.param('id')
+  let text: string
+  try {
+    const body = await c.req.json<{ text: string }>()
+    text = (body.text ?? '').trim()
+  } catch {
+    return c.json({ error: 'Invalid JSON body' }, 400)
+  }
+  if (!text) return c.json({ error: 'text is required' }, 400)
+
+  const order = await c.env.DB.prepare('SELECT id FROM orders WHERE id = ?').bind(id).first()
+  if (!order) return c.json({ error: 'Order not found' }, 404)
+
+  await c.env.DB.prepare(
+    "INSERT INTO order_events (order_id, event_type, data_json) VALUES (?, 'note', ?)"
+  ).bind(id, JSON.stringify({ text })).run()
 
   return c.json({ ok: true })
 })
