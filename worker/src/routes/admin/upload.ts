@@ -62,6 +62,10 @@ upload.post('/put-from-url', async (c) => {
     return c.json({ error: `Remote returned ${res.status}` }, 400)
   }
 
+  const contentLength = res.headers.get('content-length')
+  if (contentLength && parseInt(contentLength, 10) > 10 * 1024 * 1024) {
+    return c.json({ error: 'Image too large (max 10 MB)' }, 400)
+  }
   const contentType = res.headers.get('content-type') ?? 'image/jpeg'
   const extMap: Record<string, string> = {
     'image/jpeg': 'jpg',
