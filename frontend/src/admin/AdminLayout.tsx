@@ -103,6 +103,14 @@ function IconCog() {
     </svg>
   )
 }
+function IconPlug() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22v-5" /><path d="M9 8V2" /><path d="M15 8V2" />
+      <path d="M18 8a4 4 0 00-4-4H10a4 4 0 00-4 4v4a4 4 0 004 4h4a4 4 0 004-4V8z" />
+    </svg>
+  )
+}
 function IconUpload() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -165,6 +173,7 @@ const sections: NavSection[] = [
     items: [
       { to: '/admin/appearance', label: 'Appearance', icon: <IconSwatch />, permission: 'appearance' },
       { to: '/admin/shipping', label: 'Shipping', icon: <IconTruck />, permission: 'shipping' },
+      { to: '/admin/integrations', label: 'Integrations', icon: <IconPlug />, permission: 'settings' },
       { to: '/admin/settings', label: 'Settings', icon: <IconCog />, permission: 'settings' },
       // '__super_admin__' is a sentinel: canAccess() allows only role === 'super_admin'
       { to: '/admin/staff', label: 'Staff', icon: <IconUsers />, permission: '__super_admin__' },

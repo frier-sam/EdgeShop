@@ -28,6 +28,8 @@ import AdminReviews from './admin/pages/AdminReviews'
 import AdminImport from './admin/pages/AdminImport'
 import AdminCustomers from './admin/pages/AdminCustomers'
 import AdminStaff from './admin/pages/AdminStaff'
+// @ts-expect-error — created in Task 8
+import AdminIntegrations from './admin/pages/AdminIntegrations'
 import AdminProductEdit from './admin/pages/AdminProductEdit'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
@@ -90,6 +92,7 @@ export default function App() {
               <Route path="import" element={<PageTransition><AdminImport /></PageTransition>} />
               <Route path="customers" element={<PageTransition><AdminCustomers /></PageTransition>} />
               <Route path="staff" element={<PageTransition><AdminStaff /></PageTransition>} />
+              <Route path="integrations" element={<PageTransition><AdminIntegrations /></PageTransition>} />
             </Route>
             <Route path="/contact" element={<PageTransition><ContactPage /></PageTransition>} />
             <Route path="*" element={<PageTransition><NotFoundPage /></PageTransition>} />
