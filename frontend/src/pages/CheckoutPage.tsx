@@ -202,6 +202,7 @@ export default function CheckoutPage() {
           items?: Array<{ id: number; name: string; available: number }>
         }
         if (data.error === 'stock_error' && data.items?.length) {
+          setError('')
           setStockErrors(data.items.map(i => `Only ${i.available} available for "${i.name}"`))
           setSubmitting(false)
           return
