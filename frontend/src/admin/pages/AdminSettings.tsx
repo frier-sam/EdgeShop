@@ -4,6 +4,8 @@ import { showToast } from '../Toast'
 import { adminFetch } from '../lib/adminFetch'
 import { COUNTRY_CODES } from '../../utils/countryCodes'
 import { Skeleton } from '../../components/Skeleton'
+import ToggleField from '../../components/ToggleField'
+import SelectField from '../../components/SelectField'
 
 interface Settings {
   store_name: string
@@ -86,15 +88,19 @@ export default function AdminSettings() {
                 className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
               />
             </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Currency Code</label>
-              <input
-                value={form.currency}
-                onChange={(e) => setForm({ ...form, currency: e.target.value })}
-                placeholder="INR"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-              />
-            </div>
+            <SelectField
+              label="Currency"
+              value={form.currency}
+              onChange={(v) => setForm({ ...form, currency: v })}
+              options={[
+                { value: 'INR', label: 'INR — Indian Rupee (₹)' },
+                { value: 'USD', label: 'USD — US Dollar ($)' },
+                { value: 'EUR', label: 'EUR — Euro (€)' },
+                { value: 'GBP', label: 'GBP — British Pound (£)' },
+                { value: 'AED', label: 'AED — UAE Dirham (د.إ)' },
+                { value: 'SGD', label: 'SGD — Singapore Dollar (S$)' },
+              ]}
+            />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Default Country (phone dial code)</label>
@@ -111,15 +117,12 @@ export default function AdminSettings() {
             </select>
             <p className="text-xs text-gray-400 mt-1">Pre-selected dial code on the checkout phone field.</p>
           </div>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.cod_enabled === 'true'}
-              onChange={(e) => setForm({ ...form, cod_enabled: e.target.checked ? 'true' : 'false' })}
-              className="w-4 h-4 rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700">Enable Cash on Delivery</span>
-          </label>
+          <ToggleField
+            label="Enable Cash on Delivery"
+            description="Allow customers to pay on delivery at checkout."
+            checked={form.cod_enabled === 'true'}
+            onChange={(checked) => setForm({ ...form, cod_enabled: checked ? 'true' : 'false' })}
+          />
         </div>
 
         {/* Razorpay */}
@@ -150,15 +153,12 @@ export default function AdminSettings() {
         {/* Announcement Bar */}
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
           <h2 className="font-medium text-gray-800">Announcement Bar</h2>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.announcement_bar_enabled === 'true'}
-              onChange={(e) => setForm({ ...form, announcement_bar_enabled: e.target.checked ? 'true' : 'false' })}
-              className="w-4 h-4 rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700">Enable Announcement Bar</span>
-          </label>
+          <ToggleField
+            label="Enable Announcement Bar"
+            description="Show a banner at the top of your storefront."
+            checked={form.announcement_bar_enabled === 'true'}
+            onChange={(checked) => setForm({ ...form, announcement_bar_enabled: checked ? 'true' : 'false' })}
+          />
           <div>
             <label className="block text-xs text-gray-500 mb-1">Message Text</label>
             <input
@@ -203,15 +203,12 @@ export default function AdminSettings() {
         {/* Email Notifications */}
         <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
           <h2 className="font-medium text-gray-800">Email Notifications</h2>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.admin_email_notifications === 'true'}
-              onChange={(e) => setForm({ ...form, admin_email_notifications: e.target.checked ? 'true' : 'false' })}
-              className="w-4 h-4 rounded border-gray-300"
-            />
-            <span className="text-sm text-gray-700">Send email to store email when a new order is placed</span>
-          </label>
+          <ToggleField
+            label="New order email notifications"
+            description="Send an email to your store address each time a new order is placed."
+            checked={form.admin_email_notifications === 'true'}
+            onChange={(checked) => setForm({ ...form, admin_email_notifications: checked ? 'true' : 'false' })}
+          />
         </div>
 
         <div className="flex items-center gap-4">
