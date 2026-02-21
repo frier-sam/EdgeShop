@@ -1775,6 +1775,12 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 | 2026-02-21 | adminFetch reads admin-auth from localStorage directly to avoid Zustand circular import | Lets any admin page call adminFetch without importing the store |
 | 2026-02-21 | Staff page (/admin/staff) only visible to super_admin via __super_admin__ permission sentinel | No separate role check needed in nav — canAccess() handles it uniformly |
 | 2026-02-21 | AdminLayout nav reordered: Catalog / Content / Sales / Store (Blog moved from Catalog to Content) | Blog belongs with Pages/Navigation/Footer in Content section |
+| 2026-02-21 | Dedicated /admin/integrations page (tabbed: Payment/Shipping/Email) instead of embedding in AdminSettings | Separation of concerns: Settings = store config, Integrations = third-party connections |
+| 2026-02-21 | ShipRocket token cached in D1 settings (not env var) | Workers runtime has no in-memory cache across invocations; D1 is the only persist layer; token expires in 10 days matching ShipRocket default |
+| 2026-02-21 | /api/settings/admin protected by requireAdmin middleware | Endpoint returns all settings including sensitive keys (razorpay_key_secret, email_api_key, shiprocket_password); must not be publicly accessible |
+| 2026-02-21 | sendEmail returns { ok, error } instead of void | test-email endpoint needs to surface provider HTTP errors to admin UI; existing fire-and-forget callers ignore return value (backward-compatible) |
+| 2026-02-21 | shiprocket_token excluded from PUT /api/settings whitelist | Token should only be written by backend test-shiprocket endpoint; allowing frontend to write it would bypass auth flow |
+| 2026-02-21 | Email providers Resend/SendGrid/Brevo all use HTTP APIs (no SMTP) | Cloudflare Workers cannot make raw TCP connections; all three share same 4 settings keys (email_provider, email_api_key, email_from_name, email_from_address) |
 
 ---
 
@@ -1841,3 +1847,14 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 - [x] Task 7-5: Forgot-password and reset-password frontend pages — ForgotPasswordPage, ResetPasswordPage, "Forgot password?" link on LoginPage
 - [x] Task 7-6: Admin customers API — `GET/DELETE /api/admin/customers` with LEFT JOIN order stats
 - [x] Task 7-7: Admin customers frontend page — AdminCustomers.tsx with search, expandable order history, delete
+
+## Phase 8: Integrations
+
+- [x] Task 8-1: D1 migration 0011 — seed ShipRocket settings keys
+- [x] Task 8-2: Expand settings.ts whitelist + SENSITIVE_KEYS with ShipRocket keys
+- [x] Task 8-3: Update email.ts for multi-provider support (Resend, SendGrid, Brevo)
+- [x] Task 8-4: Create admin/integrations.ts route (test-shiprocket + test-email endpoints)
+- [x] Task 8-5: Mount /api/admin/integrations route in index.ts
+- [x] Task 8-6: Remove Razorpay/COD from AdminSettings.tsx
+- [x] Task 8-7: Add Integrations to AdminLayout nav + App.tsx route
+- [x] Task 8-8: Create AdminIntegrations.tsx (Payment/Shipping/Email tabs)
