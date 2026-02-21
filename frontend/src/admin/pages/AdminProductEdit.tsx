@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showToast } from '../Toast'
 import { adminFetch } from '../lib/adminFetch'
+import ImageUploader from '../ImageUploader'
 
 interface Product {
   id: number
@@ -15,6 +16,9 @@ interface Product {
   category: string
   product_type: string
   status: string
+  tags: string
+  seo_title: string | null
+  seo_description: string | null
 }
 
 // Generic section editor — controls edit/save/cancel for one section
@@ -31,7 +35,11 @@ function useSection<T extends Record<string, unknown>>(initial: T) {
     setEditing(false)
   }
 
-  return { editing, draft, setDraft, startEdit, cancel }
+  function seed(current: T) {
+    setDraft(current)
+  }
+
+  return { editing, draft, setDraft, startEdit, cancel, seed }
 }
 
 export default function AdminProductEdit() {
@@ -76,8 +84,22 @@ export default function AdminProductEdit() {
   const pricing = useSection({ price: 0, compare_price: null as number | null })
   // Section state — stock + category
   const stock = useSection({ stock_count: 0, category: '' })
+  const image = useSection({ image_url: '' })
+  const details = useSection({ status: 'active', product_type: 'physical', tags: '', category: '' })
+  const seo = useSection({ seo_title: '', seo_description: '' })
 
-  const [savingSection, setSavingSection] = useState<'basicInfo' | 'pricing' | 'stock' | null>(null)
+  const [savingSection, setSavingSection] = useState<'basicInfo' | 'pricing' | 'stock' | 'image' | 'details' | 'seo' | null>(null)
+
+  useEffect(() => {
+    if (!product) return
+    basicInfo.seed({ name: product.name, description: product.description })
+    pricing.seed({ price: product.price, compare_price: product.compare_price })
+    stock.seed({ stock_count: product.stock_count, category: product.category })
+    image.seed({ image_url: product.image_url ?? '' })
+    details.seed({ status: product.status ?? 'active', product_type: product.product_type ?? 'physical', tags: product.tags ?? '', category: product.category ?? '' })
+    seo.seed({ seo_title: product.seo_title ?? '', seo_description: product.seo_description ?? '' })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product])
 
   if (isLoading) return <p className="text-sm text-gray-400">Loading…</p>
   if (error || !product) return <p className="text-sm text-red-500">Product not found.</p>
@@ -300,6 +322,200 @@ export default function AdminProductEdit() {
           <div className="flex gap-6 text-sm text-gray-700">
             <span><span className="text-gray-400 text-xs">Stock</span> <strong>{product.stock_count}</strong></span>
             <span><span className="text-gray-400 text-xs">Category</span> <strong>{product.category || '—'}</strong></span>
+          </div>
+        )}
+      </div>
+
+      {/* Section: Primary Image */}
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-medium text-gray-800">Primary Image</h2>
+          {!image.editing && (
+            <button
+              onClick={() => image.startEdit({ image_url: product.image_url })}
+              className="text-xs px-3 py-1.5 border border-gray-300 rounded hover:border-gray-500 text-gray-600 transition-colors"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+
+        {image.editing ? (
+          <div className="space-y-4">
+            <ImageUploader
+              existingUrl={image.draft.image_url}
+              onUploadComplete={(url) => image.setDraft({ image_url: url })}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setSavingSection('image')
+                  updateMutation.mutate({ image_url: image.draft.image_url }, {
+                    onSuccess: () => { image.cancel(); setSavingSection(null) },
+                    onError: () => setSavingSection(null),
+                  })
+                }}
+                disabled={savingSection === 'image'}
+                className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              >
+                {savingSection === 'image' ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={image.cancel} disabled={savingSection === 'image'}
+                className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50 disabled:opacity-50">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            {product.image_url ? (
+              <img src={product.image_url} alt={product.name} className="w-32 h-32 object-cover rounded border border-gray-200" />
+            ) : (
+              <p className="text-sm text-gray-400 italic">No image</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Section: Details */}
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-medium text-gray-800">Details</h2>
+          {!details.editing && (
+            <button
+              onClick={() => details.startEdit({ status: product.status, product_type: product.product_type, tags: product.tags ?? '', category: product.category })}
+              className="text-xs px-3 py-1.5 border border-gray-300 rounded hover:border-gray-500 text-gray-600 transition-colors"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+
+        {details.editing ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Status</label>
+                <select
+                  value={details.draft.status}
+                  onChange={(e) => details.setDraft({ ...details.draft, status: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="draft">Draft</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Product Type</label>
+                <select
+                  value={details.draft.product_type}
+                  onChange={(e) => details.setDraft({ ...details.draft, product_type: e.target.value })}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                >
+                  <option value="physical">Physical</option>
+                  <option value="digital">Digital</option>
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Tags</label>
+              <input
+                value={details.draft.tags}
+                onChange={(e) => details.setDraft({ ...details.draft, tags: e.target.value })}
+                placeholder="e.g. summer, sale"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setSavingSection('details')
+                  updateMutation.mutate({ status: details.draft.status, product_type: details.draft.product_type, tags: details.draft.tags }, {
+                    onSuccess: () => { details.cancel(); setSavingSection(null) },
+                    onError: () => setSavingSection(null),
+                  })
+                }}
+                disabled={savingSection === 'details'}
+                className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              >
+                {savingSection === 'details' ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={details.cancel} disabled={savingSection === 'details'}
+                className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50 disabled:opacity-50">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-4 text-sm text-gray-700">
+            <span><span className="text-gray-400 text-xs">Status</span> <strong className="capitalize">{product.status}</strong></span>
+            <span><span className="text-gray-400 text-xs">Type</span> <strong className="capitalize">{product.product_type}</strong></span>
+            {product.tags && <span><span className="text-gray-400 text-xs">Tags</span> <strong>{product.tags}</strong></span>}
+          </div>
+        )}
+      </div>
+
+      {/* Section: SEO */}
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-medium text-gray-800">SEO</h2>
+          {!seo.editing && (
+            <button
+              onClick={() => seo.startEdit({ seo_title: product.seo_title ?? '', seo_description: product.seo_description ?? '' })}
+              className="text-xs px-3 py-1.5 border border-gray-300 rounded hover:border-gray-500 text-gray-600 transition-colors"
+            >
+              Edit
+            </button>
+          )}
+        </div>
+
+        {seo.editing ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">SEO Title</label>
+              <input
+                value={seo.draft.seo_title}
+                onChange={(e) => seo.setDraft({ ...seo.draft, seo_title: e.target.value })}
+                placeholder={product.name}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">SEO Description</label>
+              <textarea
+                rows={2}
+                value={seo.draft.seo_description}
+                onChange={(e) => seo.setDraft({ ...seo.draft, seo_description: e.target.value })}
+                placeholder="Brief description for search engines (max 160 chars)"
+                maxLength={160}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500 resize-none"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setSavingSection('seo')
+                  updateMutation.mutate({ seo_title: seo.draft.seo_title, seo_description: seo.draft.seo_description }, {
+                    onSuccess: () => { seo.cancel(); setSavingSection(null) },
+                    onError: () => setSavingSection(null),
+                  })
+                }}
+                disabled={savingSection === 'seo'}
+                className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
+              >
+                {savingSection === 'seo' ? 'Saving…' : 'Save'}
+              </button>
+              <button onClick={seo.cancel} disabled={savingSection === 'seo'}
+                className="px-4 py-2 border border-gray-300 text-sm rounded hover:bg-gray-50 disabled:opacity-50">
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-1 text-sm text-gray-700">
+            <p><span className="text-gray-400 text-xs">Title</span> {product.seo_title || <span className="italic text-gray-400">Not set</span>}</p>
+            <p><span className="text-gray-400 text-xs">Description</span> {product.seo_description || <span className="italic text-gray-400">Not set</span>}</p>
           </div>
         )}
       </div>
