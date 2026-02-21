@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { requireAdmin } from '../middleware/requireAdmin'
 import type { Env } from '../index'
 
 const settings = new Hono<{ Bindings: Env }>()
@@ -18,7 +19,7 @@ settings.get('/', async (c) => {
 
 // TODO: This endpoint returns sensitive keys (razorpay_key_secret, email_api_key, jwt_secret).
 // It MUST be protected by Cloudflare Access or admin auth middleware (V2-18) before production use.
-settings.get('/admin', async (c) => {
+settings.get('/admin', requireAdmin, async (c) => {
   const rows = await c.env.DB.prepare('SELECT key, value FROM settings').all()
   const result: Record<string, string> = {}
   for (const row of rows.results as { key: string; value: string }[]) {
@@ -50,7 +51,7 @@ settings.put('/', async (c) => {
     'default_country_code',
     // ShipRocket integration
     'shiprocket_email', 'shiprocket_password', 'shiprocket_pickup_location',
-    'shiprocket_enabled', 'shiprocket_token', 'shiprocket_token_expires_at',
+    'shiprocket_enabled',
   ]
   const stmts = Object.entries(body)
     .filter(([key]) => allowed.includes(key))

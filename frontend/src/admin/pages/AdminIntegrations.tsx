@@ -209,7 +209,7 @@ function ShippingTab({
     }
   }
 
-  const isConnected = form.shiprocket_enabled === 'true' && !!settings.shiprocket_token
+  const isConnected = settings.shiprocket_enabled === 'true' && !!settings.shiprocket_token
 
   return (
     <div className="space-y-6">

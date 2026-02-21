@@ -63,24 +63,20 @@ integrations.post('/test-email', async (c) => {
     return c.json({ ok: false, error: 'api_key, from_address, and test_to are required' }, 400)
   }
 
-  try {
-    await sendEmail(
-      {
-        to: test_to,
-        subject: 'EdgeShop: Test Email',
-        html: '<p>This is a test email from your EdgeShop store. If you received this, your email integration is working correctly!</p>',
-      },
-      {
-        email_provider: provider,
-        email_api_key: api_key,
-        email_from_name: from_name,
-        email_from_address: from_address,
-      }
-    )
-    return c.json({ ok: true })
-  } catch (err) {
-    return c.json({ ok: false, error: String(err) })
-  }
+  const result = await sendEmail(
+    {
+      to: test_to,
+      subject: 'EdgeShop: Test Email',
+      html: '<p>This is a test email from your EdgeShop store. If you received this, your email integration is working correctly!</p>',
+    },
+    {
+      email_provider: provider,
+      email_api_key: api_key,
+      email_from_name: from_name,
+      email_from_address: from_address,
+    }
+  )
+  return c.json(result)
 })
 
 export default integrations

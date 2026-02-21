@@ -15,7 +15,7 @@ export interface EmailSettings {
   email_from_address: string
 }
 
-async function sendViaResend(options: EmailOptions, settings: EmailSettings): Promise<void> {
+async function sendViaResend(options: EmailOptions, settings: EmailSettings): Promise<string | null> {
   const fromName = settings.email_from_name || settings.email_from_address
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -33,10 +33,12 @@ async function sendViaResend(options: EmailOptions, settings: EmailSettings): Pr
   if (!res.ok) {
     const error = await res.text()
     console.error('Resend API error:', res.status, error)
+    return `Resend error ${res.status}: ${error}`
   }
+  return null
 }
 
-async function sendViaSendGrid(options: EmailOptions, settings: EmailSettings): Promise<void> {
+async function sendViaSendGrid(options: EmailOptions, settings: EmailSettings): Promise<string | null> {
   const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
     method: 'POST',
     headers: {
@@ -56,10 +58,12 @@ async function sendViaSendGrid(options: EmailOptions, settings: EmailSettings): 
   if (!res.ok) {
     const error = await res.text()
     console.error('SendGrid API error:', res.status, error)
+    return `SendGrid error ${res.status}: ${error}`
   }
+  return null
 }
 
-async function sendViaBrevo(options: EmailOptions, settings: EmailSettings): Promise<void> {
+async function sendViaBrevo(options: EmailOptions, settings: EmailSettings): Promise<string | null> {
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
@@ -79,28 +83,34 @@ async function sendViaBrevo(options: EmailOptions, settings: EmailSettings): Pro
   if (!res.ok) {
     const error = await res.text()
     console.error('Brevo API error:', res.status, error)
+    return `Brevo error ${res.status}: ${error}`
   }
+  return null
 }
 
 export async function sendEmail(
   options: EmailOptions,
   settings: EmailSettings
-): Promise<void> {
+): Promise<{ ok: boolean; error?: string }> {
   if (!settings.email_api_key || !settings.email_from_address) {
     console.warn('Email not configured — skipping send')
-    return
+    return { ok: false, error: 'Email not configured' }
   }
 
   try {
     const provider = (settings.email_provider ?? 'resend') as EmailProvider
+    let error: string | null
     if (provider === 'sendgrid') {
-      await sendViaSendGrid(options, settings)
+      error = await sendViaSendGrid(options, settings)
     } else if (provider === 'brevo') {
-      await sendViaBrevo(options, settings)
+      error = await sendViaBrevo(options, settings)
     } else {
-      await sendViaResend(options, settings)
+      error = await sendViaResend(options, settings)
     }
+    if (error) return { ok: false, error }
+    return { ok: true }
   } catch (err) {
     console.error('Email send failed:', err)
+    return { ok: false, error: String(err) }
   }
 }
