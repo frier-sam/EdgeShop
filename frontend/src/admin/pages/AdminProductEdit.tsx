@@ -11,7 +11,7 @@ interface Product {
   description: string
   price: number
   compare_price: number | null
-  image_url: string
+  image_url: string | null
   stock_count: number
   category: string
   product_type: string
@@ -84,8 +84,8 @@ export default function AdminProductEdit() {
   const pricing = useSection({ price: 0, compare_price: null as number | null })
   // Section state — stock + category
   const stock = useSection({ stock_count: 0, category: '' })
-  const image = useSection({ image_url: '' })
-  const details = useSection({ status: 'active', product_type: 'physical', tags: '', category: '' })
+  const image = useSection({ image_url: null as string | null })
+  const details = useSection({ status: 'active', product_type: 'physical', tags: '' })
   const seo = useSection({ seo_title: '', seo_description: '' })
 
   const [savingSection, setSavingSection] = useState<'basicInfo' | 'pricing' | 'stock' | 'image' | 'details' | 'seo' | null>(null)
@@ -95,8 +95,8 @@ export default function AdminProductEdit() {
     basicInfo.seed({ name: product.name, description: product.description })
     pricing.seed({ price: product.price, compare_price: product.compare_price })
     stock.seed({ stock_count: product.stock_count, category: product.category })
-    image.seed({ image_url: product.image_url ?? '' })
-    details.seed({ status: product.status ?? 'active', product_type: product.product_type ?? 'physical', tags: product.tags ?? '', category: product.category ?? '' })
+    image.seed({ image_url: product.image_url })
+    details.seed({ status: product.status ?? 'active', product_type: product.product_type ?? 'physical', tags: product.tags ?? '' })
     seo.seed({ seo_title: product.seo_title ?? '', seo_description: product.seo_description ?? '' })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product])
@@ -343,7 +343,7 @@ export default function AdminProductEdit() {
         {image.editing ? (
           <div className="space-y-4">
             <ImageUploader
-              existingUrl={image.draft.image_url}
+              existingUrl={image.draft.image_url ?? undefined}
               onUploadComplete={(url) => image.setDraft({ image_url: url })}
             />
             <div className="flex gap-2">
@@ -383,7 +383,7 @@ export default function AdminProductEdit() {
           <h2 className="font-medium text-gray-800">Details</h2>
           {!details.editing && (
             <button
-              onClick={() => details.startEdit({ status: product.status, product_type: product.product_type, tags: product.tags ?? '', category: product.category })}
+              onClick={() => details.startEdit({ status: product.status, product_type: product.product_type, tags: product.tags ?? '' })}
               className="text-xs px-3 py-1.5 border border-gray-300 rounded hover:border-gray-500 text-gray-600 transition-colors"
             >
               Edit
