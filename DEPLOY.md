@@ -98,7 +98,7 @@ npm run deploy
 cd frontend
 npm install
 npm run build
-../worker/node_modules/.bin/wrangler pages deploy dist --project-name edgeshop
+npx wrangler pages deploy dist --project-name edgeshop
 ```
 
 ### 7. Protect Admin with Cloudflare Access
@@ -171,7 +171,7 @@ git pull
 cd worker && npm run deploy
 
 # Deploy frontend
-cd frontend && npm run build && ../worker/node_modules/.bin/wrangler pages deploy dist --project-name edgeshop
+cd frontend && npm run build && npx wrangler pages deploy dist --project-name edgeshop
 ```
 
 `npm run deploy` in the worker always runs pending migrations first — you never need to run migration commands manually when updating.

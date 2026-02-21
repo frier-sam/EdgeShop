@@ -136,7 +136,7 @@ success "Worker re-deployed"
 
 # ─── Deploy Frontend ──────────────────────────────────────────────────────────
 info "Building and deploying frontend..."
-(cd frontend && npm install && npm run build && "$REPO_ROOT/worker/node_modules/.bin/wrangler" pages deploy dist --project-name edgeshop)
+(cd frontend && npm install && npm run build && wrangler pages deploy dist --project-name edgeshop)
 success "Frontend deployed"
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
@@ -164,5 +164,5 @@ echo "     Admin → Settings"
 echo ""
 echo -e "${YELLOW}To deploy updates in future:${NC}"
 echo "  cd worker && npm run deploy"
-echo "  cd frontend && npm run build && ../worker/node_modules/.bin/wrangler pages deploy dist --project-name edgeshop"
+echo "  cd frontend && npm run build && wrangler pages deploy dist --project-name edgeshop"
 echo ""

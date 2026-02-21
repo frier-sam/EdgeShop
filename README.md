@@ -4,6 +4,8 @@ A complete e-commerce platform that runs entirely on Cloudflare's free tier — 
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/YOUR_USERNAME/edgeshop)
 
+> **Note:** The button deploys the Worker only. For a full setup (D1 database, migrations, R2, secrets, and frontend), run `bash scripts/setup.sh` after cloning — see [Getting started](#getting-started) below.
+
 ---
 
 ## Why this exists
@@ -92,7 +94,7 @@ cd frontend && npm run dev
 **Deploying updates:**
 ```bash
 cd worker && npm run deploy   # applies new migrations + deploys worker
-cd frontend && npm run build && ../worker/node_modules/.bin/wrangler pages deploy dist --project-name edgeshop
+cd frontend && npm run build && npx wrangler pages deploy dist --project-name edgeshop
 ```
 
 ---

@@ -6,6 +6,6 @@
     "dev:worker": "cd worker && npm run dev",
     "dev:frontend": "cd frontend && vite",
     "deploy:worker": "cd worker && npm run deploy",
-    "deploy:frontend": "cd frontend && npm run build && cd ../worker && node_modules/.bin/wrangler pages deploy ../frontend/dist --project-name edgeshop"
+    "deploy:frontend": "cd frontend && npm run build && npx wrangler pages deploy dist --project-name edgeshop"
   }
 }
