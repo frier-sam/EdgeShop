@@ -19,6 +19,17 @@ function setMetaProperty(property: string, content: string) {
   el.setAttribute('content', content)
 }
 
+function setCanonical(url: string) {
+  let el = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null
+  if (!el) {
+    el = document.createElement('link') as HTMLLinkElement
+    el.setAttribute('rel', 'canonical')
+    document.head.appendChild(el)
+  }
+  el.setAttribute('href', url)
+  return () => el!.setAttribute('href', '')
+}
+
 export default function CollectionPage() {
   const { slug } = useParams<{ slug: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -56,6 +67,7 @@ export default function CollectionPage() {
     setMetaProperty('og:description', col.seo_description || col.description?.slice(0, 160) || '')
     setMetaProperty('og:image', col.image_url || '')
     setMetaProperty('og:url', window.location.origin + window.location.pathname)
+    setCanonical(`${window.location.origin}/collections/${slug}`)
     return () => {
       document.title = ''
       const m = document.querySelector('meta[name="description"]')
@@ -64,6 +76,7 @@ export default function CollectionPage() {
       setMetaProperty('og:description', '')
       setMetaProperty('og:image', '')
       setMetaProperty('og:url', '')
+      setCanonical('')
     }
   }, [data])
 
