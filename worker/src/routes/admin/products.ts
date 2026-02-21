@@ -87,6 +87,18 @@ adminProducts.post('/', async (c) => {
   return c.json({ id: result.meta.last_row_id }, 201)
 })
 
+adminProducts.get('/:id', async (c) => {
+  const id = parseInt(c.req.param('id'), 10)
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
+
+  const product = await c.env.DB.prepare('SELECT * FROM products WHERE id = ?')
+    .bind(id)
+    .first()
+  if (!product) return c.json({ error: 'Not found' }, 404)
+
+  return c.json(product)
+})
+
 adminProducts.put('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)

@@ -164,6 +164,7 @@ export default function AdminOrderDetail() {
       qc.setQueryData(['admin-order', id], (old: Order | undefined) =>
         old ? { ...old, ...variables } : old
       )
+      qc.invalidateQueries({ queryKey: ['admin-order', id] })
     },
   })
 

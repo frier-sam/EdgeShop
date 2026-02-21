@@ -72,9 +72,9 @@ export default function AdminProductEdit() {
   const { data: product, isLoading, error } = useQuery<Product>({
     queryKey: ['product', id],
     queryFn: () =>
-      fetch(`/api/products/${id}`).then((r) => {
+      adminFetch(`/api/admin/products/${id}`).then(async (r) => {
         if (!r.ok) throw new Error('Not found')
-        return r.json()
+        return r.json() as Promise<Product>
       }),
     enabled: !!id && id !== 'new',
   })
