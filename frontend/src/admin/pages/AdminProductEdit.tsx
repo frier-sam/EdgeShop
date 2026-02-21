@@ -41,7 +41,6 @@ interface ProductVariant {
 interface Collection {
   id: number
   name: string
-  slug: string
 }
 
 // Generic section editor — controls edit/save/cancel for one section
