@@ -20,6 +20,13 @@ interface EmailLog {
   sent_at: number  // unix seconds
 }
 
+interface OrderEvent {
+  id: number
+  event_type: string
+  data_json: string
+  created_at: string
+}
+
 interface Order {
   id: string
   customer_name: string
@@ -45,6 +52,7 @@ interface Order {
   razorpay_order_id?: string
   razorpay_payment_id?: string
   emails?: EmailLog[]
+  events?: OrderEvent[]
 }
 
 const ORDER_STATUSES = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled']
@@ -96,7 +104,6 @@ export default function AdminOrderDetail() {
   const [orderStatus, setOrderStatus] = useState('')
   const [paymentStatus, setPaymentStatus] = useState('')
   const [trackingNumber, setTrackingNumber] = useState('')
-  const [privateNote, setPrivateNote] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [shippingAddress, setShippingAddress] = useState('')
   const [shippingCity, setShippingCity] = useState('')
@@ -116,7 +123,6 @@ export default function AdminOrderDetail() {
       setOrderStatus(order.order_status)
       setPaymentStatus(order.payment_status)
       setTrackingNumber(order.tracking_number ?? '')
-      setPrivateNote(order.internal_notes ?? '')
       setCustomerName(order.customer_name)
       setShippingAddress(order.shipping_address)
       setShippingCity(order.shipping_city ?? '')
@@ -158,6 +164,24 @@ export default function AdminOrderDetail() {
       qc.setQueryData(['admin-order', id], (old: Order | undefined) =>
         old ? { ...old, ...variables } : old
       )
+    },
+  })
+
+  const [noteText, setNoteText] = useState('')
+
+  const noteMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const r = await adminFetch(`/api/admin/orders/${id}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      })
+      if (!r.ok) throw new Error('Failed to save note')
+      return r.json()
+    },
+    onSuccess: () => {
+      setNoteText('')
+      qc.invalidateQueries({ queryKey: ['admin-order', id] })
     },
   })
 
@@ -514,21 +538,23 @@ export default function AdminOrderDetail() {
       <section className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">Timeline</h2>
 
-        {/* Private note input */}
+        {/* Append note */}
         <div className="mb-5">
           <textarea
-            value={privateNote}
-            onChange={e => setPrivateNote(e.target.value)}
+            value={noteText}
+            onChange={e => setNoteText(e.target.value)}
             rows={2}
             placeholder="Add a private note (only visible to admins)…"
             className="w-full text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 resize-none focus:outline-none focus:border-gray-500"
           />
           <button
-            onClick={() => updateMutation.mutate({ internal_notes: privateNote })}
-            disabled={updateMutation.isPending || privateNote === (order.internal_notes ?? '')}
+            onClick={() => {
+              if (noteText.trim()) noteMutation.mutate(noteText.trim())
+            }}
+            disabled={noteMutation.isPending || !noteText.trim()}
             className="mt-1.5 px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save note
+            {noteMutation.isPending ? 'Saving…' : 'Add note'}
           </button>
         </div>
 
@@ -536,15 +562,15 @@ export default function AdminOrderDetail() {
         <div className="relative pl-5 space-y-4">
           <div className="absolute left-1.5 top-2 bottom-2 w-px bg-gray-200" />
 
-          {/* Order placed */}
+          {/* Order placed — always first */}
           <div className="relative">
             <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-gray-400 border-2 border-white" />
             <p className="text-xs font-medium text-gray-700">Order placed</p>
             <p className="text-xs text-gray-400">{formatDate(order.created_at)}</p>
           </div>
 
-          {/* Payment */}
-          {order.payment_status === 'paid' && (
+          {/* Legacy: payment received (no event = webhook payment, no timestamp) */}
+          {order.payment_status === 'paid' && !(order.events ?? []).some(e => e.event_type === 'payment_change') && (
             <div className="relative">
               <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-white" />
               <p className="text-xs font-medium text-gray-700">Payment received</p>
@@ -552,8 +578,8 @@ export default function AdminOrderDetail() {
             </div>
           )}
 
-          {/* Tracking set */}
-          {order.tracking_number && (
+          {/* Legacy: tracking set (no event = set before events table existed) */}
+          {order.tracking_number && !(order.events ?? []).some(e => e.event_type === 'tracking_set') && (
             <div className="relative">
               <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-yellow-400 border-2 border-white" />
               <p className="text-xs font-medium text-gray-700">Shipped</p>
@@ -561,15 +587,68 @@ export default function AdminOrderDetail() {
             </div>
           )}
 
-          {/* Refunded */}
-          {order.payment_status === 'refunded' && (
+          {/* Legacy: refunded (no event) */}
+          {order.payment_status === 'refunded' && !(order.events ?? []).some(e => e.event_type === 'refund') && (
             <div className="relative">
               <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-orange-400 border-2 border-white" />
               <p className="text-xs font-medium text-gray-700">Refunded</p>
             </div>
           )}
 
-          {/* Emails */}
+          {/* Legacy: internal_notes text (old orders before events table) */}
+          {order.internal_notes && (order.events ?? []).length === 0 && (
+            <div className="relative">
+              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-white" />
+              <p className="text-xs font-medium text-gray-700">Private note</p>
+              <p className="text-xs text-gray-500 whitespace-pre-line mt-0.5">{order.internal_notes}</p>
+            </div>
+          )}
+
+          {/* order_events entries — sorted by created_at (already ordered by backend) */}
+          {(order.events ?? []).map(event => {
+            let data: Record<string, string> = {}
+            try { data = JSON.parse(event.data_json) } catch {}
+
+            if (event.event_type === 'status_change') return (
+              <div key={event.id} className="relative">
+                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-indigo-400 border-2 border-white" />
+                <p className="text-xs font-medium text-gray-700 capitalize">Status → {data.to}</p>
+                <p className="text-xs text-gray-400">{formatDate(event.created_at)}</p>
+              </div>
+            )
+            if (event.event_type === 'tracking_set') return (
+              <div key={event.id} className="relative">
+                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-yellow-400 border-2 border-white" />
+                <p className="text-xs font-medium text-gray-700">Shipped</p>
+                <p className="text-xs text-gray-400">Tracking: {data.tracking_number} · {formatDate(event.created_at)}</p>
+              </div>
+            )
+            if (event.event_type === 'payment_change') return (
+              <div key={event.id} className="relative">
+                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-white" />
+                <p className="text-xs font-medium text-gray-700 capitalize">Payment {data.to}</p>
+                <p className="text-xs text-gray-400">{formatDate(event.created_at)}</p>
+              </div>
+            )
+            if (event.event_type === 'refund') return (
+              <div key={event.id} className="relative">
+                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-orange-400 border-2 border-white" />
+                <p className="text-xs font-medium text-gray-700">Refunded</p>
+                <p className="text-xs text-gray-400">{formatDate(event.created_at)}</p>
+              </div>
+            )
+            if (event.event_type === 'note') return (
+              <div key={event.id} className="relative">
+                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-white" />
+                <p className="text-xs font-medium text-gray-700">Private note</p>
+                <p className="text-xs text-gray-500 whitespace-pre-line mt-0.5">{data.text}</p>
+                <p className="text-xs text-gray-400">{formatDate(event.created_at)}</p>
+              </div>
+            )
+            return null
+          })}
+
+          {/* Email events */}
           {(order.emails ?? []).map(email => (
             <div key={email.id} className="relative">
               <div className={`absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full border-2 border-white ${email.status === 'failed' ? 'bg-red-400' : 'bg-blue-400'}`} />
@@ -582,15 +661,6 @@ export default function AdminOrderDetail() {
               </p>
             </div>
           ))}
-
-          {/* Private note */}
-          {order.internal_notes && (
-            <div className="relative">
-              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-white" />
-              <p className="text-xs font-medium text-gray-700">Private note</p>
-              <p className="text-xs text-gray-500 whitespace-pre-line mt-0.5">{order.internal_notes}</p>
-            </div>
-          )}
         </div>
       </section>
 
@@ -672,7 +742,7 @@ export default function AdminOrderDetail() {
             <button
               onClick={() => {
                 if (window.confirm('Mark this order as refunded? This cannot be undone.')) {
-                  refundMutation.mutate({ notes: privateNote })
+                  refundMutation.mutate({ notes: '' })
                 }
               }}
               disabled={refundMutation.isPending}
