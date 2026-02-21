@@ -38,6 +38,12 @@ interface ProductVariant {
   sku: string
 }
 
+interface Collection {
+  id: number
+  name: string
+  slug: string
+}
+
 // Generic section editor — controls edit/save/cancel for one section
 function useSection<T extends Record<string, unknown>>(initial: T) {
   const [editing, setEditing] = useState(false)
@@ -220,6 +226,41 @@ export default function AdminProductEdit() {
     seo.seed({ seo_title: product.seo_title ?? '', seo_description: product.seo_description ?? '' })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product])
+
+  const [selectedCollections, setSelectedCollections] = useState<number[]>([])
+  const [collectionsSaved, setCollectionsSaved] = useState(false)
+
+  const { data: allCollectionsData } = useQuery<{ collections: Collection[] }>({
+    queryKey: ['collections'],
+    queryFn: () => adminFetch('/api/collections').then(r => r.json()),
+  })
+  const allCollections = allCollectionsData?.collections ?? []
+
+  const { data: productCollectionsData } = useQuery<{ collection_ids: number[] }>({
+    queryKey: ['product-collections', id],
+    queryFn: () => adminFetch(`/api/admin/products/${id}/collections`).then(r => r.json()),
+    enabled: !!id && id !== 'new',
+  })
+
+  useEffect(() => {
+    if (productCollectionsData?.collection_ids) {
+      setSelectedCollections(productCollectionsData.collection_ids)
+    }
+  }, [productCollectionsData])
+
+  const saveCollectionsMutation = useMutation({
+    mutationFn: (ids: number[]) =>
+      adminFetch(`/api/admin/products/${id}/collections`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collection_ids: ids }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      showToast('Collections saved', 'success')
+      setCollectionsSaved(true)
+      setTimeout(() => setCollectionsSaved(false), 2000)
+    },
+  })
 
   const isCreateMode = id === 'new'
 
@@ -979,6 +1020,37 @@ export default function AdminProductEdit() {
           </button>
         </div>
       </div>
+
+      {/* Section: Collections */}
+      {allCollections.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-medium text-gray-800">Collections</h2>
+            <button
+              onClick={() => saveCollectionsMutation.mutate(selectedCollections)}
+              disabled={saveCollectionsMutation.isPending}
+              className="text-xs px-3 py-1.5 bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            >
+              {collectionsSaved ? 'Saved ✓' : saveCollectionsMutation.isPending ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-1">
+            {allCollections.map(col => (
+              <label key={col.id} className="flex items-center gap-2 cursor-pointer py-1">
+                <input
+                  type="checkbox"
+                  checked={selectedCollections.includes(col.id)}
+                  onChange={() => setSelectedCollections(prev =>
+                    prev.includes(col.id) ? prev.filter(c => c !== col.id) : [...prev, col.id]
+                  )}
+                  className="w-3.5 h-3.5 rounded border-gray-300"
+                />
+                <span className="text-sm text-gray-700">{col.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
