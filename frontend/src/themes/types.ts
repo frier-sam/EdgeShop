@@ -76,6 +76,7 @@ export interface CartItem {
   price: number
   quantity: number
   image_url: string
+  stock_count?: number
 }
 
 export interface CartDrawerProps {
