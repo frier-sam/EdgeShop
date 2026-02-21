@@ -10,9 +10,6 @@ import SelectField from '../../components/SelectField'
 interface Settings {
   store_name: string
   currency: string
-  cod_enabled: string
-  razorpay_key_id: string
-  razorpay_key_secret: string
   [key: string]: string
 }
 
@@ -27,9 +24,6 @@ export default function AdminSettings() {
   const [form, setForm] = useState<Settings>({
     store_name: '',
     currency: 'INR',
-    cod_enabled: 'true',
-    razorpay_key_id: '',
-    razorpay_key_secret: '',
     announcement_bar_enabled: 'false',
     announcement_bar_text: '',
     announcement_bar_color: '#1A1A1A',
@@ -117,37 +111,6 @@ export default function AdminSettings() {
             </select>
             <p className="text-xs text-gray-400 mt-1">Pre-selected dial code on the checkout phone field.</p>
           </div>
-          <ToggleField
-            label="Enable Cash on Delivery"
-            description="Allow customers to pay on delivery at checkout."
-            checked={form.cod_enabled === 'true'}
-            onChange={(checked) => setForm({ ...form, cod_enabled: checked ? 'true' : 'false' })}
-          />
-        </div>
-
-        {/* Razorpay */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-          <h2 className="font-medium text-gray-800">Razorpay</h2>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Key ID</label>
-            <input
-              value={form.razorpay_key_id}
-              onChange={(e) => setForm({ ...form, razorpay_key_id: e.target.value })}
-              placeholder="rzp_live_..."
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Key Secret</label>
-            <input
-              type="password"
-              value={form.razorpay_key_secret}
-              onChange={(e) => setForm({ ...form, razorpay_key_secret: e.target.value })}
-              placeholder="••••••••••••••••"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            />
-          </div>
-          <p className="text-xs text-gray-400">Keys are stored securely in D1 and read server-side only.</p>
         </div>
 
         {/* Announcement Bar */}
