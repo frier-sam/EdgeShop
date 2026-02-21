@@ -31,6 +31,7 @@ import adminBlog from './routes/admin/blog'
 import analytics from './routes/admin/analytics'
 import adminCustomers from './routes/admin/customers'
 import adminStaff from './routes/admin/staff'
+import integrations from './routes/admin/integrations'
 import abandonedCart from './routes/abandonedCart'
 import contact from './routes/contact'
 import { sendEmail } from './lib/email'
@@ -84,6 +85,7 @@ app.route('/api/admin/blog', adminBlog)
 app.route('/api/admin/analytics', analytics)
 app.route('/api/admin/customers', adminCustomers)
 app.route('/api/admin/staff', adminStaff)
+app.route('/api/admin/integrations', integrations)
 app.route('/api/cart', abandonedCart)
 app.route('/api/contact', contact)
 
