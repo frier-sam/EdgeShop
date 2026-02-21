@@ -304,7 +304,9 @@ async function resolveCategory(
 
 async function importProducts(
   products: ImportedProduct[],
-  onProgress: (done: number, errors: number) => void
+  onProgress: (done: number, errors: number) => void,
+  imageHandling: 'keep' | 'r2' = 'keep',
+  onImageProgress?: (msg: string) => void
 ): Promise<{ imported: number; failed: number }> {
   let imported = 0
   let failed = 0
@@ -318,6 +320,25 @@ async function importProducts(
 
   for (const p of products) {
     try {
+      // Upload image to R2 if requested
+      if (imageHandling === 'r2' && p.image_url) {
+        try {
+          onImageProgress?.(`Uploading image for "${p.name}"…`)
+          const imgRes = await adminFetch('/api/admin/upload/put-from-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: p.image_url }),
+          })
+          if (imgRes.ok) {
+            const { url } = await imgRes.json() as { url: string }
+            p.image_url = url
+          }
+          // On failure: silently keep original URL
+        } catch {
+          // Keep original URL
+        }
+      }
+
       const res = await adminFetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -381,6 +402,8 @@ export default function AdminImport() {
   const [result, setResult] = useState<{ imported: number; failed: number } | null>(null)
   const [fileName, setFileName] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const [imageHandling, setImageHandling] = useState<'keep' | 'r2'>('keep')
+  const [imageUploadProgress, setImageUploadProgress] = useState('')
 
   function handleFile(file: File) {
     setFileName(file.name)
@@ -410,11 +433,17 @@ export default function AdminImport() {
     setProgress({ done: 0, errors: 0, total: products.length })
     setStep('importing')
     try {
-      const res = await importProducts(products, (done, errors) => {
-        setProgress({ done, errors, total: products.length })
-      })
+      const res = await importProducts(
+        products,
+        (done, errors) => {
+          setProgress({ done, errors, total: products.length })
+        },
+        imageHandling,
+        (msg) => setImageUploadProgress(msg)
+      )
       setResult(res)
       setStep('done')
+      setImageUploadProgress('')
       if (res.failed === 0) showToast(`Imported ${res.imported} products`, 'success')
       else showToast(`${res.imported} imported, ${res.failed} failed`, 'error')
     } catch {
@@ -524,9 +553,39 @@ export default function AdminImport() {
               </div>
             )}
 
+            {/* Image handling option */}
+            <div className="border border-gray-100 rounded-lg p-4 mb-4">
+              <p className="text-xs font-medium text-gray-700 mb-3">Image handling</p>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="imageHandling"
+                    value="keep"
+                    checked={imageHandling === 'keep'}
+                    onChange={() => setImageHandling('keep')}
+                    className="text-gray-900"
+                  />
+                  <span className="text-sm text-gray-700">Keep original image URLs</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="imageHandling"
+                    value="r2"
+                    checked={imageHandling === 'r2'}
+                    onChange={() => setImageHandling('r2')}
+                    className="text-gray-900"
+                  />
+                  <span className="text-sm text-gray-700">Upload images to Cloudflare R2</span>
+                  <span className="text-xs text-gray-400 ml-1">(slower, images hosted on your store)</span>
+                </label>
+              </div>
+            </div>
+
             <div className="flex gap-3">
               <button
-                onClick={() => { setStep('upload'); setProducts([]) }}
+                onClick={() => { setStep('upload'); setProducts([]); setImageHandling('keep') }}
                 className="px-4 py-2 border border-gray-300 text-sm rounded text-gray-600 hover:bg-gray-50"
               >
                 Choose different file
@@ -557,6 +616,9 @@ export default function AdminImport() {
             {progress.done} of {progress.total} done
             {progress.errors > 0 && <span className="text-red-500 ml-2">({progress.errors} errors)</span>}
           </p>
+          {imageUploadProgress && (
+            <p className="text-xs text-gray-400 mt-1">{imageUploadProgress}</p>
+          )}
         </div>
       )}
 
@@ -575,7 +637,7 @@ export default function AdminImport() {
           </p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => { setStep('upload'); setProducts([]); setResult(null) }}
+              onClick={() => { setStep('upload'); setProducts([]); setResult(null); setImageHandling('keep') }}
               className="px-4 py-2 border border-gray-300 text-sm rounded text-gray-600 hover:bg-gray-50"
             >
               Import another file
