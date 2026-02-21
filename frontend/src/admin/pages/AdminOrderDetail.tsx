@@ -253,8 +253,10 @@ export default function AdminOrderDetail() {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={() => {
-                    updateMutation.mutate({ customer_name: customerName })
-                    setEditingCustomer(false)
+                    updateMutation.mutate(
+                      { customer_name: customerName },
+                      { onSuccess: () => setEditingCustomer(false) }
+                    )
                   }}
                   disabled={updateMutation.isPending}
                   className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -340,14 +342,16 @@ export default function AdminOrderDetail() {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={() => {
-                    updateMutation.mutate({
-                      shipping_address: shippingAddress,
-                      shipping_city: shippingCity,
-                      shipping_state: shippingState,
-                      shipping_pincode: shippingPincode,
-                      shipping_country: shippingCountry,
-                    })
-                    setEditingShipping(false)
+                    updateMutation.mutate(
+                      {
+                        shipping_address: shippingAddress,
+                        shipping_city: shippingCity,
+                        shipping_state: shippingState,
+                        shipping_pincode: shippingPincode,
+                        shipping_country: shippingCountry,
+                      },
+                      { onSuccess: () => setEditingShipping(false) }
+                    )
                   }}
                   disabled={updateMutation.isPending}
                   className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -411,8 +415,10 @@ export default function AdminOrderDetail() {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={() => {
-                    updateMutation.mutate({ payment_status: paymentStatus })
-                    setEditingPayment(false)
+                    updateMutation.mutate(
+                      { payment_status: paymentStatus },
+                      { onSuccess: () => setEditingPayment(false) }
+                    )
                   }}
                   disabled={updateMutation.isPending}
                   className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -643,11 +649,13 @@ export default function AdminOrderDetail() {
           <div className="flex justify-end">
             <button
               onClick={() => {
-                updateMutation.mutate({
-                  order_status: orderStatus,
-                  tracking_number: trackingNumber,
-                })
-                setEditingAdminActions(false)
+                updateMutation.mutate(
+                  {
+                    order_status: orderStatus,
+                    tracking_number: trackingNumber,
+                  },
+                  { onSuccess: () => setEditingAdminActions(false) }
+                )
               }}
               disabled={updateMutation.isPending}
               className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
