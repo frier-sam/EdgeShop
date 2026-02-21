@@ -71,6 +71,7 @@ export default function App() {
               <Route index element={<Navigate to="/admin/products" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="products" element={<AdminProducts />} />
+              <Route path="products/new" element={<AdminProductEdit />} />
               <Route path="products/:id" element={<AdminProductEdit />} />
               <Route path="orders" element={<AdminOrders />} />
               <Route path="orders/:id" element={<AdminOrderDetail />} />
