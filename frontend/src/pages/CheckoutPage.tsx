@@ -244,6 +244,7 @@ export default function CheckoutPage() {
         },
       })
     } catch (err) {
+      setStockErrors([])
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setSubmitting(false)
     }
