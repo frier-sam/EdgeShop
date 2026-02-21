@@ -26,6 +26,7 @@ export const useCartStore = create<CartStore>()(
         set((state) => {
           const existing = state.items.find((i) => i.product_id === item.product_id)
           const maxQty = item.stock_count ?? Infinity
+          if (maxQty <= 0 && !existing) return state
           return {
             isCartOpen: true,
             items: existing
