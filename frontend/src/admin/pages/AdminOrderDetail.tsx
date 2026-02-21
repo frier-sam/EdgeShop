@@ -105,6 +105,10 @@ export default function AdminOrderDetail() {
   const [shippingState, setShippingState] = useState('')
   const [shippingPincode, setShippingPincode] = useState('')
   const [shippingCountry, setShippingCountry] = useState('')
+  const [editingCustomer, setEditingCustomer] = useState(false)
+  const [editingShipping, setEditingShipping] = useState(false)
+  const [editingPayment, setEditingPayment] = useState(false)
+  const [editingAdminActions, setEditingAdminActions] = useState(false)
 
   const seeded = useRef(false)
 
