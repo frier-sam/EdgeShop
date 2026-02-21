@@ -27,6 +27,17 @@ interface GalleryImage {
   sort_order: number
 }
 
+interface ProductVariant {
+  id: number
+  product_id: number
+  name: string
+  options_json: string
+  price: number
+  stock_count: number
+  image_url: string
+  sku: string
+}
+
 // Generic section editor — controls edit/save/cancel for one section
 function useSection<T extends Record<string, unknown>>(initial: T) {
   const [editing, setEditing] = useState(false)
@@ -108,6 +119,55 @@ export default function AdminProductEdit() {
     onSuccess: () => refetchGallery(),
   })
 
+  const [editingVariantId, setEditingVariantId] = useState<number | null>(null)
+  const [variantEditDraft, setVariantEditDraft] = useState({
+    name: '', price: '', stock_count: '0', sku: '',
+    options: [{ key: '', value: '' }] as { key: string; value: string }[],
+  })
+  const [variantAddForm, setVariantAddForm] = useState({
+    name: '', price: '', stock_count: '0', sku: '',
+    options: [{ key: '', value: '' }] as { key: string; value: string }[],
+  })
+
+  const { data: variantsData, refetch: refetchVariants } = useQuery<{ variants: ProductVariant[] }>({
+    queryKey: ['product-variants', id],
+    queryFn: () => adminFetch(`/api/admin/products/${id}/variants`).then(r => r.json()),
+    enabled: !!id && id !== 'new',
+  })
+  const variants = variantsData?.variants ?? []
+
+  const addVariantMutation = useMutation({
+    mutationFn: (v: { name: string; options_json: string; price: number; stock_count: number; sku: string }) =>
+      adminFetch(`/api/admin/products/${id}/variants`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(v),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      refetchVariants()
+      setVariantAddForm({ name: '', price: '', stock_count: '0', sku: '', options: [{ key: '', value: '' }] })
+    },
+  })
+
+  const updateVariantMutation = useMutation({
+    mutationFn: ({ variantId, ...fields }: { variantId: number; name: string; options_json: string; price: number; stock_count: number; sku: string }) =>
+      adminFetch(`/api/admin/products/${id}/variants/${variantId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(fields),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      refetchVariants()
+      setEditingVariantId(null)
+    },
+  })
+
+  const deleteVariantMutation = useMutation({
+    mutationFn: (variantId: number) =>
+      adminFetch(`/api/admin/products/${id}/variants/${variantId}`, { method: 'DELETE' }).then(r => r.json()),
+    onSuccess: () => refetchVariants(),
+  })
+
   const createMutation = useMutation({
     mutationFn: (fields: Omit<Product, 'id'>) =>
       adminFetch('/api/admin/products', {
@@ -162,6 +222,22 @@ export default function AdminProductEdit() {
   }, [product])
 
   const isCreateMode = id === 'new'
+
+  function parseOptions(options_json: string): { key: string; value: string }[] {
+    try {
+      const obj = JSON.parse(options_json) as Record<string, string>
+      const entries = Object.entries(obj)
+      return entries.length > 0 ? entries.map(([key, value]) => ({ key, value })) : [{ key: '', value: '' }]
+    } catch {
+      return [{ key: '', value: '' }]
+    }
+  }
+
+  function buildOptionsJson(options: { key: string; value: string }[]): string {
+    const obj: Record<string, string> = {}
+    options.forEach(o => { if (o.key.trim()) obj[o.key.trim()] = o.value.trim() })
+    return JSON.stringify(obj)
+  }
 
   if (isCreateMode) {
     return (
@@ -708,6 +784,201 @@ export default function AdminProductEdit() {
           </div>
         )}
         <ImageUploader onUploadComplete={(url) => addGalleryMutation.mutate(url)} />
+      </div>
+
+      {/* Section: Variants */}
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <h2 className="font-medium text-gray-800 mb-1">Variants</h2>
+        <p className="text-xs text-gray-400 mb-4">
+          Use variants for options like size or colour. Each variant has its own price, stock, and SKU.
+        </p>
+
+        {/* Existing variants */}
+        {variants.length > 0 && (
+          <div className="space-y-2 mb-4">
+            {variants.map(v => {
+              const isEditingThis = editingVariantId === v.id
+              if (isEditingThis) {
+                return (
+                  <div key={v.id} className="border border-gray-300 rounded-lg p-3 space-y-2.5 bg-gray-50">
+                    <input
+                      placeholder="Variant name"
+                      value={variantEditDraft.name}
+                      onChange={e => setVariantEditDraft(d => ({ ...d, name: e.target.value }))}
+                      className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-gray-500"
+                    />
+                    <div className="space-y-1.5">
+                      <p className="text-xs text-gray-400">Options</p>
+                      {variantEditDraft.options.map((opt, idx) => (
+                        <div key={idx} className="flex gap-1.5">
+                          <input
+                            placeholder="Option (Size)"
+                            value={opt.key}
+                            onChange={e => setVariantEditDraft(d => {
+                              const opts = [...d.options]; opts[idx] = { ...opts[idx], key: e.target.value }; return { ...d, options: opts }
+                            })}
+                            className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none"
+                          />
+                          <input
+                            placeholder="Value (M)"
+                            value={opt.value}
+                            onChange={e => setVariantEditDraft(d => {
+                              const opts = [...d.options]; opts[idx] = { ...opts[idx], value: e.target.value }; return { ...d, options: opts }
+                            })}
+                            className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none"
+                          />
+                          {variantEditDraft.options.length > 1 && (
+                            <button type="button" onClick={() => setVariantEditDraft(d => ({ ...d, options: d.options.filter((_, i) => i !== idx) }))} className="text-red-400 text-xs px-1">×</button>
+                          )}
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => setVariantEditDraft(d => ({ ...d, options: [...d.options, { key: '', value: '' }] }))} className="text-xs text-gray-400 hover:text-gray-600">+ Add option</button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Price *</label>
+                        <input type="number" min="0" step="0.01" value={variantEditDraft.price}
+                          onChange={e => setVariantEditDraft(d => ({ ...d, price: e.target.value }))}
+                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">Stock</label>
+                        <input type="number" min="0" value={variantEditDraft.stock_count}
+                          onChange={e => setVariantEditDraft(d => ({ ...d, stock_count: e.target.value }))}
+                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-400 mb-1">SKU</label>
+                        <input value={variantEditDraft.sku}
+                          onChange={e => setVariantEditDraft(d => ({ ...d, sku: e.target.value }))}
+                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none" />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={!variantEditDraft.name.trim() || variantEditDraft.price === '' || updateVariantMutation.isPending}
+                        onClick={() => updateVariantMutation.mutate({
+                          variantId: v.id,
+                          name: variantEditDraft.name.trim(),
+                          options_json: buildOptionsJson(variantEditDraft.options),
+                          price: parseFloat(variantEditDraft.price),
+                          stock_count: parseInt(variantEditDraft.stock_count, 10) || 0,
+                          sku: variantEditDraft.sku.trim(),
+                        })}
+                        className="px-3 py-1.5 bg-gray-900 text-white text-xs rounded hover:bg-gray-700 disabled:opacity-50"
+                      >
+                        {updateVariantMutation.isPending ? 'Saving…' : 'Save'}
+                      </button>
+                      <button type="button" onClick={() => setEditingVariantId(null)} className="px-3 py-1.5 border border-gray-300 text-xs rounded hover:bg-gray-50">Cancel</button>
+                    </div>
+                  </div>
+                )
+              }
+              let opts: Record<string, string> = {}
+              try { opts = JSON.parse(v.options_json) } catch {}
+              return (
+                <div key={v.id} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-medium text-gray-800">{v.name}</p>
+                    <p className="text-xs text-gray-400">
+                      {Object.entries(opts).map(([k, val]) => `${k}: ${val}`).join(' · ')}
+                      {v.sku && ` · SKU: ${v.sku}`}
+                    </p>
+                    <p className="text-xs text-gray-600">₹{v.price} · {v.stock_count} in stock</p>
+                  </div>
+                  <div className="flex gap-2 ml-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingVariantId(v.id)
+                        setVariantEditDraft({ name: v.name, price: String(v.price), stock_count: String(v.stock_count), sku: v.sku, options: parseOptions(v.options_json) })
+                      }}
+                      className="text-blue-500 hover:text-blue-700 text-xs"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => deleteVariantMutation.mutate(v.id)}
+                      className="text-red-400 hover:text-red-600 text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Add variant form */}
+        <div className="border border-gray-200 rounded-lg p-3 space-y-2.5">
+          <p className="text-xs text-gray-500 font-medium">Add Variant</p>
+          <input
+            placeholder="Variant name (e.g. Small / Red)"
+            value={variantAddForm.name}
+            onChange={e => setVariantAddForm(f => ({ ...f, name: e.target.value }))}
+            className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs focus:outline-none focus:border-gray-500"
+          />
+          <div className="space-y-1.5">
+            <p className="text-xs text-gray-400">Options (e.g. Size → M)</p>
+            {variantAddForm.options.map((opt, idx) => (
+              <div key={idx} className="flex gap-1.5">
+                <input
+                  placeholder="Option (Size)"
+                  value={opt.key}
+                  onChange={e => setVariantAddForm(f => { const opts = [...f.options]; opts[idx] = { ...opts[idx], key: e.target.value }; return { ...f, options: opts } })}
+                  className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-gray-500"
+                />
+                <input
+                  placeholder="Value (M)"
+                  value={opt.value}
+                  onChange={e => setVariantAddForm(f => { const opts = [...f.options]; opts[idx] = { ...opts[idx], value: e.target.value }; return { ...f, options: opts } })}
+                  className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-gray-500"
+                />
+                {variantAddForm.options.length > 1 && (
+                  <button type="button" onClick={() => setVariantAddForm(f => ({ ...f, options: f.options.filter((_, i) => i !== idx) }))} className="text-red-400 text-xs px-1">×</button>
+                )}
+              </div>
+            ))}
+            <button type="button" onClick={() => setVariantAddForm(f => ({ ...f, options: [...f.options, { key: '', value: '' }] }))} className="text-xs text-gray-400 hover:text-gray-600">+ Add option</button>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Price *</label>
+              <input type="number" min="0" step="0.01" placeholder="0.00" value={variantAddForm.price}
+                onChange={e => setVariantAddForm(f => ({ ...f, price: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">Stock</label>
+              <input type="number" min="0" placeholder="0" value={variantAddForm.stock_count}
+                onChange={e => setVariantAddForm(f => ({ ...f, stock_count: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">SKU</label>
+              <input placeholder="SKU-001" value={variantAddForm.sku}
+                onChange={e => setVariantAddForm(f => ({ ...f, sku: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none" />
+            </div>
+          </div>
+          <button
+            type="button"
+            disabled={!variantAddForm.name.trim() || variantAddForm.price === '' || addVariantMutation.isPending}
+            onClick={() => addVariantMutation.mutate({
+              name: variantAddForm.name.trim(),
+              options_json: buildOptionsJson(variantAddForm.options),
+              price: parseFloat(variantAddForm.price),
+              stock_count: parseInt(variantAddForm.stock_count, 10) || 0,
+              sku: variantAddForm.sku.trim(),
+            })}
+            className="w-full py-1.5 bg-gray-800 text-white text-xs rounded hover:bg-gray-700 disabled:opacity-50"
+          >
+            {addVariantMutation.isPending ? 'Adding…' : 'Add Variant'}
+          </button>
+        </div>
       </div>
     </div>
   )
