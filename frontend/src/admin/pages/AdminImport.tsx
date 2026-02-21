@@ -320,6 +320,8 @@ async function importProducts(
 
   for (const p of products) {
     try {
+      let imageUrl = p.image_url
+
       // Upload image to R2 if requested
       if (imageHandling === 'r2' && p.image_url) {
         try {
@@ -331,7 +333,7 @@ async function importProducts(
           })
           if (imgRes.ok) {
             const { url } = await imgRes.json() as { url: string }
-            p.image_url = url
+            imageUrl = url
           }
           // On failure: silently keep original URL
         } catch {
@@ -347,7 +349,7 @@ async function importProducts(
           description: p.description,
           price: p.price,
           compare_price: p.compare_price,
-          image_url: p.image_url,
+          image_url: imageUrl,
           stock_count: p.stock_count,
           tags: p.tags,
           status: p.status,
@@ -448,6 +450,7 @@ export default function AdminImport() {
       else showToast(`${res.imported} imported, ${res.failed} failed`, 'error')
     } catch {
       setStep('upload')
+      setImageUploadProgress('')
       showToast('Import failed unexpectedly. Please try again.', 'error')
     }
   }
