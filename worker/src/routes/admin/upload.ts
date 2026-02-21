@@ -42,6 +42,8 @@ upload.post('/put-from-url', async (c) => {
   if (
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname === '0.0.0.0' ||
     hostname.startsWith('169.254.') ||
     hostname.startsWith('10.') ||
     hostname.startsWith('192.168.') ||
