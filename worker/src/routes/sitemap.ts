@@ -17,14 +17,16 @@ sitemap.get('/', async (c) => {
   const safeBase = escapeXml(frontendUrl)
 
   try {
-    const [products, collections, pages] = await Promise.all([
+    const [products, collections, pages, blogPosts] = await Promise.all([
       c.env.DB.prepare('SELECT id FROM products WHERE status = ?').bind('active').all<{ id: number }>(),
       c.env.DB.prepare('SELECT slug FROM collections').all<{ slug: string }>(),
       c.env.DB.prepare('SELECT slug FROM pages WHERE is_visible = 1').all<{ slug: string }>(),
+      c.env.DB.prepare("SELECT slug FROM blog_posts WHERE published_at IS NOT NULL AND published_at <= datetime('now')").all<{ slug: string }>(),
     ])
 
     const urls: string[] = [
       `<url><loc>${safeBase}/</loc></url>`,
+      `<url><loc>${safeBase}/blog</loc></url>`,
       ...products.results.map(p => `<url><loc>${safeBase}/product/${escapeXml(String(p.id))}</loc></url>`),
       ...collections.results
         .filter(col => col.slug && col.slug.trim().length > 0)
@@ -32,6 +34,9 @@ sitemap.get('/', async (c) => {
       ...pages.results
         .filter(p => p.slug && p.slug.trim().length > 0)
         .map(p => `<url><loc>${safeBase}/pages/${escapeXml(p.slug)}</loc></url>`),
+      ...blogPosts.results
+        .filter(p => p.slug && p.slug.trim().length > 0)
+        .map(p => `<url><loc>${safeBase}/blog/${escapeXml(p.slug)}</loc></url>`),
     ]
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
