@@ -42,7 +42,9 @@ async function validateStock(
 
   for (const item of items) {
     const product = stockMap.get(item.product_id)
-    if (product && item.quantity > product.stock_count) {
+    if (!product) {
+      insufficient.push({ id: item.product_id, name: item.name, available: 0 })
+    } else if (item.quantity > product.stock_count) {
       insufficient.push({ id: product.id, name: product.name, available: product.stock_count })
     }
   }
