@@ -10,6 +10,12 @@ interface PageData {
   meta_description: string
 }
 
+function setMetaProperty(property: string, content: string) {
+  let el = document.querySelector(`meta[property="${property}"]`)
+  if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el) }
+  el.setAttribute('content', content)
+}
+
 export default function StaticPage() {
   const { slug } = useParams<{ slug: string }>()
   const { theme, settings, isLoading: isThemeLoading, navItems } = useTheme()
@@ -30,10 +36,16 @@ export default function StaticPage() {
     document.title = page.meta_title || page.title
     const meta = document.querySelector('meta[name="description"]')
     if (meta) meta.setAttribute('content', page.meta_description || '')
+    setMetaProperty('og:title', page.meta_title || page.title)
+    setMetaProperty('og:description', page.meta_description || '')
+    setMetaProperty('og:url', window.location.href)
     return () => {
       document.title = ''
       const m = document.querySelector('meta[name="description"]')
       if (m) m.setAttribute('content', '')
+      setMetaProperty('og:title', '')
+      setMetaProperty('og:description', '')
+      setMetaProperty('og:url', '')
     }
   }, [page])
 

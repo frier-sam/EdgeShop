@@ -168,6 +168,8 @@ export default function ProductPage() {
     setMetaProperty('og:title', product.seo_title || product.name)
     setMetaProperty('og:description', product.seo_description || product.description.slice(0, 160))
     setMetaProperty('og:image', product.image_url)
+    setMetaProperty('og:url', window.location.href)
+    setMetaProperty('og:type', 'product')
     return () => {
       document.title = ''
       const m = document.querySelector('meta[name="description"]')
@@ -175,6 +177,8 @@ export default function ProductPage() {
       setMetaProperty('og:title', '')
       setMetaProperty('og:description', '')
       setMetaProperty('og:image', '')
+      setMetaProperty('og:url', '')
+      setMetaProperty('og:type', 'website')
     }
   }, [product])
 

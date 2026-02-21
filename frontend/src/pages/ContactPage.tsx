@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
 
@@ -20,6 +20,12 @@ async function submitContactForm(payload: ContactPayload): Promise<void> {
   }
 }
 
+function setMetaProperty(property: string, content: string) {
+  let el = document.querySelector(`meta[property="${property}"]`)
+  if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el) }
+  el.setAttribute('content', content)
+}
+
 export default function ContactPage() {
   const { theme, settings, isLoading: themeLoading, navItems } = useTheme()
 
@@ -28,6 +34,23 @@ export default function ContactPage() {
   const [message, setMessage] = useState('')
 
   const storeName = settings.store_name ?? 'EdgeShop'
+
+  useEffect(() => {
+    document.title = `Contact — ${storeName}`
+    const meta = document.querySelector('meta[name="description"]')
+    if (meta) meta.setAttribute('content', `Get in touch with ${storeName}`)
+    setMetaProperty('og:title', `Contact — ${storeName}`)
+    setMetaProperty('og:description', `Get in touch with ${storeName}`)
+    setMetaProperty('og:url', window.location.href)
+    return () => {
+      document.title = ''
+      const m = document.querySelector('meta[name="description"]')
+      if (m) m.setAttribute('content', '')
+      setMetaProperty('og:title', '')
+      setMetaProperty('og:description', '')
+      setMetaProperty('og:url', '')
+    }
+  }, [storeName])
 
   const mutation = useMutation({
     mutationFn: submitContactForm,

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../themes/ThemeProvider'
@@ -32,6 +32,12 @@ interface ProductsData {
   pages: number
 }
 
+function setMetaProperty(property: string, content: string) {
+  let el = document.querySelector(`meta[property="${property}"]`)
+  if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el) }
+  el.setAttribute('content', content)
+}
+
 export default function HomePage() {
   const { theme, isLoading: themeLoading, navItems, footerData } = useTheme()
   const cartOpen = useCartStore((s) => s.isCartOpen)
@@ -59,6 +65,25 @@ export default function HomePage() {
   const storeName = settings?.store_name ?? 'EdgeShop'
   const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
   const products = productsData?.products ?? []
+
+  useEffect(() => {
+    const name = settings?.store_name ?? 'EdgeShop'
+    const desc = `Shop ${name} — discover our handpicked collection.`
+    document.title = name
+    const meta = document.querySelector('meta[name="description"]')
+    if (meta) meta.setAttribute('content', desc)
+    setMetaProperty('og:title', name)
+    setMetaProperty('og:description', desc)
+    setMetaProperty('og:url', window.location.origin + '/')
+    return () => {
+      document.title = ''
+      const m = document.querySelector('meta[name="description"]')
+      if (m) m.setAttribute('content', '')
+      setMetaProperty('og:title', '')
+      setMetaProperty('og:description', '')
+      setMetaProperty('og:url', '')
+    }
+  }, [settings?.store_name])
 
   if (themeLoading || !theme) {
     return (

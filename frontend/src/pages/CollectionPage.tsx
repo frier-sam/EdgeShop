@@ -55,6 +55,7 @@ export default function CollectionPage() {
     setMetaProperty('og:title', col.seo_title || col.name)
     setMetaProperty('og:description', col.seo_description || col.description?.slice(0, 160) || '')
     setMetaProperty('og:image', col.image_url || '')
+    setMetaProperty('og:url', window.location.origin + window.location.pathname)
     return () => {
       document.title = ''
       const m = document.querySelector('meta[name="description"]')
@@ -62,6 +63,7 @@ export default function CollectionPage() {
       setMetaProperty('og:title', '')
       setMetaProperty('og:description', '')
       setMetaProperty('og:image', '')
+      setMetaProperty('og:url', '')
     }
   }, [data])
 

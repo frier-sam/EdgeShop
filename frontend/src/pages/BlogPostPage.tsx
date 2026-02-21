@@ -17,6 +17,12 @@ interface BlogPost {
   seo_description: string
 }
 
+function setMetaProperty(property: string, content: string) {
+  let el = document.querySelector(`meta[property="${property}"]`)
+  if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el) }
+  el.setAttribute('content', content)
+}
+
 export default function BlogPostPage() {
   const { slug } = useParams<{ slug: string }>()
   const { theme, isLoading: themeLoading, navItems, settings } = useTheme()
@@ -38,10 +44,20 @@ export default function BlogPostPage() {
     document.title = post.seo_title || post.title
     const meta = document.querySelector('meta[name="description"]')
     if (meta) meta.setAttribute('content', post.seo_description || '')
+    setMetaProperty('og:title', post.seo_title || post.title)
+    setMetaProperty('og:description', post.seo_description || '')
+    setMetaProperty('og:image', post.cover_image || '')
+    setMetaProperty('og:url', window.location.href)
+    setMetaProperty('og:type', 'article')
     return () => {
       document.title = ''
       const m = document.querySelector('meta[name="description"]')
       if (m) m.setAttribute('content', '')
+      setMetaProperty('og:title', '')
+      setMetaProperty('og:description', '')
+      setMetaProperty('og:image', '')
+      setMetaProperty('og:url', '')
+      setMetaProperty('og:type', 'website')
     }
   }, [post])
 
