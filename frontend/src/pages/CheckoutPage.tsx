@@ -60,6 +60,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [stockErrors, setStockErrors] = useState<string[]>([])
   const [discountCode, setDiscountCode] = useState('')
   const [discountResult, setDiscountResult] = useState<{
     discount_amount: number; type: string; code: string
@@ -164,6 +165,17 @@ export default function CheckoutPage() {
     setError('')
     setSubmitting(true)
 
+    // Client-side stock check
+    const clientStockErrors = items
+      .filter(item => item.stock_count !== undefined && item.quantity > item.stock_count)
+      .map(item => `Only ${item.stock_count} available for "${item.name}"`)
+    if (clientStockErrors.length > 0) {
+      setStockErrors(clientStockErrors)
+      setSubmitting(false)
+      return
+    }
+    setStockErrors([])
+
     try {
       const { country_code, ...formFields } = form
       const res = await fetch('/api/checkout', {
@@ -185,7 +197,15 @@ export default function CheckoutPage() {
       })
 
       if (!res.ok) {
-        const data = await res.json() as { error?: string }
+        const data = await res.json() as {
+          error?: string
+          items?: Array<{ id: number; name: string; available: number }>
+        }
+        if (data.error === 'stock_error' && data.items?.length) {
+          setStockErrors(data.items.map(i => `Only ${i.available} available for "${i.name}"`))
+          setSubmitting(false)
+          return
+        }
         throw new Error(data.error ?? 'Checkout failed')
       }
 
@@ -405,6 +425,14 @@ export default function CheckoutPage() {
             </div>
           </div>
 
+          {stockErrors.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded px-4 py-3">
+              <p className="text-sm font-medium text-red-700 mb-1">Some items are unavailable:</p>
+              <ul className="text-sm text-red-600 list-disc list-inside space-y-0.5">
+                {stockErrors.map((msg, i) => <li key={i}>{msg}</li>)}
+              </ul>
+            </div>
+          )}
           {error && <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded">{error}</p>}
 
           <button type="submit" disabled={submitting}
