@@ -364,7 +364,17 @@ export default function AdminOrderDetail() {
 
           {/* Payment info */}
           <section className="bg-white rounded-lg border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Payment</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-gray-700">Payment</h2>
+              {!editingPayment && (
+                <button
+                  onClick={() => setEditingPayment(true)}
+                  className="text-xs text-gray-500 hover:text-gray-800 underline"
+                >
+                  Edit
+                </button>
+              )}
+            </div>
             <dl className="space-y-2 text-sm">
               <div className="flex gap-2 items-center">
                 <dt className="text-gray-400 w-32 shrink-0">Method</dt>
@@ -372,21 +382,20 @@ export default function AdminOrderDetail() {
               </div>
               <div className="flex gap-2 items-center">
                 <dt className="text-gray-400 w-32 shrink-0">Status</dt>
-                <dd className="flex items-center gap-2">
-                  <select
-                    value={paymentStatus}
-                    onChange={e => setPaymentStatus(e.target.value)}
-                    className="text-sm border border-gray-300 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-500"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="paid">Paid</option>
-                    <option value="refunded">Refunded</option>
-                  </select>
-                  <button
-                    onClick={() => updateMutation.mutate({ payment_status: paymentStatus })}
-                    disabled={updateMutation.isPending || paymentStatus === order.payment_status}
-                    className="px-2.5 py-1 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >Save</button>
+                <dd>
+                  {editingPayment ? (
+                    <select
+                      value={paymentStatus}
+                      onChange={e => setPaymentStatus(e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-500"
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="paid">Paid</option>
+                      <option value="refunded">Refunded</option>
+                    </select>
+                  ) : (
+                    <StatusBadge label={order.payment_status} />
+                  )}
                 </dd>
               </div>
               {order.razorpay_order_id && (
@@ -402,6 +411,20 @@ export default function AdminOrderDetail() {
                 </div>
               )}
             </dl>
+            {editingPayment && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => {
+                    updateMutation.mutate({ payment_status: paymentStatus })
+                    setEditingPayment(false)
+                  }}
+                  disabled={updateMutation.isPending}
+                  className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updateMutation.isPending ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            )}
           </section>
 
           {/* Notes */}
