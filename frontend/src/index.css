@@ -12,5 +12,5 @@
 }
 
 .page-enter {
-  animation: pageEnter 200ms ease-out both;
+  animation: pageEnter 200ms ease-out backwards;
 }

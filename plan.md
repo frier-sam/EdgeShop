@@ -1858,3 +1858,10 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 - [x] Task 8-6: Remove Razorpay/COD from AdminSettings.tsx
 - [x] Task 8-7: Add Integrations to AdminLayout nav + App.tsx route
 - [x] Task 8-8: Create AdminIntegrations.tsx (Payment/Shipping/Email tabs)
+
+## Bug Fixes (2026-02-21)
+
+- [x] BugFix-1: CartDrawer `+` button now disabled when `item.quantity >= item.stock_count` — both jewellery and artsCrafts themes. Previously the button had no visual cap so users could click past stock limits (Zustand did cap internally but gave no feedback).
+- [x] BugFix-2: Checkout stock error messaging improved — `available === 0` shows "is out of stock" instead of "Only 0 available"; fallback message when `items` array is missing; page now scrolls to the error div automatically via `stockErrorRef`.
+
+**Decision:** Stock enforcement is dual-layer: CartDrawer buttons are disabled at the stock ceiling (UX), and Zustand's `updateQuantity` mathematically caps via `Math.min`. Server-side `validateStock` is the authoritative check at order time.

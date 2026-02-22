@@ -43,6 +43,7 @@ import BlogListPage from './pages/BlogListPage'
 import BlogPostPage from './pages/BlogPostPage'
 import NotFoundPage from './pages/NotFoundPage'
 import ContactPage from './pages/ContactPage'
+import Toaster from './components/Toaster'
 
 const queryClient = new QueryClient()
 
@@ -50,6 +51,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
+        <Toaster />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<PageTransition><HomePage /></PageTransition>} />

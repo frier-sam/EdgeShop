@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useCartStore } from '../store/cartStore'
@@ -61,6 +61,7 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [stockErrors, setStockErrors] = useState<string[]>([])
+  const stockErrorRef = useRef<HTMLDivElement>(null)
   const [discountCode, setDiscountCode] = useState('')
   const [discountResult, setDiscountResult] = useState<{
     discount_amount: number; type: string; code: string
@@ -168,10 +169,16 @@ export default function CheckoutPage() {
     // Client-side stock check
     const clientStockErrors = items
       .filter(item => item.stock_count !== undefined && item.quantity > item.stock_count)
-      .map(item => `Only ${item.stock_count} available for "${item.name}"`)
+      .map(item => {
+        const avail = item.stock_count ?? 0
+        return avail === 0
+          ? `"${item.name}" is out of stock`
+          : `Only ${avail} left in stock for "${item.name}" (you have ${item.quantity} in cart)`
+      })
     if (clientStockErrors.length > 0) {
       setStockErrors(clientStockErrors)
       setSubmitting(false)
+      setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
       return
     }
     setStockErrors([])
@@ -201,10 +208,18 @@ export default function CheckoutPage() {
           error?: string
           items?: Array<{ id: number; name: string; available: number }>
         }
-        if (data.error === 'stock_error' && data.items?.length) {
+        if (data.error === 'stock_error') {
           setError('')
-          setStockErrors(data.items.map(i => `Only ${i.available} available for "${i.name}"`))
+          const msgs = data.items?.length
+            ? data.items.map(i =>
+                i.available === 0
+                  ? `"${i.name}" is out of stock`
+                  : `Only ${i.available} left in stock for "${i.name}"`
+              )
+            : ['Some items in your cart are no longer available. Please review your cart.']
+          setStockErrors(msgs)
           setSubmitting(false)
+          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
           return
         }
         throw new Error(data.error ?? 'Checkout failed')
@@ -311,11 +326,11 @@ export default function CheckoutPage() {
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Phone *</label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <select
                     value={form.country_code}
                     onChange={(e) => setForm({ ...form, country_code: e.target.value })}
-                    className="border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:border-gray-500 w-28 shrink-0"
+                    className="border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:border-gray-500 w-28 shrink-0 h-10"
                   >
                     {COUNTRY_CODES.map((c) => (
                       <option key={c.code + c.name} value={c.code}>
@@ -329,7 +344,7 @@ export default function CheckoutPage() {
                     value={form.customer_phone}
                     onChange={(e) => setForm({ ...form, customer_phone: e.target.value })}
                     placeholder="98765 43210"
-                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500 h-10"
                   />
                 </div>
               </div>
@@ -428,11 +443,12 @@ export default function CheckoutPage() {
           </div>
 
           {stockErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded px-4 py-3">
-              <p className="text-sm font-medium text-red-700 mb-1">Some items are unavailable:</p>
+            <div ref={stockErrorRef} className="bg-red-50 border border-red-200 rounded px-4 py-3">
+              <p className="text-sm font-medium text-red-700 mb-1">Cannot place order — stock issues:</p>
               <ul className="text-sm text-red-600 list-disc list-inside space-y-0.5">
                 {stockErrors.map((msg, i) => <li key={i}>{msg}</li>)}
               </ul>
+              <p className="text-xs text-red-500 mt-2">Please go back to your cart and adjust quantities.</p>
             </div>
           )}
           {error && <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded">{error}</p>}

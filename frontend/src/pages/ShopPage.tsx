@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../themes/ThemeProvider'
 import { useCartStore } from '../store/cartStore'
+import { useToastStore } from '../store/toastStore'
 
 interface Product {
   id: number
@@ -32,10 +33,16 @@ export default function ShopPage() {
   const openCart = useCartStore((s) => s.openCart)
   const closeCart = useCartStore((s) => s.closeCart)
   const addItem = useCartStore((s) => s.addItem)
-  const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const updateQuantityRaw = useCartStore((s) => s.updateQuantity)
   const items = useCartStore((s) => s.items)
   const totalItems = useCartStore((s) => s.totalItems)
   const navigate = useNavigate()
+  const addToast = useToastStore((s) => s.addToast)
+
+  function updateQuantity(productId: number, qty: number) {
+    if (qty <= 0) addToast('Removed from cart', 'info')
+    updateQuantityRaw(productId, qty)
+  }
 
   const [page, setPage] = useState(1)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
@@ -183,6 +190,7 @@ export default function ShopPage() {
                 quantity: 1,
                 image_url: product.image_url,
               })
+              addToast('Added to cart')
             }}
           />
         )}

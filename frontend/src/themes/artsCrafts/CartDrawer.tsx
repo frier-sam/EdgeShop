@@ -78,7 +78,8 @@ export default function CartDrawer({ isOpen, items, currency, onClose, onUpdateQ
                       </span>
                       <button
                         onClick={() => onUpdateQuantity(item.product_id, item.quantity + 1)}
-                        className="w-6 h-6 rounded-full border-2 border-amber-200 text-xs flex items-center justify-center transition-colors hover:border-amber-400 font-bold"
+                        disabled={item.stock_count !== undefined && item.quantity >= item.stock_count}
+                        className="w-6 h-6 rounded-full border-2 border-amber-200 text-xs flex items-center justify-center transition-colors hover:border-amber-400 font-bold disabled:opacity-30 disabled:cursor-not-allowed"
                         style={{ color: 'var(--color-primary)' }}
                       >
                         +

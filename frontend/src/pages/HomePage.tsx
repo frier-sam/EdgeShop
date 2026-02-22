@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useTheme } from '../themes/ThemeProvider'
 import { useCartStore } from '../store/cartStore'
+import { useToastStore } from '../store/toastStore'
 import { SkeletonCards } from '../components/Skeleton'
 
 interface Product {
@@ -46,9 +47,20 @@ export default function HomePage() {
   const [page, setPage] = useState(1)
   const navigate = useNavigate()
   const addItem = useCartStore((s) => s.addItem)
-  const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const updateQuantityRaw = useCartStore((s) => s.updateQuantity)
   const items = useCartStore((s) => s.items)
   const totalItems = useCartStore((s) => s.totalItems)
+  const addToast = useToastStore((s) => s.addToast)
+
+  function addItemWithToast(item: Parameters<typeof addItem>[0]) {
+    addItem(item)
+    addToast('Added to cart')
+  }
+
+  function updateQuantity(productId: number, qty: number) {
+    if (qty <= 0) addToast('Removed from cart', 'info')
+    updateQuantityRaw(productId, qty)
+  }
 
   const { data: settings } = useQuery<Settings>({
     queryKey: ['settings'],
@@ -111,7 +123,7 @@ export default function HomePage() {
             onAddToCart={(productId) => {
               const product = products.find((p) => p.id === productId)
               if (!product) return
-              addItem({ product_id: product.id, name: product.name, price: product.price, quantity: 1, image_url: product.image_url })
+              addItemWithToast({ product_id: product.id, name: product.name, price: product.price, quantity: 1, image_url: product.image_url })
             }}
           />
         )}

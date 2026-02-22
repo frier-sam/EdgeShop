@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
 import { useCartStore } from '../store/cartStore'
+import { useToastStore } from '../store/toastStore'
 
 interface ProductVariant {
   id: number
@@ -83,10 +84,16 @@ export default function ProductPage() {
   const cartOpen = useCartStore((s) => s.isCartOpen)
   const openCart = useCartStore((s) => s.openCart)
   const closeCart = useCartStore((s) => s.closeCart)
-  const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const updateQuantityRaw = useCartStore((s) => s.updateQuantity)
   const items = useCartStore((s) => s.items)
   const totalItems = useCartStore((s) => s.totalItems)
   const addItem = useCartStore((s) => s.addItem)
+  const addToast = useToastStore((s) => s.addToast)
+
+  function updateQuantity(productId: number, qty: number) {
+    if (qty <= 0) addToast('Removed from cart', 'info')
+    updateQuantityRaw(productId, qty)
+  }
   const queryClient = useQueryClient()
 
   const { data: settings } = useQuery<Settings>({
@@ -218,6 +225,7 @@ export default function ProductPage() {
       image_url: displayImage,
       stock_count: displayStock,
     })
+    addToast('Added to cart')
     setAdded(true)
     setTimeout(() => setAdded(false), 2000)
   }
@@ -563,14 +571,17 @@ export default function ProductPage() {
                   image_url={p.image_url}
                   images={p.images}
                   currency={currency}
-                  onAddToCart={() => addItem({
-                    product_id: p.id,
-                    name: p.name,
-                    price: p.price,
-                    quantity: 1,
-                    image_url: p.image_url,
-                    stock_count: p.stock_count,
-                  })}
+                  onAddToCart={() => {
+                    addItem({
+                      product_id: p.id,
+                      name: p.name,
+                      price: p.price,
+                      quantity: 1,
+                      image_url: p.image_url,
+                      stock_count: p.stock_count,
+                    })
+                    addToast('Added to cart')
+                  }}
                 />
               ))}
             </div>

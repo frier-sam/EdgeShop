@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useTheme } from '../themes/ThemeProvider'
 import { useCartStore } from '../store/cartStore'
+import { useToastStore } from '../store/toastStore'
 
 interface Product {
   id: number
@@ -28,12 +29,18 @@ export default function SearchPage() {
   const navigate = useNavigate()
   const { theme, isLoading: themeLoading, navItems, settings } = useTheme()
   const addItem = useCartStore((s) => s.addItem)
-  const updateQuantity = useCartStore((s) => s.updateQuantity)
+  const updateQuantityRaw = useCartStore((s) => s.updateQuantity)
   const items = useCartStore((s) => s.items)
   const totalItems = useCartStore((s) => s.totalItems)
   const cartOpen = useCartStore((s) => s.isCartOpen)
   const openCart = useCartStore((s) => s.openCart)
   const closeCart = useCartStore((s) => s.closeCart)
+  const addToast = useToastStore((s) => s.addToast)
+
+  function updateQuantity(productId: number, qty: number) {
+    if (qty <= 0) addToast('Removed from cart', 'info')
+    updateQuantityRaw(productId, qty)
+  }
 
   const q = searchParams.get('q') ?? ''
   const [inputValue, setInputValue] = useState(q)
@@ -135,6 +142,7 @@ export default function SearchPage() {
                     quantity: 1,
                     image_url: product.image_url,
                   })
+                  addToast('Added to cart')
                 }}
               />
             )}
