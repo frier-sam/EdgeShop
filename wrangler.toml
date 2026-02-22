@@ -19,7 +19,6 @@ bucket_name = "edgeshop-images"
 
 [vars]
 R2_PUBLIC_URL = "https://pub-REPLACE.r2.dev"
-FRONTEND_URL = "https://edgeshop.workers.dev"
 
 [triggers]
 crons = ["0 * * * *"]

@@ -13,7 +13,7 @@ function escapeXml(s: string): string {
 const sitemap = new Hono<{ Bindings: Env }>()
 
 sitemap.get('/', async (c) => {
-  const frontendUrl = (c.env.FRONTEND_URL ?? 'https://edgeshop.pages.dev').replace(/\/$/, '')
+  const frontendUrl = new URL(c.req.url).origin
   const safeBase = escapeXml(frontendUrl)
 
   try {

@@ -7,7 +7,6 @@ type Env = {
   BUCKET: R2Bucket
   RAZORPAY_WEBHOOK_SECRET: string
   R2_PUBLIC_URL: string
-  FRONTEND_URL: string
 }
 
 const contact = new Hono<{ Bindings: Env }>()

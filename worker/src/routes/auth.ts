@@ -128,7 +128,7 @@ auth.post('/forgot-password', async (c) => {
     const eCfg: Record<string, string> = {}
     for (const row of emailRows.results) eCfg[row.key] = row.value
 
-    const frontendUrl = c.env.FRONTEND_URL ?? ''
+    const frontendUrl = new URL(c.req.url).origin
     const resetUrl = `${frontendUrl}/account/reset-password?token=${token}`
 
     await sendEmail(

@@ -44,7 +44,6 @@ export type Env = {
   ASSETS: Fetcher
   RAZORPAY_WEBHOOK_SECRET: string
   R2_PUBLIC_URL: string
-  FRONTEND_URL: string
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -124,7 +123,7 @@ export default {
       const eCfg: Record<string, string> = {}
       for (const row of emailRows.results) eCfg[row.key] = row.value
 
-      const frontendUrl = eCfg.frontend_url || env.FRONTEND_URL || ''
+      const frontendUrl = eCfg.frontend_url || ''
 
       for (const cart of results) {
         // Atomic claim: skip if another cron invocation already marked this row

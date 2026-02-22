@@ -48,8 +48,7 @@ After first deploy, go to the Worker → **Settings → Bindings** and add:
 - **R2 Bucket** → variable `BUCKET` → select `edgeshop-images`
 
 Go to **Settings → Variables and Secrets** and update:
-- `R2_PUBLIC_URL` → your R2 public URL
-- `FRONTEND_URL` → your worker URL (e.g. `https://edgeshop.workers.dev`)
+- `R2_PUBLIC_URL` → your R2 Public Development URL (e.g. `https://pub-xxxx.r2.dev`)
 
 ### 6. Set Secrets
 
