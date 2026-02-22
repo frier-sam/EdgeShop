@@ -48,7 +48,7 @@ This creates all tables and seeds default settings in one shot.
 4. Set these fields:
    - **Root directory:** *(leave empty)*
    - **Build command:** `npm install && npm run build`
-   - **Deploy command:** `wrangler deploy`
+   - **Deploy command:** `npx wrangler deploy`
 5. Click **Deploy**
 
 ---
