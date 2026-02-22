@@ -36,6 +36,7 @@ import abandonedCart from './routes/abandonedCart'
 import contact from './routes/contact'
 import { sendEmail } from './lib/email'
 import { abandonedCartHtml } from './lib/emailTemplates'
+import { runMigrations } from './lib/migrate'
 
 export type Env = {
   DB: D1Database
@@ -89,8 +90,16 @@ app.route('/api/admin/integrations', integrations)
 app.route('/api/cart', abandonedCart)
 app.route('/api/contact', contact)
 
+// Runs once per worker instance (cold start). Subsequent requests skip
+// the migration check because migrationsDone stays true in memory.
+let migrationsDone = false
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    if (!migrationsDone) {
+      await runMigrations(env.DB)
+      migrationsDone = true
+    }
     return app.fetch(request, env, ctx)
   },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
