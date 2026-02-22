@@ -41,6 +41,7 @@ import { runMigrations } from './lib/migrate'
 export type Env = {
   DB: D1Database
   BUCKET: R2Bucket
+  ASSETS: Fetcher
   RAZORPAY_WEBHOOK_SECRET: string
   R2_PUBLIC_URL: string
   FRONTEND_URL: string
@@ -100,7 +101,11 @@ export default {
       await runMigrations(env.DB)
       migrationsDone = true
     }
-    return app.fetch(request, env, ctx)
+    const { pathname } = new URL(request.url)
+    if (pathname.startsWith('/api/') || pathname === '/sitemap.xml') {
+      return app.fetch(request, env, ctx)
+    }
+    return env.ASSETS.fetch(request)
   },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
     try {
