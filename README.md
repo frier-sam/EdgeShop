@@ -2,9 +2,7 @@
 
 A complete e-commerce platform that runs entirely on Cloudflare's free tier — no servers, no monthly bills.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/frier-sam/EdgeShop&dir=worker)
-
-> **Note:** The button deploys the Worker only. For a full setup (D1 database, migrations, R2, secrets, and frontend), run `bash scripts/setup.sh` after cloning — see [Getting started](#getting-started) below.
+**Deploy in one command:** `git clone https://github.com/frier-sam/EdgeShop.git && cd EdgeShop && bash scripts/setup.sh`
 
 ---
 
