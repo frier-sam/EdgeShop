@@ -96,12 +96,12 @@ let migrationsDone = false
 
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext) {
-    if (!migrationsDone) {
-      await runMigrations(env.DB)
-      migrationsDone = true
-    }
     const { pathname } = new URL(request.url)
     if (pathname.startsWith('/api/') || pathname === '/sitemap.xml') {
+      if (!migrationsDone) {
+        await runMigrations(env.DB)
+        migrationsDone = true
+      }
       return app.fetch(request, env, ctx)
     }
     const response = await env.ASSETS.fetch(request)
