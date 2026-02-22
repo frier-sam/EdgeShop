@@ -106,7 +106,8 @@ export default {
     }
     const response = await env.ASSETS.fetch(request)
     if (response.status === 404) {
-      return env.ASSETS.fetch(new Request(new URL('/index.html', request.url), request))
+      // Fetch '/' from ASSETS (not '/index.html' — ASSETS redirects that to '/')
+      return env.ASSETS.fetch(new Request(new URL('/', request.url).toString()))
     }
     return response
   },

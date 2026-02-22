@@ -27,17 +27,12 @@ products.get('/', async (c) => {
     const total = countRow?.total ?? 0
 
     const { results } = await c.env.DB.prepare(
-      `SELECT p.*,
-        COALESCE(
-          (SELECT json_group_array(url) FROM product_images WHERE product_id = p.id ORDER BY sort_order),
-          '[]'
-        ) AS images_json
-       FROM products p ${where} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`
-    ).bind(...params, limit, offset).all<Product & { images_json: string }>()
+      `SELECT p.* FROM products p ${where} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`
+    ).bind(...params, limit, offset).all<Product>()
 
-    const products = results.map(({ images_json, ...p }) => ({
+    const products = results.map(p => ({
       ...p,
-      images: (() => { try { return JSON.parse(images_json) as string[] } catch { return [] } })(),
+      images: p.image_url ? [p.image_url] : [],
     }))
 
     return c.json({ products, total, page, limit, pages: limit > 0 ? Math.ceil(total / limit) : 0 })
