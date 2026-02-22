@@ -8,17 +8,5 @@ directory = "frontend/dist"
 not_found_handling = "single-page-application"
 binding = "ASSETS"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "edgeshop-db"
-database_id = "placeholder-replace-after-creation"
-
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "edgeshop-images"
-
-[vars]
-R2_PUBLIC_URL = "https://pub-REPLACE.r2.dev"
-
 [triggers]
 crons = ["0 * * * *"]

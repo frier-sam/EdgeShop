@@ -1,6 +1,6 @@
 # Deploying EdgeShop to Cloudflare
 
-EdgeShop runs as a **single Cloudflare Worker** — it serves both the API and the React frontend from one deployment. No separate Pages project needed.
+EdgeShop runs as a **single Cloudflare Worker** — it serves both the API and the React frontend from one deployment. No separate Pages project needed. No editing config files.
 
 ---
 
@@ -17,7 +17,6 @@ EdgeShop runs as a **single Cloudflare Worker** — it serves both the API and t
 2. Click **Create database**
    - Name: `edgeshop-db`
 3. Click **Create**
-4. Copy the **Database ID** (you'll need it in Step 3)
 
 ---
 
@@ -41,23 +40,7 @@ This creates all tables and seeds default settings in one shot.
 
 ---
 
-## Step 4 — Update wrangler.toml
-
-Edit `wrangler.toml` in the repo root and replace the two placeholders:
-
-```toml
-database_id = "paste-your-d1-database-id-here"
-```
-
-```toml
-R2_PUBLIC_URL = "https://pub-xxxx.r2.dev"   # your actual R2 public URL
-```
-
-Commit and push to GitHub.
-
----
-
-## Step 5 — Deploy the Worker
+## Step 4 — Deploy the Worker
 
 1. Go to **Workers & Pages → Create**
 2. Choose **Worker → Connect to Git**
@@ -70,7 +53,7 @@ Commit and push to GitHub.
 
 ---
 
-## Step 6 — Add Bindings
+## Step 5 — Add Bindings
 
 After the first deploy, open your Worker → **Settings → Bindings** and add:
 
@@ -81,28 +64,28 @@ After the first deploy, open your Worker → **Settings → Bindings** and add:
 
 ---
 
-## Step 7 — Add Variables & Secrets
+## Step 6 — Add Variables & Secrets
 
-Still in **Settings → Variables and Secrets**:
+Open **Settings → Variables and Secrets** and add:
 
 | Key | Type | Value |
 |---|---|---|
-| `R2_PUBLIC_URL` | Plain variable | Your R2 Public Development URL |
+| `R2_PUBLIC_URL` | Plain variable | Your R2 Public Development URL (`https://pub-xxxx.r2.dev`) |
 | `JWT_SECRET` | **Secret** | Any random 32+ character string |
 
 To generate a JWT secret: [1password.com/password-generator](https://1password.com/password-generator/) (set length to 40, letters + numbers).
 
-> `FRONTEND_URL` is **not needed** — the worker automatically derives the correct URL from each request.
+> `R2_PUBLIC_URL` is the CDN URL for uploaded product images — it's different from your worker URL because images are served directly from R2's CDN, not through the worker.
 
 ---
 
-## Step 8 — Redeploy (picks up bindings)
+## Step 7 — Redeploy
 
 Trigger a redeploy from the Worker dashboard so the new bindings and secrets take effect.
 
 ---
 
-## Step 9 — First-time Admin Setup
+## Step 8 — First-time Admin Setup
 
 Open your worker URL (e.g. `https://edgeshop.workers.dev/admin`) and configure:
 
