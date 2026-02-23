@@ -172,7 +172,7 @@ CREATE TABLE IF NOT EXISTS order_emails (
   recipient TEXT    NOT NULL,
   subject   TEXT    NOT NULL,
   status    TEXT    NOT NULL DEFAULT 'sent',
-  sent_at   INTEGER NOT NULL DEFAULT (unixepoch())
+  sent_at   INTEGER NOT NULL DEFAULT (strftime('%s','now'))
 );
 
 CREATE TABLE IF NOT EXISTS order_events (

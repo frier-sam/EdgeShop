@@ -45,20 +45,25 @@ products.get('/', async (c) => {
 products.get('/:id', async (c) => {
   const id = Number(c.req.param('id'))
   if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
-  const product = await c.env.DB.prepare(
-    "SELECT * FROM products WHERE id = ? AND status = 'active'"
-  ).bind(id).first<Product>()
-  if (!product) return c.json({ error: 'Not found' }, 404)
+  try {
+    const product = await c.env.DB.prepare(
+      "SELECT * FROM products WHERE id = ? AND status = 'active'"
+    ).bind(id).first<Product>()
+    if (!product) return c.json({ error: 'Not found' }, 404)
 
-  const { results: variants } = await c.env.DB.prepare(
-    'SELECT * FROM product_variants WHERE product_id = ? ORDER BY id ASC'
-  ).bind(id).all<ProductVariant>()
+    const { results: variants } = await c.env.DB.prepare(
+      'SELECT * FROM product_variants WHERE product_id = ? ORDER BY id ASC'
+    ).bind(id).all<ProductVariant>()
 
-  const { results: images } = await c.env.DB.prepare(
-    'SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC'
-  ).bind(id).all<ProductImage>()
+    const { results: images } = await c.env.DB.prepare(
+      'SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC'
+    ).bind(id).all<ProductImage>()
 
-  return c.json({ ...product, variants, images })
+    return c.json({ ...product, variants, images })
+  } catch (err) {
+    console.error('Product detail error:', err)
+    return c.json({ error: 'Failed to load product' }, 500)
+  }
 })
 
 export default products

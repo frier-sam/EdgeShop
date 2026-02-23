@@ -9,11 +9,15 @@ reviews.get('/:id/reviews', async (c) => {
   const productId = Number(c.req.param('id'))
   if (isNaN(productId)) return c.json({ error: 'Invalid product id' }, 400)
 
-  const { results } = await c.env.DB.prepare(
-    'SELECT id, product_id, customer_name, rating, body, created_at FROM reviews WHERE product_id = ? AND is_approved = 1 ORDER BY created_at DESC'
-  ).bind(productId).all<Omit<Review, 'is_approved'>>()
-
-  return c.json({ reviews: results })
+  try {
+    const { results } = await c.env.DB.prepare(
+      'SELECT id, product_id, customer_name, rating, body, created_at FROM reviews WHERE product_id = ? AND is_approved = 1 ORDER BY created_at DESC'
+    ).bind(productId).all<Omit<Review, 'is_approved'>>()
+    return c.json({ reviews: results })
+  } catch (err) {
+    console.error('Reviews fetch error:', err)
+    return c.json({ reviews: [] })
+  }
 })
 
 // POST /api/products/:id/reviews — submit a new review (pending moderation)
