@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
 import AnnouncementBar from '../components/AnnouncementBar'
 import { useQuery } from '@tanstack/react-query'
-import type { Theme, ThemeOverrides, NavItem, FooterData } from './types'
+import type { Theme, ThemeOverrides, NavItem, FooterData, HomepageData } from './types'
 import { themes } from './index'
 
 interface ThemeContextValue {
@@ -10,6 +10,7 @@ interface ThemeContextValue {
   activeThemeId: string
   navItems: NavItem[]
   footerData: FooterData
+  homepageData: HomepageData
   settings: Record<string, string>
 }
 
@@ -19,6 +20,7 @@ const ThemeContext = createContext<ThemeContextValue>({
   activeThemeId: 'jewellery',
   navItems: [],
   footerData: {},
+  homepageData: {},
   settings: {},
 })
 
@@ -45,6 +47,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     catch { return {} }
   }, [settings.footer_json])
 
+  const homepageData = useMemo<HomepageData>(() => {
+    if (!settings.homepage_json) return {}
+    try { return JSON.parse(settings.homepage_json) as HomepageData }
+    catch { return {} }
+  }, [settings.homepage_json])
+
   useEffect(() => {
     if (!theme) return
     let overrides: ThemeOverrides = {}
@@ -66,7 +74,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const announcementColor = settings.announcement_bar_color ?? '#1A1A1A'
 
   return (
-    <ThemeContext.Provider value={{ theme, isLoading, activeThemeId, navItems, footerData, settings }}>
+    <ThemeContext.Provider value={{ theme, isLoading, activeThemeId, navItems, footerData, homepageData, settings }}>
       {announcementEnabled && announcementText && (
         <AnnouncementBar text={announcementText} color={announcementColor} />
       )}

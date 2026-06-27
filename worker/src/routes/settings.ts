@@ -44,6 +44,8 @@ settings.put('/', async (c) => {
     'theme_overrides_json',
     // v2 footer + review settings
     'footer_json',
+    // homepage sections
+    'homepage_json',
     'reviews_visibility',
     // v2 email notification
     'admin_email_notifications',

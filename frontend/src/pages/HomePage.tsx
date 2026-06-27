@@ -5,6 +5,10 @@ import { useTheme } from '../themes/ThemeProvider'
 import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
 import { SkeletonCards } from '../components/Skeleton'
+import USPStrip from '../themes/jewellery/USPStrip'
+import FeaturedBanner from '../themes/jewellery/FeaturedBanner'
+import CategoryRow from '../themes/jewellery/CategoryRow'
+import Testimonials from '../themes/jewellery/Testimonials'
 
 interface Product {
   id: number
@@ -40,7 +44,7 @@ function setMetaProperty(property: string, content: string) {
 }
 
 export default function HomePage() {
-  const { theme, isLoading: themeLoading, navItems, footerData } = useTheme()
+  const { theme, isLoading: themeLoading, navItems, footerData, homepageData } = useTheme()
   const cartOpen = useCartStore((s) => s.isCartOpen)
   const openCart = useCartStore((s) => s.openCart)
   const closeCart = useCartStore((s) => s.closeCart)
@@ -108,10 +112,20 @@ export default function HomePage() {
   const { Header, Footer, Hero, ProductGrid, CartDrawer } = theme.components
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-16 md:pb-0">
       <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={navItems} />
       <main>
-        <Hero storeName={storeName} tagline="Discover our collection" />
+        <Hero storeName={storeName} tagline={homepageData.heroTagline ?? 'Discover our collection'} heroImage={homepageData.heroImage} />
+        <USPStrip enabled={homepageData.uspEnabled ?? true} />
+        <FeaturedBanner
+          enabled={homepageData.bannerEnabled ?? true}
+          title={homepageData.bannerTitle}
+          subtitle={homepageData.bannerSubtitle}
+          image={homepageData.bannerImage}
+          href={homepageData.bannerHref}
+          ctaLabel={homepageData.bannerCtaLabel}
+        />
+        <CategoryRow enabled={homepageData.collectionsEnabled ?? true} items={homepageData.collectionItems} />
         {productsLoading ? (
           <div className="max-w-6xl mx-auto px-4 py-8">
             <SkeletonCards count={8} />
@@ -146,6 +160,11 @@ export default function HomePage() {
             </button>
           </div>
         )}
+        <Testimonials
+          enabled={homepageData.testimonialsEnabled ?? true}
+          heading={homepageData.testimonialHeading}
+          items={homepageData.testimonials}
+        />
       </main>
       <Footer storeName={storeName} footerData={footerData} />
       <CartDrawer isOpen={cartOpen} items={items} currency={currency} onClose={closeCart} onUpdateQuantity={updateQuantity} onCheckout={() => { closeCart(); navigate('/checkout') }} />

@@ -1,0 +1,260 @@
+{
+  "version": 1,
+  "skills": {
+    "ab-test-setup": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "c54f8e87b007ee63659e33b4f280fe375f3ab7e1a04ec6dd4eab93df2a3958cb"
+    },
+    "app-store-optimization": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "de73dd5886d3e00f010bd434b952e1e97642637dca1c9d47cdbb56bb44878bce"
+    },
+    "blog-writing-specialist": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "ce1ef6d0306c5b67be8001e6912c4ce7ef7a6c8fb4ee0e88873e5ae6648660d9"
+    },
+    "bootstrap": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "18a59465a651b0bd1dfdc6ba64965f74da153162fae5f2cb92e08f3504a4d561"
+    },
+    "challenge-funnel": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "8bc89078ccf68cf1d27d8d69643396bb0e502610aada4dde956f3a086bc1413d"
+    },
+    "community-building": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "ebca26ea4c92debbb74680e831affee544e4b25ea18f5431071df4e193441c7f"
+    },
+    "competitor-analysis": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "976908a5a605144410d6b027d9bcfafcfbc71a0cb29d438be4b479e34f1e79e8"
+    },
+    "content-creation-and-marketing": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "166ab3bfcc22778f3a072995becab4e338f8de41056d8699b2701251181a91be"
+    },
+    "content-strategy-and-planning": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "97a8ec40efe7b46586cc85473796910a7d148972be2ea7a2323b1c7be0a46028"
+    },
+    "conversion-rate-optimization": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "5e2d695fcd3e4d3947e24494996e9c8289a0e32c42418d3e6376444b48586ee5"
+    },
+    "copywriting-core": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "d58954eae04007ce39cfe5dbdf70d14b47afa3904e9046e11814ffa139fc000f"
+    },
+    "crm-integration": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "8e759fee7faf9d6770012e936096d0493d58207e32e154e1cf2cda6d2ba12806"
+    },
+    "customer-success-and-retention": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "e30d45f9ec65597d89f7dc127883b644f83af382fe4193eb76992334c938094e"
+    },
+    "data-and-funnel-analytics": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "4a95ffd06b2d156828e6e8b123949d012fb16d3642df2785ea6978b0e31a08e3"
+    },
+    "executive-dashboard-generator": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "272756bafe5aad19de839ed964bc5dd80d2c9238c31b46c04db923a88276579c"
+    },
+    "free-tool-strategy": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "b24aaefa6a11ea61226863eaaf4154e9aff8dc3280fcc5a1a8410baf699fc8f8"
+    },
+    "go-to-market-strategy": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "f237100ccb956f75144a7f2057fcbf18fae335a05cd3ded775a1158124710fb9"
+    },
+    "growth-strategy": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "85205e65f6987044a27efbd87bd98e511dae6e088f9665016ea0a0367b7dc03c"
+    },
+    "issue-reporting": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "aeb98afbde365f6a98956dabaceb05deaeddcf02bbebea202a37f420f03a0ac0"
+    },
+    "keyword-research-and-clustering": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "14fc330d1d42676ab1f9dbd6c0e0160f244ecf5985068fd952ec5b305d2f7045"
+    },
+    "landing-page-optimization": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "aeae834b5664cc5f5e9b4719358e8e390f7d71ccc0e7a1a14a8ee523d5727535"
+    },
+    "lead-generation-and-demand": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "3c8d389ff6a07a9332fbe090c9c51d46922f31d4f087e805a7f6520ac144d1d5"
+    },
+    "linkedin-content": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "1d5c85af5a2b96e8cd25d903fc19feb2b15b126521d71a4da534a1ed88e97d46"
+    },
+    "linkedin-personal-branding": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "3d6ec41cc710875400f02aee6cf86f42e7494bcdfb384b4d05562804bb795455"
+    },
+    "market-research-analysis": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "e23461b431b5b7b51ed5dfcc033d973bdca100dbc37488de38a168754bad59f8"
+    },
+    "marketing-automation": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "309273e9a7d27e9dda7fd0735a639c67c3ddb7b1fe5ec6f725c48537e17629e3"
+    },
+    "marketing-campaign-management": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "eaa7135a23a4da1b3f9dcfc69f05d7af8b9931b58aef3ff26a1b0a3524bb68c5"
+    },
+    "marketing-strategy-pmm": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "95cd049f9b34fba6f90f807f783a5cf79798a10106429da1adfa89907a7adfb6"
+    },
+    "outbound-email-strategy": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "dbb236f2aa2905feabbbb717af53433a72b5a659e0698285e01fe69ce05c0a2a"
+    },
+    "personalization-at-scale": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "83693e8f164acbaa1afbebb0c993f9e761ded087ab8ba789b673fd382ad097c5"
+    },
+    "ph-community-outreach": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "a982937f4b1adbc071b324f56a006799736551733674fd7dd80748f7963eeeeb"
+    },
+    "ph-content-recycling": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "8208923d15dc97614bd01094a7328b5623c735580356fdbc7c5306f21f8d6b53"
+    },
+    "pr-specialist": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "b7a1641f022b2c6b5903188a7b4b5d84fb2e5468a28df80fb8baa46336de346e"
+    },
+    "pricing-strategy": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "f4f7383188661cfa1da4d8deea8d64f3806d19eb07501cb3e23f6c4149e71303"
+    },
+    "product-hunt-launch": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "534d822f58f9401b27956fb3f372e4603883d699f42516389e6fc1cab6c5dd34"
+    },
+    "product-market-fit-analysis": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "da82424beedd08d9b44ae6c235d10589f27be85a826007b288809c37e0951b45"
+    },
+    "product-strategy-and-marketing": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "51abaf04eb9f4fd4a5fb457b5dbff9bca2f396917ada54bd8376a2bf463053cf"
+    },
+    "qr-code-generator": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "d7d7c2e8779296f645e1895862081b68384a699d4941c015c7610d6db94152ef"
+    },
+    "referral-program": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "f88d7111f043592fccf67e34d5e3a5605fc7895e50470dda26ba8389ae43f5c5"
+    },
+    "sales-and-revenue-operations": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "a0f2f9f3fff8dfe00859174b3cc0e426aee01f13ff3875b3f40caf4622c2074e"
+    },
+    "seo-and-aeo-strategy": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "cb7ae041ed4ee51994031db407e520f190923ddfda6c8c9f117728aa6edd0d4e"
+    },
+    "skill-navigator": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "ef9b957f39720fc32e8109d3aa0f0fdd3998f62a2839a410c47982cdb6b99da1"
+    },
+    "social-media-management": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "418aed0773d3c8c3cac7b9804700d79d9229e123f3545bd12c0bc9bfb763e649"
+    },
+    "user-onboarding": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "838e0f2a0d7c56d58fd0acc906acdd5c12b3c76639df59ea3e6264187326aeaf"
+    },
+    "utm-builder": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "95330bd1385a8a981b65541d253e734587f786803f85d6520c4179b8db1000d6"
+    },
+    "x-impact-checker": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "5660e616a00a6f959ce65ea73590dd752ed4a7706bc2684c46c05aa2c269dd41"
+    },
+    "youtube": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "eabc35e1583e2ef2b736581f8c5070a292acec5e24a162af13f5e4a9d6e7e359"
+    },
+    "youtube-plan-new-video": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "b31144413dd96bd1d6929c0ffba63605f11a2d61137e092e3e8c7c99525a9a23"
+    },
+    "youtube-research-video-topic": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "3bc47674ee76f7e113a3c8d2b6f67f96ed9503b275513822e843cd7881e17e72"
+    },
+    "youtube-video-analyst": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "b989f73be925f1b706853b9ab594989c1af66e5dbeffba8cf619c43b118b157f"
+    },
+    "youtube-video-hook": {
+      "source": "manojbajaj95/claude-gtm-plugin",
+      "sourceType": "github",
+      "computedHash": "a6bdde6dd9cc019f4f3d5ed131c1bc17b9a5bea9abc8e88e2aea5a716304415c"
+    }
+  }
+}

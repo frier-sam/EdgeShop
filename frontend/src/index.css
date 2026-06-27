@@ -1,5 +1,52 @@
 @import "tailwindcss";
 
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', var(--font-body, system-ui, sans-serif);
+  background-color: var(--color-bg, #FAFAF8);
+  color: var(--color-primary, #1A1A1A);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-accent, #C9A96E) 28%, transparent);
+  color: var(--color-primary, #1A1A1A);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent, #C9A96E);
+  outline-offset: 2px;
+}
+
+/* Elegant minimal scrollbar */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--color-accent, #C9A96E) 35%, transparent);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--color-accent, #C9A96E) 65%, transparent);
+}
+
+/* Smooth image loading */
+img {
+  display: block;
+}
+
 @keyframes pageEnter {
   from {
     opacity: 0;
@@ -13,4 +60,17 @@
 
 .page-enter {
   animation: pageEnter 200ms ease-out backwards;
+}
+
+/* Scroll-reveal utility — toggled by IntersectionObserver */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
 }

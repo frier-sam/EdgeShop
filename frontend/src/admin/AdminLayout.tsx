@@ -152,6 +152,7 @@ const sections: NavSection[] = [
   {
     title: 'Content',
     items: [
+      { to: '/admin/homepage', label: 'Homepage', icon: <IconHome />, permission: 'content' },
       { to: '/admin/blog', label: 'Blog', icon: <IconPencil />, permission: 'content' },
       { to: '/admin/pages', label: 'Pages', icon: <IconDocument />, permission: 'content' },
       { to: '/admin/navigation', label: 'Navigation', icon: <IconMenu />, permission: 'content' },

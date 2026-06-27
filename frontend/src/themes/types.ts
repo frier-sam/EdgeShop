@@ -54,6 +54,7 @@ export interface FooterProps {
 export interface HeroProps {
   storeName: string
   tagline: string
+  heroImage?: string
 }
 
 export interface ProductGridProps {
@@ -86,6 +87,23 @@ export interface CartDrawerProps {
   onClose: () => void
   onUpdateQuantity: (productId: number, quantity: number) => void
   onCheckout: () => void
+}
+
+export interface HomepageData {
+  heroTagline?: string
+  heroImage?: string
+  uspEnabled?: boolean
+  bannerEnabled?: boolean
+  bannerTitle?: string
+  bannerSubtitle?: string
+  bannerImage?: string
+  bannerHref?: string
+  bannerCtaLabel?: string
+  collectionsEnabled?: boolean
+  collectionItems?: { label: string; href: string }[]
+  testimonialsEnabled?: boolean
+  testimonialHeading?: string
+  testimonials?: { name: string; location: string; rating: number; text: string }[]
 }
 
 export interface ThemeOverrides {

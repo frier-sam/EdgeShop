@@ -266,18 +266,60 @@ export default function CheckoutPage() {
     }
   }
 
+  const steps = ['Cart', 'Details', 'Payment', 'Confirm']
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
+      <style>{`
+        @keyframes checkout-shine {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
+        .checkout-submit-btn {
+          background: var(--color-primary);
+          color: var(--color-bg);
+          position: relative;
+          overflow: hidden;
+        }
+        .checkout-submit-btn:not(:disabled):hover {
+          opacity: 0.88;
+        }
+      `}</style>
       <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-        <Link to="/" className="text-sm text-gray-500 hover:text-gray-800 mb-6 inline-flex items-center gap-1">
+        <Link to="/" className="text-sm mb-6 inline-flex items-center gap-1 transition-opacity hover:opacity-60" style={{ color: 'var(--color-accent)' }}>
           ← Back to shop
         </Link>
-        <h1 className="text-2xl font-semibold text-gray-900 mb-8">Checkout</h1>
+        <h1 className="text-2xl font-semibold mb-6" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Checkout</h1>
+
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 mb-8">
+          {steps.map((step, i) => (
+            <div key={step} className="flex items-center gap-2">
+              <span
+                className="text-[10px] tracking-[0.15em] uppercase px-3 py-1 rounded-full border transition-colors"
+                style={i === 1 ? {
+                  backgroundColor: 'var(--color-primary)',
+                  borderColor: 'var(--color-primary)',
+                  color: 'var(--color-bg)',
+                } : {
+                  borderColor: 'var(--color-accent)',
+                  color: 'var(--color-accent)',
+                  opacity: i < 1 ? 0.5 : 0.4,
+                }}
+              >
+                {step}
+              </span>
+              {i < steps.length - 1 && (
+                <div className="w-4 h-px" style={{ backgroundColor: 'var(--color-accent)', opacity: 0.3 }} />
+              )}
+            </div>
+          ))}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Order summary */}
-          <div className="bg-white rounded-lg border border-gray-200 p-5">
-            <h2 className="font-medium text-gray-800 mb-4">Order Summary</h2>
+          <div className="rounded-lg border p-5" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}>
+            <h2 className="font-medium mb-4" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Order Summary</h2>
             <ul className="space-y-3">
               {items.map((item) => (
                 <li key={item.product_id} className="flex justify-between text-sm text-gray-600">
@@ -311,8 +353,8 @@ export default function CheckoutPage() {
           </div>
 
           {/* Shipping details */}
-          <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-            <h2 className="font-medium text-gray-800">Shipping Details</h2>
+          <div className="rounded-lg border p-5 space-y-4" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}>
+            <h2 className="font-medium" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Shipping Details</h2>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Full Name *</label>
               <input required value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
@@ -384,8 +426,8 @@ export default function CheckoutPage() {
           </div>
 
           {/* Discount code */}
-          <div className="bg-white rounded-lg border border-gray-200 p-5">
-            <h2 className="font-medium text-gray-800 mb-4">Discount Code</h2>
+          <div className="rounded-lg border p-5" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}>
+            <h2 className="font-medium mb-4" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Discount Code</h2>
             {discountResult ? (
               <div className="flex items-center justify-between text-sm">
                 <span className="text-green-700 font-medium">
@@ -424,20 +466,28 @@ export default function CheckoutPage() {
           </div>
 
           {/* Payment method */}
-          <div className="bg-white rounded-lg border border-gray-200 p-5">
-            <h2 className="font-medium text-gray-800 mb-4">Payment Method</h2>
+          <div className="rounded-lg border p-5" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}>
+            <h2 className="font-medium mb-4" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Payment Method</h2>
             <div className="space-y-2">
               {codEnabled && (
-                <label className={`flex items-center gap-3 p-3 border-2 rounded cursor-pointer ${paymentMethod === 'cod' ? 'border-gray-900' : 'border-gray-200'}`}>
+                <label
+                  className="flex items-center gap-3 p-3 border-2 rounded cursor-pointer transition-colors"
+                  style={{ borderColor: paymentMethod === 'cod' ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}
+                >
                   <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="sr-only" />
-                  <span className="text-sm font-medium text-gray-800">Cash on Delivery</span>
-                  <span className="text-xs text-gray-400">Pay when your order arrives</span>
+                  <span className="text-lg">💵</span>
+                  <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>Cash on Delivery</span>
+                  <span className="text-xs ml-auto opacity-50" style={{ color: 'var(--color-primary)' }}>Pay on arrival</span>
                 </label>
               )}
-              <label className={`flex items-center gap-3 p-3 border-2 rounded cursor-pointer ${paymentMethod === 'razorpay' ? 'border-gray-900' : 'border-gray-200'}`}>
+              <label
+                className="flex items-center gap-3 p-3 border-2 rounded cursor-pointer transition-colors"
+                style={{ borderColor: paymentMethod === 'razorpay' ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}
+              >
                 <input type="radio" name="payment" value="razorpay" checked={paymentMethod === 'razorpay'} onChange={() => setPaymentMethod('razorpay')} className="sr-only" />
-                <span className="text-sm font-medium text-gray-800">Razorpay</span>
-                <span className="text-xs text-gray-400">Cards, UPI, Netbanking</span>
+                <span className="text-lg">💳</span>
+                <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>Razorpay</span>
+                <span className="text-xs ml-auto opacity-50" style={{ color: 'var(--color-primary)' }}>Cards, UPI, Netbanking</span>
               </label>
             </div>
           </div>
@@ -454,9 +504,19 @@ export default function CheckoutPage() {
           {error && <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded">{error}</p>}
 
           <button type="submit" disabled={submitting}
-            className="w-full py-3 bg-gray-900 text-white font-medium rounded hover:bg-gray-700 disabled:opacity-50 transition-colors">
+            className="checkout-submit-btn w-full py-3 font-medium rounded disabled:opacity-50 transition-opacity">
             {submitting ? 'Processing...' : `Place Order — ${currency}${total.toFixed(2)}`}
           </button>
+
+          {/* Trust badges */}
+          <div className="flex items-center justify-center gap-6 pt-2">
+            {[['🔒', 'Secure Checkout'], ['🔄', 'Easy Returns'], ['🚚', 'Fast Delivery']].map(([icon, label]) => (
+              <div key={label} className="flex items-center gap-1">
+                <span className="text-sm">{icon}</span>
+                <span className="text-[10px] tracking-[0.1em] uppercase" style={{ color: 'var(--color-accent)', opacity: 0.7 }}>{label}</span>
+              </div>
+            ))}
+          </div>
         </form>
       </div>
     </div>

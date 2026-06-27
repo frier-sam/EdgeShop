@@ -1,7 +1,9 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from './themes/ThemeProvider'
 import PageTransition from './components/PageTransition'
+import MobileBottomNav from './components/MobileBottomNav'
+import { useCartStore } from './store/cartStore'
 import HomePage from './pages/HomePage'
 import ProductPage from './pages/ProductPage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
@@ -14,6 +16,7 @@ import AdminSettings from './admin/pages/AdminSettings'
 import AdminThemeCustomizer from './admin/pages/AdminThemeCustomizer'
 import AdminAppearance from './admin/pages/AdminAppearance'
 import AdminFooter from './admin/pages/AdminFooter'
+import AdminHomepage from './admin/pages/AdminHomepage'
 import StaticPage from './pages/StaticPage'
 import AdminPages from './admin/pages/AdminPages'
 import AdminNavigation from './admin/pages/AdminNavigation'
@@ -47,12 +50,21 @@ import Toaster from './components/Toaster'
 
 const queryClient = new QueryClient()
 
+function GlobalMobileNav() {
+  const location = useLocation()
+  const totalItems = useCartStore((s) => s.totalItems)
+  const openCart = useCartStore((s) => s.openCart)
+  if (location.pathname.startsWith('/admin')) return null
+  return <MobileBottomNav cartCount={totalItems()} onCartOpen={openCart} />
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <Toaster />
         <BrowserRouter>
+          <GlobalMobileNav />
           <Routes>
             <Route path="/" element={<PageTransition><HomePage /></PageTransition>} />
             <Route path="/product/:id" element={<PageTransition><ProductPage /></PageTransition>} />
@@ -82,6 +94,7 @@ export default function App() {
               <Route path="theme" element={<Navigate to="/admin/appearance" replace />} />
               <Route path="appearance" element={<PageTransition><AdminAppearance /></PageTransition>} />
               <Route path="footer" element={<PageTransition><AdminFooter /></PageTransition>} />
+              <Route path="homepage" element={<PageTransition><AdminHomepage /></PageTransition>} />
               <Route path="collections" element={<PageTransition><AdminCollections /></PageTransition>} />
               <Route path="pages" element={<PageTransition><AdminPages /></PageTransition>} />
               <Route path="navigation" element={<PageTransition><AdminNavigation /></PageTransition>} />

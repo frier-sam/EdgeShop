@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { FooterData, FooterColumn } from '../../themes/types'
 import { showToast } from '../Toast'
 import { adminFetch } from '../lib/adminFetch'
+import LinkPicker from '../LinkPicker'
 
 export default function AdminFooter() {
   const qc = useQueryClient()
@@ -163,11 +164,10 @@ export default function AdminFooter() {
                     placeholder="Label"
                     className="w-28 border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-gray-500"
                   />
-                  <input
+                  <LinkPicker
                     value={link.href}
-                    onChange={e => updateLink(ci, li, { href: e.target.value })}
+                    onChange={(href, label) => updateLink(ci, li, { href, ...(label && !link.label ? { label } : {}) })}
                     placeholder="/pages/about"
-                    className="flex-1 border border-gray-300 rounded px-2 py-1.5 text-xs focus:outline-none focus:border-gray-500"
                   />
                   <button onClick={() => removeLink(ci, li)} className="text-red-400 hover:text-red-600 text-xs shrink-0">×</button>
                 </div>

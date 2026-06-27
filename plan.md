@@ -1781,6 +1781,14 @@ git commit -am "chore: Cloudflare Pages config and production wrangler.toml"
 | 2026-02-21 | sendEmail returns { ok, error } instead of void | test-email endpoint needs to surface provider HTTP errors to admin UI; existing fire-and-forget callers ignore return value (backward-compatible) |
 | 2026-02-21 | shiprocket_token excluded from PUT /api/settings whitelist | Token should only be written by backend test-shiprocket endpoint; allowing frontend to write it would bypass auth flow |
 | 2026-02-21 | Email providers Resend/SendGrid/Brevo all use HTTP APIs (no SMTP) | Cloudflare Workers cannot make raw TCP connections; all three share same 4 settings keys (email_provider, email_api_key, email_from_name, email_from_address) |
+| 2026-06-11 | DM Sans added as body font paired with Playfair Display | DM Sans is a premium geometric sans that pairs naturally with Playfair Display; loaded via Google Fonts with preconnect for minimal latency |
+| 2026-06-11 | Hero upgraded: parallax BG layer (rAF + scrollY * 0.22), diamond sparkles (rotated squares), ornament lines that grow from center, two CTAs, diamond lattice SVG pattern when no heroImage | Award-winning hero requires kinetic depth; parallax on background div keeps DOM simple; diamond shapes are consistent with jewellery brand language |
+| 2026-06-11 | ProductGrid uses IntersectionObserver to stagger-reveal cards on scroll (transitionDelay by column position) | CSS-only animations fire on mount and miss off-screen products; IO-based reveal creates a luxury "loading" feel as the user scrolls |
+| 2026-06-11 | CartDrawer has a free-shipping progress bar (threshold ₹999) with animated fill and "unlocked" state | Progress bars reduce cart abandonment and match user expectation set by the footer "Free shipping above ₹999" message |
+| 2026-06-11 | CategoryRow redesigned as dark gradient square tiles (aspect-square) with diamond lattice overlay and shine-sweep hover | Pill buttons felt utilitarian; dark tile grid with gold typography is consistent with the jewellery brand aesthetic |
+| 2026-06-11 | Testimonials upgraded with decorative SVG quote mark, italic review text, gradient avatar circles, bottom accent line | Review cards are trust signals; visual polish reinforces brand premium positioning |
+| 2026-06-11 | FeaturedBanner redesigned as dark-background text side + image side split; text uses diamond pattern overlay and gold vertical accent bar; italic "& more" creates typographic contrast | Split layouts with dark/light contrast are more visually arresting than tonal banners |
+| 2026-06-11 | index.css: antialiased font rendering, gold ::selection colour, minimal 3px scrollbar | Small global polish changes with disproportionate perceived quality impact |
 
 ---
 
