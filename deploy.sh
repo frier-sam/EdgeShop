@@ -201,34 +201,7 @@ setup_r2() {
     success "R2 bucket created: $BUCKET_NAME"
   fi
 
-  # R2 public access requires a manual dashboard step
-  echo ""
-  echo -e "${YELLOW}┌────────────────────────────────────────────────────────┐${NC}"
-  echo -e "${YELLOW}│  MANUAL STEP: Enable R2 Public Access (30 seconds)    │${NC}"
-  echo -e "${YELLOW}└────────────────────────────────────────────────────────┘${NC}"
-  echo ""
-  echo "  1. Open this URL in your browser:"
-  echo -e "     ${BOLD}https://dash.cloudflare.com/${ACCOUNT_ID}/r2/default/buckets/${BUCKET_NAME}${NC}"
-  echo ""
-  echo "  2. Click the  Settings  tab"
-  echo "  3. Under 'Public Access', click  Allow Access"
-  echo "  4. Copy the URL shown (format: https://pub-xxxxxxxx.r2.dev)"
-  echo ""
-
-  R2_PUBLIC_URL=""
-  while true; do
-    ask "Paste the R2 public URL:"
-    printf "  › "
-    read -r R2_PUBLIC_URL
-    if [[ "$R2_PUBLIC_URL" =~ ^https://pub-[a-z0-9]+\.r2\.dev$ ]]; then
-      break
-    fi
-    warn "Expected format: https://pub-xxxxxxxx.r2.dev — try again."
-  done
-
-  # Patch wrangler.toml
-  sed_i "s|R2_PUBLIC_URL = \"https://pub-REPLACE.r2.dev\"|R2_PUBLIC_URL = \"${R2_PUBLIC_URL}\"|" wrangler.toml
-  success "R2 public URL configured: $R2_PUBLIC_URL"
+  success "R2 bucket ready — no public access step needed. All objects (mockups, uploads, design previews) are served same-origin through the worker at /img/<key>, so the bucket stays private."
 }
 
 # ── Step 6: Deploy worker ─────────────────────────────────────

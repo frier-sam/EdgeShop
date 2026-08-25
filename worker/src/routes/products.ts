@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
-import type { Product, ProductVariant, ProductImage } from '../types'
+import type { Product, ProductSide, ProductSize } from '../types'
 
 const products = new Hono<{ Bindings: Env }>()
 
@@ -27,15 +27,16 @@ products.get('/', async (c) => {
     const total = countRow?.total ?? 0
 
     const { results } = await c.env.DB.prepare(
-      `SELECT p.* FROM products p ${where} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`
+      `SELECT
+         p.id, p.name, p.slug, p.base_price, p.compare_price, p.category, p.is_customizable,
+         ps.image_url AS front_image
+       FROM products p
+       LEFT JOIN product_sides ps ON ps.product_id = p.id AND ps.side = 'front'
+       ${where}
+       ORDER BY p.created_at DESC LIMIT ? OFFSET ?`
     ).bind(...params, limit, offset).all<Product>()
 
-    const products = results.map(p => ({
-      ...p,
-      images: p.image_url ? [p.image_url] : [],
-    }))
-
-    return c.json({ products, total, page, limit, pages: limit > 0 ? Math.ceil(total / limit) : 0 })
+    return c.json({ products: results, total, page, limit, pages: limit > 0 ? Math.ceil(total / limit) : 0 })
   } catch (err) {
     console.error('Products list error:', err)
     return c.json({ error: 'Failed to load products' }, 500)
@@ -43,23 +44,30 @@ products.get('/', async (c) => {
 })
 
 products.get('/:id', async (c) => {
-  const id = Number(c.req.param('id'))
-  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
+  const idParam = c.req.param('id')
+  const numericId = Number(idParam)
+  const isNumeric = !isNaN(numericId) && /^\d+$/.test(idParam)
+
   try {
-    const product = await c.env.DB.prepare(
-      "SELECT * FROM products WHERE id = ? AND status = 'active'"
-    ).bind(id).first<Product>()
+    const product = isNumeric
+      ? await c.env.DB.prepare(
+          "SELECT * FROM products WHERE id = ? AND status = 'active'"
+        ).bind(numericId).first<Product>()
+      : await c.env.DB.prepare(
+          "SELECT * FROM products WHERE slug = ? AND status = 'active'"
+        ).bind(idParam).first<Product>()
+
     if (!product) return c.json({ error: 'Not found' }, 404)
 
-    const { results: variants } = await c.env.DB.prepare(
-      'SELECT * FROM product_variants WHERE product_id = ? ORDER BY id ASC'
-    ).bind(id).all<ProductVariant>()
+    const { results: sides } = await c.env.DB.prepare(
+      'SELECT * FROM product_sides WHERE product_id = ? ORDER BY sort_order ASC'
+    ).bind(product.id).all<ProductSide>()
 
-    const { results: images } = await c.env.DB.prepare(
-      'SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC'
-    ).bind(id).all<ProductImage>()
+    const { results: sizes } = await c.env.DB.prepare(
+      'SELECT * FROM product_sizes WHERE product_id = ? ORDER BY sort_order ASC'
+    ).bind(product.id).all<ProductSize>()
 
-    return c.json({ ...product, variants, images })
+    return c.json({ ...product, sides, sizes })
   } catch (err) {
     console.error('Product detail error:', err)
     return c.json({ error: 'Failed to load product' }, 500)

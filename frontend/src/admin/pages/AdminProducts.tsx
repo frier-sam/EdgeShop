@@ -4,23 +4,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
 import { SkeletonTable } from '../../components/Skeleton'
 
-interface Product {
+interface AdminProductRow {
   id: number
   name: string
-  description: string
-  price: number
-  image_url: string
-  stock_count: number
-  category: string
+  slug: string | null
+  base_price: number
   compare_price: number | null
-  tags: string
-  status: 'active' | 'draft' | 'archived'
-  product_type: 'physical' | 'digital'
-}
-
-interface Collection {
-  id: number
-  name: string
+  category: string
+  status: 'active' | 'draft'
+  is_customizable: number
+  stock_count: number
+  front_image: string | null
 }
 
 export default function AdminProducts() {
@@ -29,25 +23,16 @@ export default function AdminProducts() {
   const [deleteId, setDeleteId] = useState<number | null>(null)
   const [q, setQ] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [collectionFilter, setCollectionFilter] = useState('')
-  const [tagFilter, setTagFilter] = useState('')
   const [page, setPage] = useState(1)
 
-  const { data, isLoading } = useQuery<{ products: Product[]; total: number; page: number; pages: number }>({
-    queryKey: ['admin-products', q, statusFilter, collectionFilter, tagFilter, page],
+  const { data, isLoading } = useQuery<{ products: AdminProductRow[]; total: number; page: number; pages: number }>({
+    queryKey: ['admin-products', q, statusFilter, page],
     queryFn: () =>
       adminFetch('/api/admin/products?' + new URLSearchParams({
         ...(q && { q }),
         ...(statusFilter && { status: statusFilter }),
-        ...(collectionFilter && { collection_id: collectionFilter }),
-        ...(tagFilter && { tag: tagFilter }),
         page: String(page),
       })).then((r) => r.json()),
-  })
-
-  const { data: collectionsData } = useQuery<{ collections: Collection[] }>({
-    queryKey: ['collections'],
-    queryFn: () => adminFetch('/api/collections').then(r => r.json()),
   })
 
   const deleteMutation = useMutation({
@@ -59,7 +44,6 @@ export default function AdminProducts() {
   const products = data?.products ?? []
   const totalPages = data?.pages ?? 1
   const totalProducts = data?.total ?? 0
-  const collections = collectionsData?.collections ?? []
 
   return (
     <div>
@@ -89,25 +73,7 @@ export default function AdminProducts() {
           <option value="">All statuses</option>
           <option value="active">Active</option>
           <option value="draft">Draft</option>
-          <option value="archived">Archived</option>
         </select>
-        <select
-          value={collectionFilter}
-          onChange={e => { setCollectionFilter(e.target.value); setPage(1) }}
-          className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-        >
-          <option value="">All collections</option>
-          {collections.map(col => (
-            <option key={col.id} value={String(col.id)}>{col.name}</option>
-          ))}
-        </select>
-        <input
-          type="search"
-          placeholder="Filter by tag..."
-          value={tagFilter}
-          onChange={e => { setTagFilter(e.target.value); setPage(1) }}
-          className="border border-gray-300 rounded px-3 py-2 text-sm w-36 focus:outline-none focus:border-gray-500"
-        />
       </div>
 
       {isLoading ? (
@@ -135,12 +101,19 @@ export default function AdminProducts() {
                 <tr key={p.id} className="hover:bg-gray-50">
                   <td className="px-4 py-3">
                     <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden">
-                      {p.image_url && <img src={p.image_url} alt={p.name} className="w-full h-full object-cover" />}
+                      {p.front_image && <img src={p.front_image} alt={p.name} className="w-full h-full object-cover" />}
                     </div>
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {p.name}
+                    {!!p.is_customizable && (
+                      <span className="ml-2 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 align-middle">
+                        Customizable
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.category || '—'}</td>
-                  <td className="px-4 py-3 text-gray-700">₹{p.price.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-gray-700">₹{p.base_price.toFixed(2)}</td>
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.stock_count}</td>
                   <td className="px-4 py-3 text-right">
                     <Link to={`/admin/products/${p.id}`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Edit</Link>

@@ -66,16 +66,8 @@ account.put('/profile', async (c) => {
   return c.json({ ok: true })
 })
 
-// GET /api/account/addresses
-account.get('/addresses', async (c) => {
-  const customerId = await requireAuth(c.req.header('Authorization') ?? '', c.env.DB)
-  if (!customerId) return c.json({ error: 'Unauthorized' }, 401)
-
-  const { results } = await c.env.DB.prepare(
-    'SELECT id, label, address_line, city, state, pincode, country FROM customer_addresses WHERE customer_id = ? ORDER BY id DESC'
-  ).bind(customerId).all()
-
-  return c.json({ addresses: results })
-})
+// NOTE: /addresses was removed with the customer_addresses table (POD.md
+// §6.2) — with one flat shipping rate and a short checkout form, the
+// last-used address now lives in the browser's localStorage instead.
 
 export default account

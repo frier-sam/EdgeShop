@@ -25,14 +25,13 @@ In the D1 database page → **Console** tab, paste the entire contents of `worke
 
 **Workers & Pages → R2 → Create bucket**
 - Name: `edgeshop-images`
-- After creation: **Settings → Public access → Allow Access**
-- Copy the **Public Development URL** (e.g. `https://pub-xxxx.r2.dev`)
+
+No public access toggle needed — all R2 objects (mockups, customer uploads, design previews) are served same-origin through the worker at `/img/<key>`, so the bucket stays private.
 
 ### 4. Update wrangler.toml
 
 Edit `wrangler.toml` in the repo root:
 - Replace `placeholder-replace-after-creation` with your D1 Database ID
-- Replace `https://pub-REPLACE.r2.dev` with your R2 public URL
 - Commit and push to GitHub
 
 ### 5. Deploy the Worker
@@ -46,9 +45,6 @@ Edit `wrangler.toml` in the repo root:
 After first deploy, go to the Worker → **Settings → Bindings** and add:
 - **D1 Database** → variable `DB` → select `edgeshop-db`
 - **R2 Bucket** → variable `BUCKET` → select `edgeshop-images`
-
-Go to **Settings → Variables and Secrets** and update:
-- `R2_PUBLIC_URL` → your R2 Public Development URL (e.g. `https://pub-xxxx.r2.dev`)
 
 ### 6. Set Secrets
 
@@ -78,7 +74,7 @@ npx wrangler d1 create edgeshop-db
 # 3. Apply schema
 npx wrangler d1 execute edgeshop-db --remote --file=worker/migrations/schema.sql
 
-# 4. Create R2 bucket (enable public access in dashboard after)
+# 4. Create R2 bucket (stays private — images are proxied through /img/*)
 npx wrangler r2 bucket create edgeshop-images
 
 # 5. Set JWT secret

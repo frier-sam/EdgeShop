@@ -10,20 +10,10 @@ import Header from '../components/Header'
 import Footer from '../components/Footer'
 import ProductGrid from '../components/ProductGrid'
 import CartDrawer from '../components/CartDrawer'
-
-interface Product {
-  id: number
-  name: string
-  price: number
-  compare_price?: number | null
-  image_url: string
-  images?: string[]
-  stock_count: number
-  category: string
-}
+import type { ProductSummary } from '../lib/types'
 
 interface ProductsData {
-  products: Product[]
+  products: ProductSummary[]
   total: number
   page: number
   limit: number
@@ -81,10 +71,10 @@ export default function ShopPage() {
   }, [allProductsData])
 
   // Client-side sort of current page
-  const products = useMemo<Product[]>(() => {
+  const products = useMemo<ProductSummary[]>(() => {
     const list = [...(productsData?.products ?? [])]
-    if (sort === 'price_asc') list.sort((a, b) => a.price - b.price)
-    if (sort === 'price_desc') list.sort((a, b) => b.price - a.price)
+    if (sort === 'price_asc') list.sort((a, b) => a.base_price - b.base_price)
+    if (sort === 'price_desc') list.sort((a, b) => b.base_price - a.base_price)
     // 'newest' is the default API order (created_at DESC) — no sort needed
     return list
   }, [productsData, sort])
@@ -172,7 +162,14 @@ export default function ShopPage() {
           </p>
         ) : (
           <ProductGrid
-            products={products}
+            products={products.map((p) => ({
+              id: p.id,
+              name: p.name,
+              price: p.base_price,
+              compare_price: p.compare_price,
+              image_url: p.front_image ?? '',
+              category: p.category,
+            }))}
             currency={currency}
             onAddToCart={(productId) => {
               const product = products.find((p) => p.id === productId)
@@ -180,9 +177,9 @@ export default function ShopPage() {
               addItem({
                 product_id: product.id,
                 name: product.name,
-                price: product.price,
+                price: product.base_price,
                 quantity: 1,
-                image_url: product.image_url,
+                image_url: product.front_image ?? '',
               })
               addToast('Added to cart')
             }}

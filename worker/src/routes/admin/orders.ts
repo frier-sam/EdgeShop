@@ -34,15 +34,6 @@ adminOrders.get('/:id', async (c) => {
   const id = c.req.param('id')
   const order = await c.env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(id).first()
   if (!order) return c.json({ error: 'Not found' }, 404)
-  let emails: Array<{ id: number; type: string; recipient: string; subject: string; status: string; sent_at: number }> = []
-  try {
-    const { results } = await c.env.DB.prepare(
-      'SELECT id, type, recipient, subject, status, sent_at FROM order_emails WHERE order_id = ? ORDER BY sent_at ASC'
-    ).bind(id).all<{ id: number; type: string; recipient: string; subject: string; status: string; sent_at: number }>()
-    emails = results
-  } catch {
-    // order_emails table may not exist yet (migration pending) — return empty list
-  }
   let events: Array<{ id: number; event_type: string; data_json: string; created_at: string }> = []
   try {
     const { results } = await c.env.DB.prepare(
@@ -52,7 +43,7 @@ adminOrders.get('/:id', async (c) => {
   } catch {
     // order_events table may not exist yet (migration pending) — return empty list
   }
-  return c.json({ ...order, emails, events })
+  return c.json({ ...order, events })
 })
 
 adminOrders.put('/:id', async (c) => {
@@ -179,13 +170,11 @@ adminOrders.patch('/:id/tracking', async (c) => {
       const eCfg: Record<string, string> = {}
       for (const row of emailRows.results) eCfg[row.key] = row.value
 
-      const shipSubject = `Your order ${id} has shipped!`
-      let shipStatus: 'sent' | 'failed' = 'sent'
       try {
         await sendEmail(
           {
             to: order.customer_email,
-            subject: shipSubject,
+            subject: `Your order ${id} has shipped!`,
             html: shippingUpdateHtml({
               id: order.id,
               customer_name: order.customer_name,
@@ -198,10 +187,7 @@ adminOrders.patch('/:id/tracking', async (c) => {
             email_from_address: eCfg.email_from_address ?? '',
           }
         )
-      } catch { shipStatus = 'failed' }
-      await c.env.DB.prepare(
-        'INSERT INTO order_emails (order_id, type, recipient, subject, status) VALUES (?, ?, ?, ?, ?)'
-      ).bind(id, 'shipping_update', order.customer_email, shipSubject, shipStatus).run().catch(() => {})
+      } catch { /* non-fatal — tracking number is already saved */ }
     }
   } catch (err) {
     console.error('Failed to send shipping email:', err)

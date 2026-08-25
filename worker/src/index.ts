@@ -20,7 +20,6 @@ export type Env = {
   BUCKET: R2Bucket
   ASSETS: Fetcher
   RAZORPAY_WEBHOOK_SECRET: string
-  R2_PUBLIC_URL: string
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -28,6 +27,37 @@ const app = new Hono<{ Bindings: Env }>()
 app.use('*', cors({ origin: '*' }))
 
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
+
+// Same-origin R2 proxy — see POD.md §5.8. Serving mockups/uploads/design
+// previews from the site's own origin is what lets the customizer draw
+// them into a <canvas> without tainting it (cross-origin images block
+// every toDataURL() call with a SecurityError).
+const IMG_ALLOWED_PREFIXES = ['mockups/', 'uploads/', 'designs/']
+
+app.get('/img/*', async (c) => {
+  const key = c.req.path.slice('/img/'.length)
+
+  if (!key || key.includes('..') || !IMG_ALLOWED_PREFIXES.some((p) => key.startsWith(p))) {
+    return c.notFound()
+  }
+
+  const cache = caches.default
+  const cached = await cache.match(c.req.raw)
+  if (cached) return cached
+
+  const obj = await c.env.BUCKET.get(key)
+  if (!obj) return c.notFound()
+
+  const res = new Response(obj.body, {
+    headers: {
+      'Content-Type': obj.httpMetadata?.contentType ?? 'application/octet-stream',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+      'ETag': obj.httpEtag,
+    },
+  })
+  c.executionCtx.waitUntil(cache.put(c.req.raw, res.clone()))
+  return res
+})
 
 app.route('/api/settings', settings)
 app.route('/api/products', products)
@@ -58,6 +88,10 @@ export default {
         await runMigrations(env.DB)
         migrationsDone = true
       }
+      return app.fetch(request, env, ctx)
+    }
+    if (pathname.startsWith('/img/')) {
+      // No DB access on this path — skip the migration check entirely for speed.
       return app.fetch(request, env, ctx)
     }
     const response = await env.ASSETS.fetch(request)

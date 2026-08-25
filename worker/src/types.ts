@@ -1,41 +1,56 @@
 export interface Product {
   id: number
   name: string
+  slug: string | null
   description: string
-  price: number
-  image_url: string
-  stock_count: number
-  category: string
-  created_at: string
-  // v2 additions
+  base_price: number
   compare_price: number | null
+  category: string
   status: 'active' | 'draft'
-  tags: string
-  product_type: 'physical' | 'digital'
-  digital_file_key: string
-  weight: number
+  is_customizable: number
+  stock_count: number
   seo_title: string
   seo_description: string
-  images?: string[]
-}
-
-export interface ProductVariant {
-  id: number
-  product_id: number
-  name: string
-  options_json: string
-  price: number
-  stock_count: number
-  image_url: string
-  sku: string
   created_at: string
+  // present on list/detail responses via LEFT JOIN — not a real column
+  front_image?: string | null
 }
 
-export interface ProductImage {
+export interface ProductSide {
   id: number
   product_id: number
-  url: string
+  side: 'front' | 'back'
+  image_url: string
+  image_w: number
+  image_h: number
+  customizable: number
+  print_x: number
+  print_y: number
+  print_w: number
+  print_h: number
+  print_width_in: number
+  print_fee: number
   sort_order: number
+}
+
+export interface ProductSize {
+  id: number
+  product_id: number
+  label: string
+  price_delta: number
+  stock_count: number
+  sort_order: number
+}
+
+export interface Design {
+  id: string
+  product_id: number
+  customer_id: number | null
+  design_json: string
+  preview_json: string
+  sides_used: string
+  order_id: string | null
+  created_at: string
 }
 
 export interface Order {
@@ -52,16 +67,15 @@ export interface Order {
   razorpay_payment_id: string
   items_json: string
   created_at: string
-  // structured address fields (migration 0007)
+  // structured address fields
   shipping_city: string
   shipping_state: string
   shipping_pincode: string
   shipping_country: string
-  // v2 additions
-  discount_code: string
-  discount_amount: number
+  // POD pricing split
+  subtotal: number
+  print_total: number
   shipping_amount: number
-  tax_amount: number
   tracking_number: string
   customer_notes: string
   internal_notes: string
@@ -74,6 +88,7 @@ export interface OrderItem {
   price: number
   quantity: number
   image_url: string
+  size?: string
 }
 
 export interface Customer {
@@ -84,5 +99,5 @@ export interface Customer {
   phone: string
   created_at: string
   role: string          // 'customer' | 'staff' | 'super_admin'
-  permissions_json: string  // JSON-encoded permissions map
+  permissions_json: string  // JSON-encoded permissions map (still read by auth.ts)
 }

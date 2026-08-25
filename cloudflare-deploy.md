@@ -35,8 +35,8 @@ This creates all tables and seeds default settings in one shot.
 1. Go to **Workers & Pages → R2**
 2. Click **Create bucket**
    - Name: `edgeshop-images`
-3. After creation: open the bucket → **Settings → Public access → Allow Access**
-4. Copy the **Public Development URL** — it looks like `https://pub-xxxx.r2.dev`
+
+That's it — no public access toggle needed. All R2 objects (mockups, customer uploads, design previews) are served same-origin through the worker at `/img/<key>`, not from R2's own public URL, so the bucket stays private.
 
 ---
 
@@ -70,12 +70,9 @@ Open **Settings → Variables and Secrets** and add:
 
 | Key | Type | Value |
 |---|---|---|
-| `R2_PUBLIC_URL` | Plain variable | Your R2 Public Development URL (`https://pub-xxxx.r2.dev`) |
 | `JWT_SECRET` | **Secret** | Any random 32+ character string |
 
 To generate a JWT secret: [1password.com/password-generator](https://1password.com/password-generator/) (set length to 40, letters + numbers).
-
-> `R2_PUBLIC_URL` is the CDN URL for uploaded product images — it's different from your worker URL because images are served directly from R2's CDN, not through the worker.
 
 ---
 

@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
+import type { OrderItem } from '../types'
 import { sendEmail } from '../lib/email'
 import { orderConfirmationHtml, newOrderAlertHtml } from '../lib/emailTemplates'
+import { decrementStock } from './checkout'
 
 const webhook = new Hono<{ Bindings: Env }>()
 
@@ -61,35 +63,20 @@ webhook.post('/razorpay', async (c) => {
       WHERE razorpay_order_id = ?
     `).bind(payment_id, order_id).run()
 
-    // Fetch order for email and discount processing
+    // Fetch order for email processing
     const order = await c.env.DB.prepare(
       'SELECT * FROM orders WHERE razorpay_order_id = ?'
     ).bind(order_id).first<{
       id: string; customer_name: string; customer_email: string;
       items_json: string; total_amount: number; shipping_address: string; payment_method: string;
-      discount_code: string
     }>()
 
     if (order) {
-      // Increment discount code usage if applicable
-      if (order.discount_code) {
-        await c.env.DB.prepare(
-          'UPDATE discount_codes SET uses_count = uses_count + 1 WHERE code = ? COLLATE NOCASE'
-        ).bind(order.discount_code).run()
-      }
-
       // Decrement stock now that payment is confirmed (not at order creation, to avoid
       // reducing stock for abandoned Razorpay sessions)
       try {
-        const items = JSON.parse(order.items_json) as Array<{ product_id: number; quantity: number }>
-        const stockStmts = items.map(item =>
-          c.env.DB.prepare(
-            'UPDATE products SET stock_count = MAX(0, stock_count - ?) WHERE id = ?'
-          ).bind(item.quantity, item.product_id)
-        )
-        if (stockStmts.length > 0) {
-          await c.env.DB.batch(stockStmts)
-        }
+        const items = JSON.parse(order.items_json) as OrderItem[]
+        await decrementStock(c.env.DB, items)
       } catch (err) {
         console.error('Stock decrement failed for order:', order.id, err)
       }

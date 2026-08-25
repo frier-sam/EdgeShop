@@ -63,33 +63,7 @@ else
   success "R2 bucket created"
 fi
 
-echo ""
-warn "ACTION REQUIRED: Enable public access on your R2 bucket."
-warn "  1. Go to: Cloudflare Dashboard → R2 → edgeshop-images → Settings → Public Access"
-warn "  2. Enable public access and copy the public URL (e.g. https://pub-xxxx.r2.dev)"
-echo ""
-read -rp "$(echo -e "${CYAN}Paste your R2 public URL (press Enter to skip):${NC} ")" R2_PUBLIC_URL
-
-if [ -n "$R2_PUBLIC_URL" ]; then
-  if [[ \! "$R2_PUBLIC_URL" =~ ^https?:// ]]; then
-    warn "URL doesn't start with https:// — skipping. Update R2_PUBLIC_URL in worker/wrangler.toml manually."
-    R2_PUBLIC_URL=""
-  fi
-fi
-
-if [ -n "$R2_PUBLIC_URL" ]; then
-  python3 -c "
-import sys
-path = 'worker/wrangler.toml'
-old = 'R2_PUBLIC_URL = \"https://pub-REPLACE.r2.dev\"'
-new = 'R2_PUBLIC_URL = \"' + sys.argv[1] + '\"'
-content = open(path).read()
-open(path, 'w').write(content.replace(old, new, 1))
-" "$R2_PUBLIC_URL"
-  success "R2 public URL set"
-else
-  warn "Skipped — update R2_PUBLIC_URL in worker/wrangler.toml manually before images will work"
-fi
+success "R2 bucket ready — it stays private; images are proxied through the worker at /img/<key>"
 
 # ─── Secrets ─────────────────────────────────────────────────────────────────
 info "Setting secrets..."

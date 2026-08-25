@@ -3,18 +3,30 @@ import type { Env } from '../../index'
 
 const upload = new Hono<{ Bindings: Env }>()
 
+// Only admin prefix that exists post-POD — customer art uploads go through
+// the public /api/uploads/art endpoint (Phase 7), not here.
+const ALLOWED_PREFIXES = ['mockups'] as const
+type AllowedPrefix = (typeof ALLOWED_PREFIXES)[number]
+
+function isAllowedPrefix(p: unknown): p is AllowedPrefix {
+  return typeof p === 'string' && (ALLOWED_PREFIXES as readonly string[]).includes(p)
+}
+
 // Step 1: Client requests upload slot, gets back a unique key
 upload.post('/presign', async (c) => {
-  const { filename } = await c.req.json<{ filename: string }>()
+  const { filename, prefix } = await c.req.json<{ filename: string; prefix?: string }>()
+  if (!isAllowedPrefix(prefix)) {
+    return c.json({ error: `prefix must be one of: ${ALLOWED_PREFIXES.join(', ')}` }, 400)
+  }
   const ext = (filename.split('.').pop() ?? 'webp').toLowerCase()
-  const key = `products/${crypto.randomUUID()}.${ext}`
+  const key = `${prefix}/${crypto.randomUUID()}.${ext}`
   return c.json({ key, uploadUrl: `/api/admin/upload/put` })
 })
 
 // Step 2: Client PUTs the binary; Worker streams it to R2
 upload.put('/put', async (c) => {
   const key = c.req.query('key')
-  if (!key || !key.startsWith('products/')) {
+  if (!key || !ALLOWED_PREFIXES.some((p) => key.startsWith(`${p}/`))) {
     return c.json({ error: 'Invalid key' }, 400)
   }
   const body = c.req.raw.body
@@ -22,13 +34,15 @@ upload.put('/put', async (c) => {
   await c.env.BUCKET.put(key, body, {
     httpMetadata: { contentType: 'image/webp' },
   })
-  const publicBase = c.env.R2_PUBLIC_URL
-  return c.json({ url: `${publicBase}/${key}` })
+  return c.json({ url: `/img/${key}` })
 })
 
 // POST /put-from-url — fetches an external image URL and uploads it to R2
 upload.post('/put-from-url', async (c) => {
-  const { url } = await c.req.json<{ url: string }>()
+  const { url, prefix } = await c.req.json<{ url: string; prefix?: string }>()
+  if (!isAllowedPrefix(prefix)) {
+    return c.json({ error: `prefix must be one of: ${ALLOWED_PREFIXES.join(', ')}` }, 400)
+  }
   let parsedUrl: URL
   try {
     parsedUrl = new URL(url)
@@ -78,7 +92,7 @@ upload.post('/put-from-url', async (c) => {
   const urlExt = url.split('?')[0].split('.').pop()?.toLowerCase()
   const ext = extMap[contentType.split(';')[0].trim()] ?? (urlExt && ['jpg','jpeg','png','webp','gif','svg'].includes(urlExt) ? urlExt : 'jpg')
 
-  const key = `products/${crypto.randomUUID()}.${ext}`
+  const key = `${prefix}/${crypto.randomUUID()}.${ext}`
   if (!res.body) {
     return c.json({ error: 'Remote returned empty body' }, 400)
   }
@@ -86,7 +100,7 @@ upload.post('/put-from-url', async (c) => {
     httpMetadata: { contentType: contentType.split(';')[0].trim() },
   })
 
-  return c.json({ url: `${c.env.R2_PUBLIC_URL}/${key}` })
+  return c.json({ url: `/img/${key}` })
 })
 
 export default upload

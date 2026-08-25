@@ -3,13 +3,7 @@ import type { Env } from '../index'
 import type { OrderItem } from '../types'
 import { sendEmail } from '../lib/email'
 import { orderConfirmationHtml, newOrderAlertHtml } from '../lib/emailTemplates'
-import { createDownloadToken, verifyJWT, getOrCreateJwtSecret } from '../lib/auth'
-
-async function logOrderEmail(db: D1Database, orderId: string, type: string, recipient: string, subject: string, status: 'sent' | 'failed') {
-  await db.prepare(
-    'INSERT INTO order_emails (order_id, type, recipient, subject, status) VALUES (?, ?, ?, ?, ?)'
-  ).bind(orderId, type, recipient, subject, status).run().catch(() => {/* non-fatal */})
-}
+import { verifyJWT, getOrCreateJwtSecret } from '../lib/auth'
 
 const checkout = new Hono<{ Bindings: Env }>()
 
@@ -26,29 +20,55 @@ async function getCustomerIdFromHeader(authHeader: string, db: D1Database): Prom
   }
 }
 
+// NOTE: pricing here is still fully client-trusted, carried forward from v1.
+// Phase 7 (POD.md §7.3) replaces this with full server-side recomputation
+// from products/product_sides/product_sizes/designs and rejects mismatches.
+// This function is scoped to Phase 3: make checkout compile and behave
+// sanely against the new schema, not fix that flaw.
 async function validateStock(
   db: D1Database,
   items: OrderItem[]
 ): Promise<Array<{ id: number; name: string; available: number }> | null> {
   if (!items.length) return null
-  const ids = items.map(i => i.product_id)
-  const placeholders = ids.map(() => '?').join(', ')
-  const { results } = await db.prepare(
-    `SELECT id, name, stock_count FROM products WHERE id IN (${placeholders})`
-  ).bind(...ids).all<{ id: number; name: string; stock_count: number }>()
-
-  const stockMap = new Map(results.map(r => [r.id, r]))
   const insufficient: Array<{ id: number; name: string; available: number }> = []
 
   for (const item of items) {
-    const product = stockMap.get(item.product_id)
-    if (!product) {
-      insufficient.push({ id: item.product_id, name: item.name, available: 0 })
-    } else if (item.quantity > product.stock_count) {
-      insufficient.push({ id: product.id, name: product.name, available: product.stock_count })
+    if (item.size) {
+      // Sized product — stock lives on product_sizes for that label.
+      const sizeRow = await db.prepare(
+        'SELECT stock_count FROM product_sizes WHERE product_id = ? AND label = ?'
+      ).bind(item.product_id, item.size).first<{ stock_count: number }>()
+      if (!sizeRow) {
+        insufficient.push({ id: item.product_id, name: item.name, available: 0 })
+      } else if (item.quantity > sizeRow.stock_count) {
+        insufficient.push({ id: item.product_id, name: item.name, available: sizeRow.stock_count })
+      }
+    } else {
+      // Sizeless product — stock lives on products.stock_count.
+      const product = await db.prepare(
+        'SELECT id, name, stock_count FROM products WHERE id = ?'
+      ).bind(item.product_id).first<{ id: number; name: string; stock_count: number }>()
+      if (!product) {
+        insufficient.push({ id: item.product_id, name: item.name, available: 0 })
+      } else if (item.quantity > product.stock_count) {
+        insufficient.push({ id: product.id, name: product.name, available: product.stock_count })
+      }
     }
   }
   return insufficient.length > 0 ? insufficient : null
+}
+
+export async function decrementStock(db: D1Database, items: OrderItem[]): Promise<void> {
+  const stmts = items.map((item) =>
+    item.size
+      ? db.prepare(
+          'UPDATE product_sizes SET stock_count = MAX(0, stock_count - ?) WHERE product_id = ? AND label = ?'
+        ).bind(item.quantity, item.product_id, item.size)
+      : db.prepare(
+          'UPDATE products SET stock_count = MAX(0, stock_count - ?) WHERE id = ?'
+        ).bind(item.quantity, item.product_id)
+  )
+  if (stmts.length > 0) await db.batch(stmts)
 }
 
 checkout.post('/', async (c) => {
@@ -64,8 +84,6 @@ checkout.post('/', async (c) => {
     payment_method: 'razorpay' | 'cod'
     items: OrderItem[]
     total_amount: number
-    discount_code: string
-    discount_amount: number
     shipping_amount: number
   }>()
 
@@ -78,6 +96,13 @@ checkout.post('/', async (c) => {
   }
 
   const orderId = `ORD-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
+  const shippingAmount = body.shipping_amount ?? 0
+  const totalAmount = body.total_amount ?? 0
+  // Legacy client payload carries no side/print-fee breakdown — the whole
+  // pre-shipping amount is treated as subtotal until Phase 7 recomputes
+  // this server-side from products/sides/sizes/designs.
+  const subtotal = Math.max(0, totalAmount - shippingAmount)
+  const printTotal = 0
 
   if (body.payment_method === 'cod') {
     // Stock check — must happen before INSERT
@@ -89,9 +114,9 @@ checkout.post('/', async (c) => {
     await c.env.DB.prepare(`
       INSERT INTO orders (id, customer_name, customer_email, customer_phone,
         shipping_address, shipping_city, shipping_state, shipping_pincode, shipping_country,
-        total_amount, payment_method, payment_status,
-        order_status, items_json, discount_code, discount_amount, shipping_amount)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', 'pending', 'placed', ?, ?, ?, ?)
+        items_json, subtotal, print_total, shipping_amount, total_amount,
+        payment_method, payment_status, order_status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'cod', 'pending', 'placed')
     `).bind(
       orderId,
       body.customer_name,
@@ -102,11 +127,11 @@ checkout.post('/', async (c) => {
       body.shipping_state ?? '',
       body.shipping_pincode ?? '',
       body.shipping_country ?? 'India',
-      body.total_amount,
       JSON.stringify(body.items),
-      body.discount_code ?? '',
-      body.discount_amount ?? 0,
-      body.shipping_amount ?? 0
+      subtotal,
+      printTotal,
+      shippingAmount,
+      totalAmount
     ).run()
 
     // Link order to customer if logged in
@@ -115,27 +140,10 @@ checkout.post('/', async (c) => {
     if (customerIdCod !== null) {
       await c.env.DB.prepare('UPDATE orders SET customer_id = ? WHERE id = ?')
         .bind(customerIdCod, orderId).run()
-      // Save shipping address to customer_addresses
-      await c.env.DB.prepare(
-        "INSERT OR IGNORE INTO customer_addresses (customer_id, label, address_line, city, state, pincode, country) VALUES (?, 'Shipping', ?, ?, ?, ?, ?)"
-      ).bind(customerIdCod, body.shipping_address, body.shipping_city ?? '', body.shipping_state ?? '', body.shipping_pincode ?? '', body.shipping_country ?? 'India').run()
-    }
-
-    if (body.discount_code) {
-      await c.env.DB.prepare(
-        'UPDATE discount_codes SET uses_count = uses_count + 1 WHERE code = ? COLLATE NOCASE'
-      ).bind(body.discount_code).run()
     }
 
     // Decrement stock for each ordered item (COD orders are immediately confirmed)
-    const stockStmts = body.items.map(item =>
-      c.env.DB.prepare(
-        'UPDATE products SET stock_count = MAX(0, stock_count - ?) WHERE id = ?'
-      ).bind(item.quantity, item.product_id)
-    )
-    if (stockStmts.length > 0) {
-      await c.env.DB.batch(stockStmts)
-    }
+    await decrementStock(c.env.DB, body.items)
 
     // Wrap all email logic so any failure doesn't break the order response
     try {
@@ -147,75 +155,48 @@ checkout.post('/', async (c) => {
       for (const row of emailRows.results) eCfg[row.key] = row.value
 
       // Send order confirmation to customer
-      const confirmSubject = `Order ${orderId} Confirmed`
-      let confirmStatus: 'sent' | 'failed' = 'sent'
       try {
         await sendEmail(
           {
             to: body.customer_email,
-            subject: confirmSubject,
+            subject: `Order ${orderId} Confirmed`,
             html: orderConfirmationHtml({
               id: orderId,
               customer_name: body.customer_name,
               items_json: JSON.stringify(body.items),
-              total_amount: body.total_amount,
+              total_amount: totalAmount,
               payment_method: 'cod',
               shipping_address: body.shipping_address,
             }),
           },
           { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
         )
-      } catch { confirmStatus = 'failed' }
-      await logOrderEmail(c.env.DB, orderId, 'order_confirmation', body.customer_email, confirmSubject, confirmStatus)
+      } catch { /* non-fatal — order already placed */ }
 
       // Send new order alert to merchant
       if (eCfg.merchant_email) {
-        const alertSubject = `New Order: ${orderId}`
-        let alertStatus: 'sent' | 'failed' = 'sent'
         try {
           await sendEmail(
             {
               to: eCfg.merchant_email,
-              subject: alertSubject,
+              subject: `New Order: ${orderId}`,
               html: newOrderAlertHtml({
                 id: orderId,
                 customer_name: body.customer_name,
                 customer_email: body.customer_email,
-                total_amount: body.total_amount,
+                total_amount: totalAmount,
                 payment_method: 'cod',
               }),
             },
             { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
           )
-        } catch { alertStatus = 'failed' }
-        await logOrderEmail(c.env.DB, orderId, 'new_order_alert', eCfg.merchant_email, alertSubject, alertStatus)
+        } catch { /* non-fatal — order already placed */ }
       }
     } catch (err) {
       console.error('COD confirmation email failed:', err)
     }
 
-    // Generate download tokens for digital items
-    const items = body.items as Array<{ product_id: number; quantity: number }>
-    const productIds = items.map(i => i.product_id)
-    const downloadTokens: Record<number, string> = {}
-
-    if (productIds.length > 0) {
-      const secretRow = await c.env.DB.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").first<{ value: string }>()
-      if (!secretRow?.value) {
-        console.warn('jwt_secret not configured — digital download tokens not generated')
-      } else {
-        for (const productId of productIds) {
-          const product = await c.env.DB.prepare(
-            "SELECT product_type FROM products WHERE id = ? AND product_type = 'digital'"
-          ).bind(productId).first<{ product_type: string }>()
-          if (product) {
-            downloadTokens[productId] = await createDownloadToken(orderId, productId, secretRow.value)
-          }
-        }
-      }
-    }
-
-    return c.json({ order_id: orderId, payment_method: 'cod', ...(Object.keys(downloadTokens).length > 0 ? { download_tokens: downloadTokens } : {}) }, 201)
+    return c.json({ order_id: orderId, payment_method: 'cod' }, 201)
   }
 
   // Razorpay flow
@@ -240,7 +221,7 @@ checkout.post('/', async (c) => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: authHeader },
     body: JSON.stringify({
-      amount: Math.round(body.total_amount * 100),
+      amount: Math.round(totalAmount * 100),
       currency: 'INR',
       receipt: orderId,
     }),
@@ -253,9 +234,9 @@ checkout.post('/', async (c) => {
   await c.env.DB.prepare(`
     INSERT INTO orders (id, customer_name, customer_email, customer_phone,
       shipping_address, shipping_city, shipping_state, shipping_pincode, shipping_country,
-      total_amount, payment_method, payment_status,
-      order_status, razorpay_order_id, items_json, discount_code, discount_amount, shipping_amount)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'razorpay', 'pending', 'placed', ?, ?, ?, ?, ?)
+      items_json, subtotal, print_total, shipping_amount, total_amount,
+      payment_method, payment_status, order_status, razorpay_order_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'razorpay', 'pending', 'placed', ?)
   `).bind(
     orderId,
     body.customer_name,
@@ -266,12 +247,12 @@ checkout.post('/', async (c) => {
     body.shipping_state ?? '',
     body.shipping_pincode ?? '',
     body.shipping_country ?? 'India',
-    body.total_amount,
-    rzpOrder.id,
     JSON.stringify(body.items),
-    body.discount_code ?? '',
-    body.discount_amount ?? 0,
-    body.shipping_amount ?? 0
+    subtotal,
+    printTotal,
+    shippingAmount,
+    totalAmount,
+    rzpOrder.id
   ).run()
 
   // Link order to customer if logged in
@@ -280,10 +261,6 @@ checkout.post('/', async (c) => {
   if (customerIdRzp !== null) {
     await c.env.DB.prepare('UPDATE orders SET customer_id = ? WHERE id = ?')
       .bind(customerIdRzp, orderId).run()
-    // Save shipping address to customer_addresses
-    await c.env.DB.prepare(
-      "INSERT OR IGNORE INTO customer_addresses (customer_id, label, address_line, city, state, pincode, country) VALUES (?, 'Shipping', ?, ?, ?, ?, ?)"
-    ).bind(customerIdRzp, body.shipping_address, body.shipping_city ?? '', body.shipping_state ?? '', body.shipping_pincode ?? '', body.shipping_country ?? 'India').run()
   }
 
   return c.json({
