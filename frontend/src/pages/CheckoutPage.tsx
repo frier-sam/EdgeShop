@@ -1,15 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useCartStore } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
 import { loadRazorpay, openRazorpayModal } from '../utils/razorpay'
 import { COUNTRY_CODES } from '../utils/countryCodes'
+import { currencySymbol } from '../lib/storeConfig'
+import Field from '../components/Field'
+import Button from '../components/Button'
 
 interface Settings {
   store_name?: string
   currency?: string
   cod_enabled?: string
+  default_country_code?: string
+  flat_shipping_amount?: string
+  free_shipping_over?: string
   [key: string]: string | undefined
 }
 
@@ -33,12 +39,10 @@ function setNoIndex() {
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
-  const items = useCartStore((s) => s.items)
-  const totalAmount = useCartStore((s) => s.totalAmount)
+  const lines = useCartStore((s) => s.lines)
+  const subtotal = useCartStore((s) => s.subtotal)
   const clearCart = useCartStore((s) => s.clearCart)
   const token = useAuthStore((s) => s.token)
-  const customerName = useAuthStore((s) => s.customerName)
-  const customerId = useAuthStore((s) => s.customerId)
 
   const { data: settings } = useQuery<Settings>({
     queryKey: ['settings'],
@@ -61,56 +65,27 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [stockErrors, setStockErrors] = useState<string[]>([])
-  const stockErrorRef = useRef<HTMLDivElement>(null)
-  const [discountCode, setDiscountCode] = useState('')
-  const [discountResult, setDiscountResult] = useState<{
-    discount_amount: number; type: string; code: string
-  } | null>(null)
-  const [discountError, setDiscountError] = useState('')
-  const [applyingDiscount, setApplyingDiscount] = useState(false)
-  const [shippingResult, setShippingResult] = useState<{
-    shipping_amount: number; rate_name: string
-  } | null>(null)
 
-  const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
+  const currency = currencySymbol(settings?.currency)
   const codEnabled = settings?.cod_enabled !== 'false'
   const storeName = settings?.store_name ?? 'EdgeShop'
-  const cartTotal = totalAmount()
-  const shippingAmount = shippingResult?.shipping_amount ?? 0
-  const total = Math.max(0, cartTotal - (discountResult?.discount_amount ?? 0) + shippingAmount)
+  const cartSubtotal = subtotal()
 
-  useEffect(() => {
-    setShippingResult(null)
-    if (!form.shipping_country) return
-    let cancelled = false
-    async function run() {
-      try {
-        const res = await fetch('/api/shipping/calculate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cart_total: cartTotal, country: form.shipping_country }),
-        })
-        if (res.ok && !cancelled) {
-          const data = await res.json() as { shipping_amount: number; rate_name: string }
-          setShippingResult(data)
-        }
-      } catch {
-        // Shipping calculation failing should not block checkout
-      }
-    }
-    run()
-    return () => { cancelled = true }
-  }, [form.shipping_country, cartTotal])
+  // Flat shipping, free above a threshold — POD.md §6.3. There is no
+  // /api/shipping/calculate any more (dropped with shipping zones), so
+  // this is derived client-side straight from settings.
+  const flatShipping = Number(settings?.flat_shipping_amount ?? 49)
+  const freeShippingOver = Number(settings?.free_shipping_over ?? 999)
+  const shippingAmount = freeShippingOver > 0 && cartSubtotal >= freeShippingOver ? 0 : flatShipping
+  const total = cartSubtotal + shippingAmount
 
   useEffect(() => {
     if (!token) return
-    fetch('/api/account/profile', {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.ok ? r.json() : null)
+    fetch('/api/account/profile', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
       .then((profile: { name?: string; email?: string; phone?: string } | null) => {
         if (!profile) return
-        setForm(f => ({
+        setForm((f) => ({
           ...f,
           customer_name: f.customer_name || profile.name || '',
           customer_email: f.customer_email || profile.email || '',
@@ -122,66 +97,34 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     if (settings?.default_country_code) {
-      setForm(f => ({ ...f, country_code: settings.default_country_code! }))
+      setForm((f) => ({ ...f, country_code: settings.default_country_code! }))
     }
   }, [settings?.default_country_code])
   useEffect(() => setNoIndex(), [])
 
-  if (items.length === 0) {
+  const countryOptions = useMemo(
+    () => COUNTRY_CODES.map((c) => ({ value: c.code, label: c.code })),
+    []
+  )
+
+  if (lines.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-500 mb-4">Your cart is empty.</p>
-          <Link to="/" className="text-sm underline">Continue shopping</Link>
+          <p className="mb-4 text-sm text-ink-soft">Your cart is empty.</p>
+          <Link to="/shop" className="text-sm text-accent underline underline-offset-2">
+            Continue shopping
+          </Link>
         </div>
       </div>
     )
   }
 
-  async function applyDiscount() {
-    if (!discountCode.trim()) return
-    setApplyingDiscount(true)
-    try {
-      const res = await fetch('/api/discount/validate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: discountCode.trim(), cart_total: cartTotal }),
-      })
-      if (res.ok) {
-        setDiscountResult(await res.json())
-        setDiscountError('')
-      } else {
-        const err = await res.json()
-        setDiscountError(err.error)
-      }
-    } catch {
-      setDiscountError('Failed to apply discount. Please try again.')
-    } finally {
-      setApplyingDiscount(false)
-    }
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
-    setSubmitting(true)
-
-    // Client-side stock check
-    const clientStockErrors = items
-      .filter(item => item.stock_count !== undefined && item.quantity > item.stock_count)
-      .map(item => {
-        const avail = item.stock_count ?? 0
-        return avail === 0
-          ? `"${item.name}" is out of stock`
-          : `Only ${avail} left in stock for "${item.name}" (you have ${item.quantity} in cart)`
-      })
-    if (clientStockErrors.length > 0) {
-      setStockErrors(clientStockErrors)
-      setSubmitting(false)
-      setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
-      return
-    }
     setStockErrors([])
+    setSubmitting(true)
 
     try {
       const { country_code, ...formFields } = form
@@ -195,37 +138,34 @@ export default function CheckoutPage() {
           ...formFields,
           customer_phone: country_code + form.customer_phone,
           payment_method: paymentMethod,
-          items,
+          items: lines.map((l) => ({
+            product_id: l.product_id,
+            name: l.name,
+            price: l.unit_price,
+            quantity: l.quantity,
+            image_url: l.preview_url ?? '',
+            size: l.size ?? undefined,
+            design_id: l.design_id ?? undefined,
+          })),
           total_amount: total,
-          discount_code: discountResult?.code ?? '',
-          discount_amount: discountResult?.discount_amount ?? 0,
           shipping_amount: shippingAmount,
         }),
       })
 
       if (!res.ok) {
-        const data = await res.json() as {
-          error?: string
-          items?: Array<{ id: number; name: string; available: number }>
-        }
+        const data = (await res.json()) as { error?: string; items?: Array<{ id: number; name: string; available: number }> }
         if (data.error === 'stock_error') {
-          setError('')
           const msgs = data.items?.length
-            ? data.items.map(i =>
-                i.available === 0
-                  ? `"${i.name}" is out of stock`
-                  : `Only ${i.available} left in stock for "${i.name}"`
-              )
+            ? data.items.map((i) => (i.available === 0 ? `"${i.name}" is out of stock` : `Only ${i.available} left in stock for "${i.name}"`))
             : ['Some items in your cart are no longer available. Please review your cart.']
           setStockErrors(msgs)
           setSubmitting(false)
-          setTimeout(() => stockErrorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50)
           return
         }
         throw new Error(data.error ?? 'Checkout failed')
       }
 
-      const data = await res.json() as CheckoutResponse
+      const data = (await res.json()) as CheckoutResponse
 
       if (data.payment_method === 'cod') {
         clearCart()
@@ -233,7 +173,6 @@ export default function CheckoutPage() {
         return
       }
 
-      // Razorpay flow
       if (!data.razorpay_order_id || !data.razorpay_key_id) {
         throw new Error('Invalid Razorpay response')
       }
@@ -260,123 +199,80 @@ export default function CheckoutPage() {
         },
       })
     } catch (err) {
-      setStockErrors([])
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setSubmitting(false)
     }
   }
 
-  const steps = ['Cart', 'Details', 'Payment', 'Confirm']
-
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
-      <style>{`
-        @keyframes checkout-shine {
-          0%   { background-position: -200% center; }
-          100% { background-position: 200% center; }
-        }
-        .checkout-submit-btn {
-          background: var(--color-primary);
-          color: var(--color-bg);
-          position: relative;
-          overflow: hidden;
-        }
-        .checkout-submit-btn:not(:disabled):hover {
-          opacity: 0.88;
-        }
-      `}</style>
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-10">
-        <Link to="/" className="text-sm mb-6 inline-flex items-center gap-1 transition-opacity hover:opacity-60" style={{ color: 'var(--color-accent)' }}>
+    <div className="min-h-screen bg-paper">
+      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+        <Link to="/shop" className="mb-6 inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink">
           ← Back to shop
         </Link>
-        <h1 className="text-2xl font-semibold mb-6" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Checkout</h1>
-
-        {/* Step indicator */}
-        <div className="flex items-center gap-2 mb-8">
-          {steps.map((step, i) => (
-            <div key={step} className="flex items-center gap-2">
-              <span
-                className="text-[10px] tracking-[0.15em] uppercase px-3 py-1 rounded-full border transition-colors"
-                style={i === 1 ? {
-                  backgroundColor: 'var(--color-primary)',
-                  borderColor: 'var(--color-primary)',
-                  color: 'var(--color-bg)',
-                } : {
-                  borderColor: 'var(--color-accent)',
-                  color: 'var(--color-accent)',
-                  opacity: i < 1 ? 0.5 : 0.4,
-                }}
-              >
-                {step}
-              </span>
-              {i < steps.length - 1 && (
-                <div className="w-4 h-px" style={{ backgroundColor: 'var(--color-accent)', opacity: 0.3 }} />
-              )}
-            </div>
-          ))}
-        </div>
+        <h1 className="mb-6 font-display text-2xl font-semibold text-ink">Checkout</h1>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Order summary */}
-          <div className="rounded-lg border p-5" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}>
-            <h2 className="font-medium mb-4" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Order Summary</h2>
+          <div className="rounded-xl border border-line bg-surface p-5">
+            <h2 className="mb-4 font-display font-semibold text-ink">Order Summary</h2>
             <ul className="space-y-3">
-              {items.map((item) => (
-                <li key={item.product_id} className="flex justify-between text-sm text-gray-600">
-                  <span>{item.name} × {item.quantity}</span>
-                  <span>{currency}{(item.price * item.quantity).toFixed(2)}</span>
+              {lines.map((line) => (
+                <li key={line.key} className="flex justify-between text-sm text-ink-soft">
+                  <span>
+                    {line.name}
+                    {line.size ? ` (${line.size})` : ''} × {line.quantity}
+                  </span>
+                  <span>
+                    {currency}
+                    {(line.unit_price * line.quantity).toFixed(2)}
+                  </span>
                 </li>
               ))}
             </ul>
-            {discountResult && (
-              <div className="flex justify-between text-sm text-green-700 mt-3">
-                <span>Discount ({discountResult.code})</span>
-                <span>-{currency}{discountResult.discount_amount.toFixed(2)}</span>
-              </div>
-            )}
-            {shippingResult && shippingResult.shipping_amount > 0 && (
-              <div className="flex justify-between text-sm text-gray-600 mt-3">
-                <span>Shipping ({shippingResult.rate_name})</span>
-                <span>{currency}{shippingResult.shipping_amount.toFixed(2)}</span>
-              </div>
-            )}
-            {shippingResult && shippingResult.shipping_amount === 0 && (
-              <div className="flex justify-between text-sm text-green-700 mt-3">
-                <span>Shipping ({shippingResult.rate_name})</span>
-                <span>Free</span>
-              </div>
-            )}
-            <div className="border-t border-gray-100 mt-4 pt-3 flex justify-between font-semibold text-gray-900">
+            <div className="mt-4 flex justify-between border-t border-line pt-3 text-sm text-ink-soft">
+              <span>Shipping</span>
+              <span>{shippingAmount === 0 ? 'Free' : `${currency}${shippingAmount.toFixed(2)}`}</span>
+            </div>
+            <div className="mt-2 flex justify-between font-semibold text-ink">
               <span>Total</span>
-              <span>{currency}{total.toFixed(2)}</span>
+              <span>
+                {currency}
+                {total.toFixed(2)}
+              </span>
             </div>
           </div>
 
           {/* Shipping details */}
-          <div className="rounded-lg border p-5 space-y-4" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}>
-            <h2 className="font-medium" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Shipping Details</h2>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Full Name *</label>
-              <input required value={form.customer_name} onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-4 rounded-xl border border-line bg-surface p-5">
+            <h2 className="font-display font-semibold text-ink">Shipping Details</h2>
+            <Field
+              label="Full name"
+              required
+              value={form.customer_name}
+              onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field
+                label="Email"
+                type="email"
+                required
+                value={form.customer_email}
+                onChange={(e) => setForm({ ...form, customer_email: e.target.value })}
+              />
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Email *</label>
-                <input required type="email" value={form.customer_email} onChange={(e) => setForm({ ...form, customer_email: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Phone *</label>
-                <div className="flex gap-2 items-center">
+                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-soft">
+                  Phone<span className="ml-0.5 text-danger">*</span>
+                </label>
+                <div className="flex gap-2">
                   <select
                     value={form.country_code}
                     onChange={(e) => setForm({ ...form, country_code: e.target.value })}
-                    className="border border-gray-300 rounded px-2 py-2 text-sm focus:outline-none focus:border-gray-500 w-28 shrink-0 h-10"
+                    className="h-11 w-24 shrink-0 rounded-lg border border-line bg-surface px-2 text-sm text-ink focus:border-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
                   >
-                    {COUNTRY_CODES.map((c) => (
-                      <option key={c.code + c.name} value={c.code}>
-                        {c.code}
+                    {countryOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
                       </option>
                     ))}
                   </select>
@@ -386,137 +282,93 @@ export default function CheckoutPage() {
                     value={form.customer_phone}
                     onChange={(e) => setForm({ ...form, customer_phone: e.target.value })}
                     placeholder="98765 43210"
-                    className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500 h-10"
+                    className="h-11 flex-1 rounded-lg border border-line bg-surface px-3.5 text-sm text-ink focus:border-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
                   />
                 </div>
               </div>
             </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Address Line *</label>
-              <input required value={form.shipping_address} onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
-                placeholder="House / Flat no., Street, Locality"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
+            <Field
+              label="Address line"
+              required
+              placeholder="House / Flat no., Street, Locality"
+              value={form.shipping_address}
+              onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
+            />
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field
+                label="City"
+                required
+                value={form.shipping_city}
+                onChange={(e) => setForm({ ...form, shipping_city: e.target.value })}
+              />
+              <Field
+                label="State"
+                required
+                value={form.shipping_state}
+                onChange={(e) => setForm({ ...form, shipping_state: e.target.value })}
+              />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">City *</label>
-                <input required value={form.shipping_city} onChange={(e) => setForm({ ...form, shipping_city: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">State *</label>
-                <input required value={form.shipping_state} onChange={(e) => setForm({ ...form, shipping_state: e.target.value })}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
-              </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Field
+                label="Pincode"
+                required
+                placeholder="e.g. 400001"
+                value={form.shipping_pincode}
+                onChange={(e) => setForm({ ...form, shipping_pincode: e.target.value })}
+              />
+              <Field
+                label="Country"
+                placeholder="India"
+                value={form.shipping_country}
+                onChange={(e) => setForm({ ...form, shipping_country: e.target.value })}
+              />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Pincode *</label>
-                <input required value={form.shipping_pincode} onChange={(e) => setForm({ ...form, shipping_pincode: e.target.value })}
-                  placeholder="e.g. 400001"
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Country</label>
-                <input value={form.shipping_country} onChange={(e) => setForm({ ...form, shipping_country: e.target.value })}
-                  placeholder="India"
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500" />
-              </div>
-            </div>
-          </div>
-
-          {/* Discount code */}
-          <div className="rounded-lg border p-5" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}>
-            <h2 className="font-medium mb-4" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Discount Code</h2>
-            {discountResult ? (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-green-700 font-medium">
-                  {discountResult.code} applied — {currency}{discountResult.discount_amount.toFixed(2)} off
-                </span>
-                <button
-                  type="button"
-                  onClick={() => { setDiscountResult(null); setDiscountCode(''); setDiscountError('') }}
-                  className="text-xs text-gray-500 hover:text-gray-800 underline ml-4"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={discountCode}
-                  onChange={(e) => { setDiscountCode(e.target.value); setDiscountError('') }}
-                  placeholder="Enter discount code"
-                  className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-                />
-                <button
-                  type="button"
-                  onClick={applyDiscount}
-                  disabled={applyingDiscount}
-                  className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-                >
-                  {applyingDiscount ? 'Applying...' : 'Apply'}
-                </button>
-              </div>
-            )}
-            {discountError && (
-              <p className="text-xs text-red-500 mt-2">{discountError}</p>
-            )}
           </div>
 
           {/* Payment method */}
-          <div className="rounded-lg border p-5" style={{ backgroundColor: 'var(--color-bg)', borderColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}>
-            <h2 className="font-medium mb-4" style={{ fontFamily: "'Playfair Display', serif", color: 'var(--color-primary)' }}>Payment Method</h2>
+          <div className="rounded-xl border border-line bg-surface p-5">
+            <h2 className="mb-4 font-display font-semibold text-ink">Payment Method</h2>
             <div className="space-y-2">
               {codEnabled && (
                 <label
-                  className="flex items-center gap-3 p-3 border-2 rounded cursor-pointer transition-colors"
-                  style={{ borderColor: paymentMethod === 'cod' ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}
+                  className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${
+                    paymentMethod === 'cod' ? 'border-ink' : 'border-line'
+                  }`}
                 >
                   <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="sr-only" />
                   <span className="text-lg">💵</span>
-                  <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>Cash on Delivery</span>
-                  <span className="text-xs ml-auto opacity-50" style={{ color: 'var(--color-primary)' }}>Pay on arrival</span>
+                  <span className="text-sm font-medium text-ink">Cash on Delivery</span>
+                  <span className="ml-auto text-xs text-ink-soft">Pay on arrival</span>
                 </label>
               )}
               <label
-                className="flex items-center gap-3 p-3 border-2 rounded cursor-pointer transition-colors"
-                style={{ borderColor: paymentMethod === 'razorpay' ? 'var(--color-accent)' : 'color-mix(in srgb, var(--color-accent) 25%, transparent)' }}
+                className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${
+                  paymentMethod === 'razorpay' ? 'border-ink' : 'border-line'
+                }`}
               >
                 <input type="radio" name="payment" value="razorpay" checked={paymentMethod === 'razorpay'} onChange={() => setPaymentMethod('razorpay')} className="sr-only" />
                 <span className="text-lg">💳</span>
-                <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>Razorpay</span>
-                <span className="text-xs ml-auto opacity-50" style={{ color: 'var(--color-primary)' }}>Cards, UPI, Netbanking</span>
+                <span className="text-sm font-medium text-ink">Razorpay</span>
+                <span className="ml-auto text-xs text-ink-soft">Cards, UPI, Netbanking</span>
               </label>
             </div>
           </div>
 
           {stockErrors.length > 0 && (
-            <div ref={stockErrorRef} className="bg-red-50 border border-red-200 rounded px-4 py-3">
-              <p className="text-sm font-medium text-red-700 mb-1">Cannot place order — stock issues:</p>
-              <ul className="text-sm text-red-600 list-disc list-inside space-y-0.5">
-                {stockErrors.map((msg, i) => <li key={i}>{msg}</li>)}
+            <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3">
+              <p className="mb-1 text-sm font-medium text-danger">Cannot place order — stock issues:</p>
+              <ul className="list-inside list-disc space-y-0.5 text-sm text-danger">
+                {stockErrors.map((msg, i) => (
+                  <li key={i}>{msg}</li>
+                ))}
               </ul>
-              <p className="text-xs text-red-500 mt-2">Please go back to your cart and adjust quantities.</p>
             </div>
           )}
-          {error && <p className="text-sm text-red-500 bg-red-50 px-4 py-3 rounded">{error}</p>}
+          {error && <p className="rounded-lg bg-danger/5 px-4 py-3 text-sm text-danger">{error}</p>}
 
-          <button type="submit" disabled={submitting}
-            className="checkout-submit-btn w-full py-3 font-medium rounded disabled:opacity-50 transition-opacity">
-            {submitting ? 'Processing...' : `Place Order — ${currency}${total.toFixed(2)}`}
-          </button>
-
-          {/* Trust badges */}
-          <div className="flex items-center justify-center gap-6 pt-2">
-            {[['🔒', 'Secure Checkout'], ['🔄', 'Easy Returns'], ['🚚', 'Fast Delivery']].map(([icon, label]) => (
-              <div key={label} className="flex items-center gap-1">
-                <span className="text-sm">{icon}</span>
-                <span className="text-[10px] tracking-[0.1em] uppercase" style={{ color: 'var(--color-accent)', opacity: 0.7 }}>{label}</span>
-              </div>
-            ))}
-          </div>
+          <Button type="submit" variant="accent" size="lg" fullWidth disabled={submitting}>
+            {submitting ? 'Processing…' : `Place Order — ${currency}${total.toFixed(2)}`}
+          </Button>
         </form>
       </div>
     </div>

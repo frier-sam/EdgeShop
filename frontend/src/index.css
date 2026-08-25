@@ -1,22 +1,55 @@
 @import "tailwindcss";
 
 /*
- * Static replacement for the CSS custom properties that ThemeProvider used
- * to inject at runtime from a D1-backed theme. POD has one fixed, neutral
- * look — these are the same values the old "jewellery" theme defaulted to,
- * kept here so pages that still reference var(--color-*) inline styles
- * (pending their Phase 5 rewrite) keep rendering correctly.
+ * EdgeShop POD design system — single source of truth for color and type
+ * (POD.md §5.1 / CLAUDE.md rule 6 is retired on this branch, see POD.md §0).
+ *
+ * Tailwind v4 is CSS-first: every `--color-*` / `--font-*` token declared
+ * inside `@theme` automatically becomes a matching utility class
+ * (bg-ink, text-accent, font-display, …). Components consume the palette
+ * through ordinary Tailwind classes / arbitrary values instead of inline
+ * styles, so there is exactly one place the look of the store is defined.
+ *
+ * Direction: a neutral, high-contrast base — near-black ink on warm
+ * off-white paper — with ONE accent (a burnt-orange "print ink" tone)
+ * reserved for primary actions (Add to cart, Customize, Place order).
  */
-:root {
-  --color-primary: #1A1A1A;
-  --color-accent: #6B7280;
-  --color-bg: #FAFAF8;
-  --color-text: #1A1A1A;
-  --color-surface: #F3F0EB;
-  --color-border: #E8E2D9;
-  --color-muted: #7A7167;
-  --font-heading: system-ui, sans-serif;
-  --font-body: system-ui, sans-serif;
+@theme {
+  /* Neutral base */
+  --color-ink: #1a1512;
+  --color-ink-soft: #6b6156;
+  --color-paper: #faf6f0;
+  --color-surface: #ffffff;
+  --color-line: #e8e0d3;
+
+  /* The one accent — used sparingly for primary actions and emphasis */
+  --color-accent: #c2410c;
+  --color-accent-dark: #9a3412;
+  --color-accent-soft: #ffedd5;
+
+  /* Status */
+  --color-success: #166534;
+  --color-danger: #b91c1c;
+
+  /* Type scale — a confident grotesk for headings, a neutral workhorse
+     sans for body copy and UI. Self-hosting (POD.md §5.5) only matters
+     for the customizer's print-fidelity guarantee in Phase 6; the
+     storefront shell loads these from Google Fonts, see index.html. */
+  --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --animate-fade-in: fade-in 0.25s ease-out;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 html {
@@ -24,25 +57,25 @@ html {
 }
 
 body {
-  font-family: 'DM Sans', var(--font-body, system-ui, sans-serif);
-  background-color: var(--color-bg, #FAFAF8);
-  color: var(--color-primary, #1A1A1A);
+  font-family: var(--font-sans);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
 ::selection {
-  background-color: color-mix(in srgb, var(--color-accent, #C9A96E) 28%, transparent);
-  color: var(--color-primary, #1A1A1A);
+  background-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+  color: var(--color-ink);
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-accent, #C9A96E);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* Elegant minimal scrollbar */
+/* Minimal scrollbar, tinted with the accent */
 ::-webkit-scrollbar {
   width: 3px;
   height: 3px;
@@ -53,43 +86,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: color-mix(in srgb, var(--color-accent, #C9A96E) 35%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 35%, transparent);
   border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--color-accent, #C9A96E) 65%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 65%, transparent);
 }
 
-/* Smooth image loading */
 img {
   display: block;
-}
-
-@keyframes pageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.page-enter {
-  animation: pageEnter 200ms ease-out backwards;
-}
-
-/* Scroll-reveal utility — toggled by IntersectionObserver */
-.reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
-              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.reveal.revealed {
-  opacity: 1;
-  transform: translateY(0);
 }

@@ -8,23 +8,28 @@ interface FooterProps {
 
 export default function Footer({ storeName, links = [] }: FooterProps) {
   return (
-    <footer className="border-t border-gray-200 bg-gray-900 mt-16">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <p className="text-sm font-semibold text-white">{storeName}</p>
+    <footer className="mt-20 border-t border-ink/10 bg-ink text-paper">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-4 py-10 sm:flex-row sm:justify-between sm:px-6">
+        <div>
+          <p className="font-display text-base font-semibold">{storeName}</p>
+          <p className="mt-1 text-xs text-paper/50">Made to order, printed with care.</p>
+        </div>
         {links.length > 0 && (
-          <nav className="flex items-center gap-6">
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
             {links.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
-                className="text-xs text-gray-400 hover:text-white transition-colors"
+                className="text-xs text-paper/60 transition-colors hover:text-paper"
               >
                 {link.label}
               </Link>
             ))}
           </nav>
         )}
-        <p className="text-xs text-gray-500">© {new Date().getFullYear()} {storeName}</p>
+        <p className="text-xs text-paper/40">
+          © {new Date().getFullYear()} {storeName}
+        </p>
       </div>
     </footer>
   )

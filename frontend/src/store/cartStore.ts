@@ -1,68 +1,110 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { CartItem } from '../lib/types'
+
+// POD.md §7.2 — cart line identity. Two shirts with different artwork, or
+// the same product in two sizes, are different lines: dedupe on product_id
+// alone (the v1 behaviour) silently merged them and corrupted totals.
+export interface CartLine {
+  key: string
+  product_id: number
+  name: string
+  size: string | null
+  design_id: string | null
+  preview_url: string | null // e.g. '/img/designs/dsn_x/front.webp', or a plain product mockup
+  base_price: number
+  size_delta: number
+  print_fees: { side: 'front' | 'back'; fee: number }[]
+  unit_price: number
+  quantity: number
+  max_qty: number
+}
+
+export type NewCartLine = Omit<CartLine, 'key' | 'quantity' | 'max_qty'> & {
+  quantity: number
+  max_qty?: number
+}
+
+export function cartLineKey(product_id: number, size: string | null, design_id: string | null): string {
+  return `${product_id}:${size ?? '-'}:${design_id ?? 'plain'}`
+}
 
 interface CartStore {
-  items: CartItem[]
+  lines: CartLine[]
   isCartOpen: boolean
-  addItem: (item: CartItem) => void
-  updateQuantity: (productId: number, quantity: number) => void
-  removeItem: (productId: number) => void
+  addLine: (line: NewCartLine) => void
+  updateQuantity: (key: string, quantity: number) => void
+  removeItem: (key: string) => void
   clearCart: () => void
   openCart: () => void
   closeCart: () => void
-  totalAmount: () => number
+  subtotal: () => number
   totalItems: () => number
 }
 
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
-      items: [],
+      lines: [],
       isCartOpen: false,
       openCart: () => set({ isCartOpen: true }),
       closeCart: () => set({ isCartOpen: false }),
-      addItem: (item) =>
+
+      addLine: (input) =>
         set((state) => {
-          const existing = state.items.find((i) => i.product_id === item.product_id)
-          const maxQty = item.stock_count ?? Infinity
-          if (maxQty <= 0) return state
-          return {
-            isCartOpen: true,
-            items: existing
-              ? state.items.map((i) =>
-                  i.product_id === item.product_id
-                    ? {
-                        ...i,
-                        quantity: Math.min(i.quantity + item.quantity, maxQty),
-                        stock_count: item.stock_count ?? i.stock_count,
-                      }
-                    : i
-                )
-              : [...state.items, { ...item, quantity: Math.min(item.quantity, maxQty) }],
+          const maxQty = input.max_qty ?? Infinity
+          if (maxQty <= 0 || input.quantity <= 0) return state
+
+          const key = cartLineKey(input.product_id, input.size ?? null, input.design_id ?? null)
+          const idx = state.lines.findIndex((l) => l.key === key)
+
+          if (idx === -1) {
+            const line: CartLine = {
+              ...input,
+              key,
+              size: input.size ?? null,
+              design_id: input.design_id ?? null,
+              preview_url: input.preview_url ?? null,
+              max_qty: maxQty,
+              quantity: Math.min(input.quantity, maxQty),
+            }
+            return { isCartOpen: true, lines: [...state.lines, line] }
           }
+
+          // Full composite key matched — merge quantity onto the existing line.
+          const lines = state.lines.slice()
+          const existing = lines[idx]
+          lines[idx] = {
+            ...existing,
+            max_qty: maxQty,
+            quantity: Math.min(existing.quantity + input.quantity, maxQty),
+          }
+          return { isCartOpen: true, lines }
         }),
-      updateQuantity: (productId, quantity) =>
+
+      updateQuantity: (key, quantity) =>
         set((state) => ({
-          items:
+          lines:
             quantity <= 0
-              ? state.items.filter((i) => i.product_id !== productId)
-              : state.items.map((i) =>
-                  i.product_id === productId
-                    ? { ...i, quantity: Math.min(quantity, i.stock_count ?? Infinity) }
-                    : i
-                ),
+              ? state.lines.filter((l) => l.key !== key)
+              : state.lines.map((l) => (l.key === key ? { ...l, quantity: Math.min(quantity, l.max_qty) } : l)),
         })),
-      removeItem: (productId) =>
-        set((state) => ({
-          items: state.items.filter((i) => i.product_id !== productId),
-        })),
-      clearCart: () => set({ items: [] }),
-      totalAmount: () =>
-        get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
-      totalItems: () =>
-        get().items.reduce((sum, i) => sum + i.quantity, 0),
+
+      removeItem: (key) =>
+        set((state) => ({ lines: state.lines.filter((l) => l.key !== key) })),
+
+      clearCart: () => set({ lines: [] }),
+
+      subtotal: () => get().lines.reduce((sum, l) => sum + l.unit_price * l.quantity, 0),
+      totalItems: () => get().lines.reduce((sum, l) => sum + l.quantity, 0),
     }),
-    { name: 'edgeshop-cart', partialize: (state) => ({ items: state.items }) }
+    {
+      name: 'edgeshop-cart',
+      // v1 stored `items: CartItem[]` deduped on product_id — an incompatible
+      // shape. Silently carrying it forward would corrupt totals, so any
+      // persisted version below 2 is discarded rather than migrated.
+      version: 2,
+      migrate: () => ({ lines: [] }),
+      partialize: (state) => ({ lines: state.lines }),
+    }
   )
 )

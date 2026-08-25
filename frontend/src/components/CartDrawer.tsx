@@ -1,42 +1,48 @@
 import { Link } from 'react-router-dom'
-import type { CartItem } from '../lib/types'
+import type { CartLine } from '../store/cartStore'
+import Button from './Button'
 
 interface CartDrawerProps {
   isOpen: boolean
-  items: CartItem[]
+  lines: CartLine[]
   currency: string
   onClose: () => void
-  onUpdateQuantity: (productId: number, quantity: number) => void
+  onUpdateQuantity: (key: string, quantity: number) => void
+  onRemove: (key: string) => void
   onCheckout: () => void
 }
 
-export default function CartDrawer({ isOpen, items, currency, onClose, onUpdateQuantity, onCheckout }: CartDrawerProps) {
-  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0)
+export default function CartDrawer({ isOpen, lines, currency, onClose, onUpdateQuantity, onRemove, onCheckout }: CartDrawerProps) {
+  const subtotal = lines.reduce((sum, l) => sum + l.unit_price * l.quantity, 0)
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/30 z-40 transition-opacity duration-300 ${isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 z-40 bg-ink/30 transition-opacity duration-300 ${
+          isOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
+        }`}
         onClick={onClose}
       />
 
       {/* Drawer */}
       <div
-        className={`fixed right-0 top-0 h-full w-full sm:w-96 z-50 flex flex-col bg-white transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+        className={`fixed right-0 top-0 z-50 flex h-full w-full flex-col bg-paper transition-transform duration-300 ease-in-out sm:w-96 ${
+          isOpen ? 'translate-x-0' : 'translate-x-full'
+        }`}
       >
-        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+        <div className="flex items-center justify-between border-b border-line px-6 py-5">
+          <h2 className="font-display text-lg font-semibold text-ink">
             Your Cart
-            {items.length > 0 && (
-              <span className="ml-2 text-sm font-normal text-gray-400">
-                ({items.reduce((s, i) => s + i.quantity, 0)})
+            {lines.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-ink-soft">
+                ({lines.reduce((s, l) => s + l.quantity, 0)})
               </span>
             )}
           </h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-100 transition-colors"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-ink-soft transition-colors hover:bg-ink/5 hover:text-ink"
             aria-label="Close"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -47,65 +53,78 @@ export default function CartDrawer({ isOpen, items, currency, onClose, onUpdateQ
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-4">
-          {items.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="w-14 h-14 text-gray-200">
+          {lines.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1} stroke="currentColor" className="h-14 w-14 text-line">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007zM8.625 10.5a.375.375 0 11-.75 0 .375.375 0 01.75 0zm5.625 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
               </svg>
-              <p className="text-sm text-gray-400">Your cart is empty</p>
-              <button
-                onClick={onClose}
-                className="text-xs font-medium uppercase tracking-wide text-gray-900 underline underline-offset-4 hover:text-gray-600"
-              >
+              <p className="text-sm text-ink-soft">Your cart is empty</p>
+              <button onClick={onClose} className="text-xs font-medium uppercase tracking-wide text-ink underline underline-offset-4 hover:text-accent">
                 Continue Shopping
               </button>
             </div>
           ) : (
             <ul className="space-y-6">
-              {items.map((item) => (
-                <li key={item.product_id} className="flex gap-4">
-                  <Link to={`/product/${item.product_id}`} onClick={onClose} className="shrink-0">
-                    <div className="w-20 h-20 bg-gray-100 overflow-hidden rounded">
-                      {item.image_url ? (
-                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+              {lines.map((line) => (
+                <li key={line.key} className="flex gap-4">
+                  <Link to={`/product/${line.product_id}`} onClick={onClose} className="shrink-0">
+                    <div className="h-20 w-20 overflow-hidden rounded-lg bg-surface ring-1 ring-line">
+                      {line.preview_url ? (
+                        <img src={line.preview_url} alt={line.name} className="h-full w-full object-cover" />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">No image</div>
+                        <div className="flex h-full w-full items-center justify-center text-[10px] text-ink-soft">No image</div>
                       )}
                     </div>
                   </Link>
-                  <div className="flex-1 min-w-0">
-                    <Link to={`/product/${item.product_id}`} onClick={onClose}>
-                      <p className="text-sm font-medium text-gray-900 mb-1 hover:text-gray-600 transition-colors leading-snug">
-                        {item.name}
+                  <div className="min-w-0 flex-1">
+                    <Link to={`/product/${line.product_id}`} onClick={onClose}>
+                      <p className="mb-1 truncate text-sm font-medium leading-snug text-ink transition-colors hover:text-accent">
+                        {line.name}
                       </p>
                     </Link>
-                    <p className="text-xs text-gray-500 mb-3">
-                      {currency}{item.price.toFixed(2)}
+                    <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
+                      {line.size && <span>Size {line.size}</span>}
+                      {line.design_id && (
+                        <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent-dark">
+                          Custom design
+                        </span>
+                      )}
+                    </div>
+                    <p className="mb-3 text-xs text-ink-soft">
+                      {currency}
+                      {line.unit_price.toFixed(2)}
                     </p>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center border border-gray-200 divide-x divide-gray-200 rounded">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center divide-x divide-line rounded-full border border-line">
                         <button
-                          onClick={() => onUpdateQuantity(item.product_id, item.quantity - 1)}
-                          className="w-7 h-7 text-xs flex items-center justify-center text-gray-700 hover:bg-gray-50"
+                          onClick={() => onUpdateQuantity(line.key, line.quantity - 1)}
+                          className="flex h-8 w-8 items-center justify-center text-sm text-ink hover:bg-ink/5"
                           aria-label="Decrease quantity"
                         >
                           −
                         </button>
-                        <span className="w-7 h-7 text-xs flex items-center justify-center text-gray-700">
-                          {item.quantity}
-                        </span>
+                        <span className="flex h-8 w-8 items-center justify-center text-xs text-ink">{line.quantity}</span>
                         <button
-                          onClick={() => onUpdateQuantity(item.product_id, item.quantity + 1)}
-                          disabled={item.stock_count !== undefined && item.quantity >= item.stock_count}
-                          className="w-7 h-7 text-xs flex items-center justify-center text-gray-700 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+                          onClick={() => onUpdateQuantity(line.key, line.quantity + 1)}
+                          disabled={line.quantity >= line.max_qty}
+                          className="flex h-8 w-8 items-center justify-center text-sm text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label="Increase quantity"
                         >
                           +
                         </button>
                       </div>
-                      <span className="text-xs text-gray-500">
-                        {currency}{(item.price * item.quantity).toFixed(2)}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-medium text-ink">
+                          {currency}
+                          {(line.unit_price * line.quantity).toFixed(2)}
+                        </span>
+                        <button
+                          onClick={() => onRemove(line.key)}
+                          className="text-xs text-ink-soft underline underline-offset-2 hover:text-danger"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </li>
@@ -114,20 +133,18 @@ export default function CartDrawer({ isOpen, items, currency, onClose, onUpdateQ
           )}
         </div>
 
-        {items.length > 0 && (
-          <div className="px-6 py-5 border-t border-gray-200">
-            <div className="flex justify-between items-baseline mb-5">
-              <span className="text-xs uppercase tracking-wide text-gray-500">Subtotal</span>
-              <span className="text-base font-semibold text-gray-900">
-                {currency}{subtotal.toFixed(2)}
+        {lines.length > 0 && (
+          <div className="border-t border-line px-6 py-5">
+            <div className="mb-5 flex items-baseline justify-between">
+              <span className="text-xs uppercase tracking-wide text-ink-soft">Subtotal</span>
+              <span className="text-base font-semibold text-ink">
+                {currency}
+                {subtotal.toFixed(2)}
               </span>
             </div>
-            <button
-              onClick={onCheckout}
-              className="w-full py-3.5 text-sm font-medium tracking-wide uppercase bg-gray-900 text-white transition-opacity hover:opacity-90 active:scale-[0.99] rounded"
-            >
+            <Button variant="accent" size="lg" fullWidth onClick={onCheckout} className="uppercase">
               Proceed to Checkout
-            </button>
+            </Button>
           </div>
         )}
       </div>
