@@ -2,14 +2,48 @@ import { useState, useRef, type DragEvent } from 'react'
 import { processImage } from '../utils/imageProcessor'
 import { adminFetch } from './lib/adminFetch'
 
+export interface UploadResult {
+  url: string
+  /** Natural width/height of the uploaded (already browser-resized) WebP —
+   *  i.e. exactly what /img/<key> will serve. POD.md §6.1 requires these on
+   *  product_sides (image_w/image_h) since the print-area math is defined
+   *  in fractions of them, not of the original file's dimensions. */
+  width: number
+  height: number
+}
+
 interface Props {
-  onUploadComplete: (url: string) => void
+  onUploadComplete: (result: UploadResult) => void
   existingUrl?: string
+  /** R2 key prefix — validated server-side against an allow-list
+   *  (worker/src/routes/admin/upload.ts). Product mockups always use
+   *  'mockups'. */
+  prefix: string
 }
 
 type UploadStatus = 'idle' | 'processing' | 'uploading' | 'done' | 'error'
 
-export default function ImageUploader({ onUploadComplete, existingUrl }: Props) {
+// Reads the natural pixel dimensions of an already-processed image blob by
+// decoding it in an offscreen <img>. Since processImage() has already
+// resized to maxWidth, these dimensions are exactly what gets stored in R2
+// and served from /img/<key> — not the original file's dimensions.
+function readImageDimensions(blob: Blob): Promise<{ width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      resolve({ width: img.naturalWidth, height: img.naturalHeight })
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Could not read image dimensions'))
+    }
+    img.src = url
+  })
+}
+
+export default function ImageUploader({ onUploadComplete, existingUrl, prefix }: Props) {
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [preview, setPreview] = useState<string>(existingUrl ?? '')
   const [errorMsg, setErrorMsg] = useState('')
@@ -25,6 +59,7 @@ export default function ImageUploader({ onUploadComplete, existingUrl }: Props) 
     setErrorMsg('')
     try {
       const webpBlob = await processImage(file)
+      const { width, height } = await readImageDimensions(webpBlob)
       const previewUrl = URL.createObjectURL(webpBlob)
       setPreview(previewUrl)
 
@@ -32,7 +67,7 @@ export default function ImageUploader({ onUploadComplete, existingUrl }: Props) 
       const presignRes = await adminFetch('/api/admin/upload/presign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name }),
+        body: JSON.stringify({ filename: file.name, prefix }),
       })
       if (!presignRes.ok) throw new Error('Failed to get upload key')
       const { key } = await presignRes.json() as { key: string }
@@ -44,7 +79,7 @@ export default function ImageUploader({ onUploadComplete, existingUrl }: Props) 
       })
       if (!uploadRes.ok) throw new Error('Upload failed')
       const { url } = await uploadRes.json() as { url: string }
-      onUploadComplete(url)
+      onUploadComplete({ url, width, height })
       setStatus('done')
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Upload failed')

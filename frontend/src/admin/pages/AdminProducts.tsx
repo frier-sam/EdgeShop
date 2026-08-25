@@ -90,8 +90,8 @@ export default function AdminProducts() {
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Category</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Stock</th>
                 <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
@@ -112,8 +112,14 @@ export default function AdminProducts() {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.category || '—'}</td>
                   <td className="px-4 py-3 text-gray-700">₹{p.base_price.toFixed(2)}</td>
+                  <td className="px-4 py-3 hidden sm:table-cell">
+                    <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
+                      p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {p.status}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.stock_count}</td>
                   <td className="px-4 py-3 text-right">
                     <Link to={`/admin/products/${p.id}`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Edit</Link>
