@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import Button from '../components/Button'
 
 function setNoIndex() {
@@ -37,13 +37,41 @@ export default function OrderSuccessPage() {
   useEffect(() => setNoIndex(), [])
 
   // Passed from CheckoutPage right before the cart is cleared (POD-UI.md
-  // §B7) — there's no dedicated "fetch this order" endpoint for a fresh
-  // guest checkout, so the line snapshot travels through router state
-  // instead of a refetch. Falls back to just the celebratory copy if the
-  // page was reached directly (refresh, bookmarked link, etc.).
+  // §B7) — this is the FAST path: the data is already known client-side at
+  // the moment of purchase, so there's no reason to round-trip a fetch for
+  // it. `:orderId` (Bug 3 fix) is what survives a hard refresh, bookmark or
+  // shared link, where router state is gone — see the fetch fallback below.
   const location = useLocation()
+  const { orderId: orderIdParam } = useParams<{ orderId?: string }>()
   const state = (location.state ?? {}) as OrderPreviewState
-  const orderLines = state.lines ?? []
+  const orderId = state.orderId ?? orderIdParam
+
+  const [fetchedLines, setFetchedLines] = useState<OrderPreviewLine[] | null>(null)
+
+  useEffect(() => {
+    // Router state already has the lines (fresh checkout) — nothing to fetch.
+    if (state.lines) return
+    if (!orderId) return
+
+    let cancelled = false
+    fetch(`/api/orders/${encodeURIComponent(orderId)}/previews`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('not ok'))))
+      .then((data: { lines?: OrderPreviewLine[] }) => {
+        if (!cancelled) setFetchedLines(Array.isArray(data.lines) ? data.lines : [])
+      })
+      .catch(() => {
+        // Bug 3, Option A + graceful degradation: if the order can't be
+        // found (bad id) or the fetch fails, fall back to just the
+        // celebratory copy + order steps — no broken/empty preview area.
+        if (!cancelled) setFetchedLines([])
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId])
+
+  const orderLines = state.lines ?? fetchedLines ?? []
   const previewLines = orderLines.filter((l) => l.preview_url)
 
   return (
@@ -79,9 +107,9 @@ export default function OrderSuccessPage() {
 
           <h1 className="fade-up-heading mb-3 font-display text-[2.5rem] font-bold text-ink sm:text-[3rem]">Order Placed!</h1>
           <p className="fade-up-sub mb-10 text-sm text-ink-soft sm:text-base">
-            {state.orderId ? (
+            {orderId ? (
               <>
-                Order <span className="font-medium text-ink">#{state.orderId}</span> is confirmed. We'll send a confirmation to your email shortly.
+                Order <span className="font-medium text-ink">#{orderId}</span> is confirmed. We'll send a confirmation to your email shortly.
               </>
             ) : (
               "Thank you for your purchase. We'll send a confirmation to your email shortly."

@@ -48,7 +48,11 @@ export default function App() {
           <Route path="/product/:id" element={<ProductPage />} />
           <Route path="/customize/:productId" element={<CustomizePage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/order-success" element={<OrderSuccessPage />} />
+          {/* :orderId is optional — CheckoutPage always includes it now (Bug 3
+              fix, so a hard refresh can still fetch preview art), but the
+              bare path stays valid so nothing breaks if it's ever navigated
+              to without one. */}
+          <Route path="/order-success/:orderId?" element={<OrderSuccessPage />} />
           <Route path="/account/login" element={<LoginPage />} />
           <Route path="/account/register" element={<RegisterPage />} />
           <Route path="/account/orders" element={<AccountOrdersPage />} />

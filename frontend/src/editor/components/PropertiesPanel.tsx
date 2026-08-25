@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FabricCanvas, FabricObject } from '../fabric/loadFabric'
 import { DESIGN_FONTS } from '../fonts'
 import { dpiSeverity, type DpiSeverity } from '../geometry'
+import { isImageObject, isLineObject, isRectObject, isShapeObject, isTextObject } from '../fabric/objectTypes'
 import ColorSwatchRow from './ColorSwatchRow'
 import SegmentedControl from '../../components/ui/SegmentedControl'
 
@@ -31,11 +32,8 @@ export interface PropertiesPanelProps extends CommonActions {
 // the entire per-type controls set (text/image/shape) silently never
 // rendered — the real, deeper cause behind Finding #1's "cramped strip";
 // colour wasn't just hard to reach, its controls weren't mounting at all.
-const TEXT_TYPE = 'i-text'
-const IMAGE_TYPE = 'image'
-const RECT_TYPE = 'rect'
-const LINE_TYPE = 'line'
-const SHAPE_TYPES = ['rect', 'circle', 'triangle', 'polygon', 'line']
+// All classification now goes through fabric/objectTypes.ts, the single
+// shared source of truth for this (see that file's header).
 
 type TabKey = 'style' | 'text' | 'arrange'
 
@@ -292,7 +290,7 @@ function ShapeExtraControls({ selected, onCommit }: { selected: FabricObject; on
     rx?: number
     set: (p: Record<string, unknown>) => void
   }
-  const isLine = obj.type === LINE_TYPE
+  const isLine = isLineObject(obj)
   const [stroke, setStroke] = useState(String(obj.stroke ?? ''))
   const [strokeWidth, setStrokeWidth] = useState(obj.strokeWidth ?? 0)
   const [radius, setRadius] = useState(obj.rx ?? 0)
@@ -338,7 +336,7 @@ function ShapeExtraControls({ selected, onCommit }: { selected: FabricObject; on
           }}
         />
       </Row>
-      {obj.type === RECT_TYPE && (
+      {isRectObject(obj) && (
         <Row label={`Corner radius (${radius})`}>
           <input
             type="range"
@@ -373,11 +371,10 @@ export default function PropertiesPanel({ selected, onCommit, imageDpi, ...actio
   const [tab, setTab] = useState<TabKey>('style')
   const [primaryColor, setPrimaryColorState] = useState('#101014')
 
-  const type = selected?.type
-  const isText = type === TEXT_TYPE
-  const isImage = type === IMAGE_TYPE
-  const isShape = !!type && SHAPE_TYPES.includes(type) && !isImage
-  const isLine = type === LINE_TYPE
+  const isText = isTextObject(selected)
+  const isImage = isImageObject(selected)
+  const isShape = isShapeObject(selected)
+  const isLine = isLineObject(selected)
   const isColorable = isText || isShape // text/shape fill, or line stroke — never image
 
   useEffect(() => {

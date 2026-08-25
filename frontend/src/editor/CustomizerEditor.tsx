@@ -4,6 +4,7 @@ import './fonts.css'
 import { loadFabric, type FabricModule, type FabricCanvas } from './fabric/loadFabric'
 import { getCanvasSize, snapshotCanvas } from './fabric/canvas'
 import { scanImageDpi, type ImageDpiInfo } from './fabric/selection'
+import { isImageObject, isTextObject } from './fabric/objectTypes'
 import { useEditorSettings } from './useEditorSettings'
 import { useEditorObjects } from './useEditorObjects'
 import EditorStage, { type SideSnapshot } from './EditorStage'
@@ -194,9 +195,9 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
         new Set(
           canvas
             .getObjects()
-            // Fabric v6's runtime type is 'i-text' (lowercase, hyphenated),
-            // not the 'IText' class name — see PropertiesPanel.tsx's note.
-            .filter((o) => o.type === 'i-text')
+            // Classification goes through fabric/objectTypes.ts (see its
+            // header for why a raw `.type === 'i-text'` isn't safe alone).
+            .filter((o) => isTextObject(o))
             .map((o) => (o as unknown as { fontFamily?: string }).fontFamily)
             .filter((f): f is string => !!f)
         )
@@ -496,7 +497,7 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
           initialSnap="peek"
           peekHeight="42vh"
           fullHeight="88vh"
-          title={objectsApi.selected?.type === 'i-text' ? 'Text' : objectsApi.selected?.type === 'image' ? 'Image' : 'Shape'}
+          title={isTextObject(objectsApi.selected) ? 'Text' : isImageObject(objectsApi.selected) ? 'Image' : 'Shape'}
         >
           <PropertiesPanel {...propertiesPanelProps} />
         </Sheet>

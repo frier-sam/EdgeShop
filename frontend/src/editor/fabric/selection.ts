@@ -4,6 +4,7 @@
 // Fabric API touch for "acting on the current object(s)" (POD.md §11).
 import type { FabricCanvas, FabricObject } from './loadFabric'
 import { computeEffectiveDpi, dpiSeverity, type DpiSeverity } from '../geometry'
+import { isImageObject } from './objectTypes'
 
 export function getActiveObject(canvas: FabricCanvas | null): FabricObject | null {
   return canvas?.getActiveObject() ?? null
@@ -90,8 +91,8 @@ export interface ImageDpiInfo {
 export function scanImageDpi(canvas: FabricCanvas, canvasCssWidth: number, printWidthIn: number): ImageDpiInfo[] {
   const out: ImageDpiInfo[] = []
   for (const obj of canvas.getObjects()) {
-    // Fabric v6 object.type is PascalCase ('Image', 'IText', 'Rect', ...).
-    if (obj.type !== 'Image') continue
+    // Fabric v6 object.type is lowercase at runtime (see ./objectTypes.ts).
+    if (!isImageObject(obj)) continue
     const meta = obj as unknown as { assetNaturalWidth?: number; isVectorAsset?: boolean }
     if (meta.isVectorAsset) continue
     const assetNaturalWidth = meta.assetNaturalWidth

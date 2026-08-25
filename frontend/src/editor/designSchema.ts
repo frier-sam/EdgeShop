@@ -12,6 +12,7 @@
 import type { EditorSideName } from './types'
 import type { FabricSnapshot } from './fabric/rescaleSnapshot'
 import { computeEffectiveDpi, dpiSeverity, type DpiSeverity } from './geometry'
+import { isImageObject } from './fabric/objectTypes'
 
 export interface StoredSideSnapshot extends FabricSnapshot {
   canvasWidth: number
@@ -80,7 +81,7 @@ export function scanCanonicalDpiIssues(
     if (!snapshot?.objects) continue
     for (const obj of snapshot.objects) {
       const o = obj as { type?: string; isVectorAsset?: boolean; assetNaturalWidth?: number; width?: number; scaleX?: number }
-      if (o.type !== 'Image' || o.isVectorAsset || !o.assetNaturalWidth) continue
+      if (!isImageObject(o) || o.isVectorAsset || !o.assetNaturalWidth) continue
       const objectWidthPx = (o.width ?? 0) * (o.scaleX ?? 1)
       const dpi = computeEffectiveDpi({
         assetNaturalWidth: o.assetNaturalWidth,

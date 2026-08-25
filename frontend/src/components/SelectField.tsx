@@ -1,4 +1,15 @@
 // frontend/src/components/SelectField.tsx
+//
+// POD-UI.md §6 lane-boundary fix: sat between Workstream C and D, missed
+// by the visual overhaul, so it kept its pre-overhaul raw Tailwind gray
+// palette (`border-gray-300`, `text-gray-500`, …) while its sibling
+// Field.tsx moved onto the design tokens. Now a thin wrapper around
+// Field's own `as="select"` rendering, so label/hint/error, the 44px
+// touch floor and the accent focus ring come from the exact same code
+// path as every other select in the app — no separate style to drift out
+// of sync again. Prop API (value/onChange(value) rather than an event,
+// no `error`) is unchanged, so no caller needed to change.
+import Field from './Field'
 
 interface SelectOption {
   value: string
@@ -16,43 +27,18 @@ interface SelectFieldProps {
   className?: string
 }
 
-export default function SelectField({
-  label,
-  name,
-  value,
-  onChange,
-  options,
-  required,
-  hint,
-  className = '',
-}: SelectFieldProps) {
+export default function SelectField({ label, name, value, onChange, options, required, hint, className = '' }: SelectFieldProps) {
   return (
-    <div className={className}>
-      <label className="block text-xs text-gray-500 mb-1">
-        {label}
-        {required && <span className="text-red-400 ml-1">*</span>}
-      </label>
-      <div className="relative">
-        <select
-          name={name}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          required={required}
-          className="w-full border border-gray-300 rounded px-3 py-2 pr-8 text-sm focus:outline-none focus:border-gray-500 bg-white appearance-none cursor-pointer"
-        >
-          {options.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-400">
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
-    </div>
+    <Field
+      as="select"
+      label={label}
+      name={name}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      options={options}
+      required={required}
+      hint={hint}
+      containerClassName={className}
+    />
   )
 }

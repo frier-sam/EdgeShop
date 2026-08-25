@@ -252,7 +252,7 @@ export default function CheckoutPage() {
 
       if (data.payment_method === 'cod') {
         clearCart()
-        navigate('/order-success', { state: orderPreview })
+        navigate(`/order-success/${encodeURIComponent(data.order_id)}`, { state: orderPreview })
         return
       }
 
@@ -274,7 +274,7 @@ export default function CheckoutPage() {
         },
         onSuccess: () => {
           clearCart()
-          navigate('/order-success', { state: orderPreview })
+          navigate(`/order-success/${encodeURIComponent(data.order_id)}`, { state: orderPreview })
         },
         onFailure: () => {
           setError('Payment was cancelled.')

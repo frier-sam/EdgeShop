@@ -14,6 +14,7 @@ import { requireAdmin } from './middleware/requireAdmin'
 import sitemap from './routes/sitemap'
 import adminCustomers from './routes/admin/customers'
 import designs from './routes/designs'
+import orders from './routes/orders'
 import { runMigrations } from './lib/migrate'
 import { runOrphanDesignGC } from './lib/gc'
 import { isAllowedImgKey } from './lib/imgGuard'
@@ -69,6 +70,10 @@ app.route('/api/products', products)
 // below and outside /api/admin/*, since customers (including guests) use
 // these at add-to-cart time.
 app.route('/api', designs)
+// Bug 3 fix — public, preview-only order lookup for OrderSuccessPage's
+// post-refresh fallback fetch (see routes/orders.ts's header for why this
+// is safe to leave unauthenticated). Also mounted before requireAdmin.
+app.route('/api/orders', orders)
 
 // Protect all admin routes with JWT staff check
 app.use('/api/admin/*', requireAdmin)
