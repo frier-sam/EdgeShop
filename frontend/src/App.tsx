@@ -1,9 +1,10 @@
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useParams, Link } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import MobileBottomNav from './components/MobileBottomNav'
 import { useCartStore } from './store/cartStore'
 import HomePage from './pages/HomePage'
 import ProductPage from './pages/ProductPage'
+import CustomizePage from './pages/CustomizePage'
 import OrderSuccessPage from './pages/OrderSuccessPage'
 import CheckoutPage from './pages/CheckoutPage'
 import ShopPage from './pages/ShopPage'
@@ -35,24 +36,6 @@ function GlobalMobileNav() {
   return <MobileBottomNav cartCount={totalItems()} onCartOpen={openCart} />
 }
 
-// Phase 6 (POD.md §10) replaces this with the full canvas design editor.
-// This placeholder exists only so /customize/:productId doesn't 404.
-function CustomizePlaceholder() {
-  const { productId } = useParams<{ productId: string }>()
-  return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-paper px-6 text-center">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Coming soon</p>
-      <h1 className="font-display text-2xl font-semibold text-ink">Design editor for product #{productId}</h1>
-      <p className="max-w-sm text-sm text-ink-soft">
-        The customizer is under construction. Check back soon to design your own print.
-      </p>
-      <Link to="/shop" className="mt-2 text-sm font-semibold text-accent underline underline-offset-4">
-        Back to shop
-      </Link>
-    </div>
-  )
-}
-
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -63,7 +46,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/shop" element={<ShopPage />} />
           <Route path="/product/:id" element={<ProductPage />} />
-          <Route path="/customize/:productId" element={<CustomizePlaceholder />} />
+          <Route path="/customize/:productId" element={<CustomizePage />} />
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/order-success" element={<OrderSuccessPage />} />
           <Route path="/account/login" element={<LoginPage />} />

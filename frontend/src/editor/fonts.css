@@ -1,0 +1,133 @@
+/*
+ * frontend/src/editor/fonts.css — self-hosted DESIGN fonts (POD.md §5.5).
+ *
+ * These are the fonts a customer can put on a T-shirt, not UI chrome —
+ * index.html's Google-Fonts Inter/Space Grotesk are a separate, unrelated
+ * concern and out of scope here. Design fonts must never come from a CDN:
+ * the print file has to be byte-identical to what the customer approved,
+ * and a font that silently fails to load from a third-party host would
+ * change the artwork after purchase. Every face below is served from
+ * /fonts/** on this origin.
+ *
+ * Only imported by the customizer bundle (see editor/CustomizerEditor.tsx),
+ * so these bytes never touch a page that isn't `/customize/:productId`.
+ *
+ * Licences: every family is Google Fonts' OFL (SIL Open Font License)
+ * distribution — the original OFL.txt sits next to each family's woff2
+ * files under public/fonts/<family>/OFL.txt.
+ */
+
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/poppins/Poppins-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Poppins';
+  src: url('/fonts/poppins/Poppins-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/playfair-display/PlayfairDisplay-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Playfair Display';
+  src: url('/fonts/playfair-display/PlayfairDisplay-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Bebas Neue';
+  src: url('/fonts/bebas-neue/BebasNeue-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Anton';
+  src: url('/fonts/anton/Anton-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Pacifico';
+  src: url('/fonts/pacifico/Pacifico-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Oswald';
+  src: url('/fonts/oswald/Oswald-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Oswald';
+  src: url('/fonts/oswald/Oswald-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Merriweather';
+  src: url('/fonts/merriweather/Merriweather-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Merriweather';
+  src: url('/fonts/merriweather/Merriweather-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/fonts/montserrat/Montserrat-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Montserrat';
+  src: url('/fonts/montserrat/Montserrat-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Caveat';
+  src: url('/fonts/caveat/Caveat-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+
+@font-face {
+  font-family: 'Archivo Black';
+  src: url('/fonts/archivo-black/ArchivoBlack-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
