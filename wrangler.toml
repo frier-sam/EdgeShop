@@ -15,3 +15,11 @@ database_id = "6290afd0-0301-4220-8212-e920ce046fa3"
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "edgeshop-images"
+
+# POD.md §9.1 / §11 — daily orphan-design garbage collection. Runs the
+# worker's scheduled() handler (worker/src/index.ts), which deletes
+# `designs` rows with order_id IS NULL older than the
+# `design_retention_days` setting (default 30 days) plus their R2
+# preview objects. 03:00 UTC — off-peak for an INR-priced storefront.
+[triggers]
+crons = ["0 3 * * *"]

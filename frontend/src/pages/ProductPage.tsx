@@ -86,6 +86,40 @@ export default function ProductPage() {
   // can't be selected in the first place (see the disabled size buttons).
   const ctaDisabled = !sizeChosen || outOfStock
 
+  // ── Product JSON-LD (POD.md §9.2) ─────────────────────────────────────
+  // `offers.price` is deliberately `base_price` alone, NOT `displayPrice`
+  // (which already folds in a selected size delta) and never a price that
+  // includes a customization fee: for an `is_customizable` product the
+  // real checkout total also depends on which side(s) the shopper designs
+  // (§7.1's per-side print_fee), which isn't knowable until they've used
+  // the editor. Advertising base_price + assumed print fees as THE price
+  // would be a structured-data claim search engines can flag as
+  // misleading once a real checkout doesn't match it. base_price is the
+  // floor — the true minimum a shopper could ever pay for this product —
+  // which is what schema.org's Offer.price is meant to represent absent
+  // a priceSpecification range; customization cost is surfaced honestly
+  // to the shopper in the on-page price breakdown above, and recomputed
+  // authoritatively server-side at checkout (routes/checkout.ts, §7.3).
+  const anyInStock = needsSize ? sizes.some((s) => s.stock_count > 0) : product.stock_count > 0
+  const absoluteImageUrls = sides
+    .map((s) => s.image_url)
+    .filter((url): url is string => !!url)
+    .map((url) => new URL(url, window.location.origin).toString())
+  const productJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: product.name,
+    ...(product.description ? { description: product.description } : {}),
+    ...(absoluteImageUrls.length > 0 ? { image: absoluteImageUrls } : {}),
+    offers: {
+      '@type': 'Offer',
+      price: product.base_price.toFixed(2),
+      priceCurrency: storeCurrency,
+      availability: anyInStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
+      url: window.location.href,
+    },
+  }
+
   function handleAddToCart() {
     if (!product) return
     addLine({
@@ -112,6 +146,11 @@ export default function ProductPage() {
 
   return (
     <div className="min-h-screen pb-28 md:pb-0">
+      {/* eslint-disable-next-line react/no-danger -- JSON.stringify output only, '<' escaped below so a description containing "</script>" can't break out of the tag */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, '\\u003c') }}
+      />
       <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={NAV_ITEMS} />
 
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">

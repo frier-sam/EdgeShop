@@ -1,4 +1,8 @@
-#\!/usr/bin/env bash
+#!/usr/bin/env bash
+# EdgeShop POD — non-interactive-ish CLI setup (see deploy.sh for the
+# fully interactive walkthrough). Deploys as a SINGLE Cloudflare Worker
+# (root wrangler.toml) that serves both the API and the built frontend —
+# there is no separate Cloudflare Pages project.
 set -e
 set -o pipefail
 
@@ -13,55 +17,69 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
+DB_NAME="edgeshop-db"
+BUCKET_NAME="edgeshop-images"
+
 # ─── Prerequisites ───────────────────────────────────────────────────────────
 info "Checking prerequisites..."
-command -v wrangler >/dev/null 2>&1 || error "wrangler not found. Run: npm install -g wrangler"
 command -v node    >/dev/null 2>&1 || error "node not found. Install from https://nodejs.org"
 command -v openssl >/dev/null 2>&1 || error "openssl not found."
-wrangler whoami >/dev/null 2>&1    || error "Not logged in to Cloudflare. Run: wrangler login"
 success "Prerequisites OK"
 
 # ─── Install dependencies ────────────────────────────────────────────────────
-info "Installing dependencies..."
+info "Installing dependencies (root workspaces: worker + frontend, incl. wrangler)..."
 npm install
 success "Dependencies installed"
 
+npx wrangler whoami >/dev/null 2>&1 || { info "Not logged in — opening Cloudflare login..."; npx wrangler login; }
+success "Logged in to Cloudflare"
+
 # ─── D1 Database ─────────────────────────────────────────────────────────────
-info "Creating D1 database (edgeshop-db)..."
-DB_OUTPUT=$(wrangler d1 create edgeshop-db 2>&1 || true)
+info "Creating D1 database (${DB_NAME})..."
+DB_OUTPUT=$(npx wrangler d1 create "$DB_NAME" 2>&1 || true)
 
 if echo "$DB_OUTPUT" | grep -q "already exists"; then
   warn "D1 database already exists — fetching existing ID..."
-  DB_ID=$(wrangler d1 info edgeshop-db --json 2>/dev/null \
-    | python3 -c "import sys,json; print(json.load(sys.stdin).get('uuid',''))" 2>/dev/null || true)
+  DB_ID=$(npx wrangler d1 list 2>/dev/null \
+    | grep -E "\b${DB_NAME}\b" \
+    | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
+    | head -1 || true)
 else
   DB_ID=$(echo "$DB_OUTPUT" | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1 || true)
 fi
 
 if [ -z "$DB_ID" ]; then
-  error "Could not determine D1 database ID. Check 'wrangler d1 list' and update worker/wrangler.toml manually with the correct database_id."
+  error "Could not determine D1 database ID. Check 'npx wrangler d1 list' and update wrangler.toml manually with the correct database_id."
 fi
 
-# Patch wrangler.toml
-sed -i.bak "s/database_id = \"placeholder-replace-after-creation\"/database_id = \"$DB_ID\"/" worker/wrangler.toml
-rm -f worker/wrangler.toml.bak
-grep -q "database_id = \"$DB_ID\"" worker/wrangler.toml \
-  || error "Failed to patch database_id in worker/wrangler.toml. Please update it manually: database_id = \"$DB_ID\""
+# Patch wrangler.toml (repo root) — match on the KEY, not a specific
+# placeholder value, since the committed file carries the original dev
+# database's real (but useless-to-you) id, not a literal placeholder string.
+sed -i.bak "s/^database_id = \".*\"/database_id = \"$DB_ID\"/" wrangler.toml
+rm -f wrangler.toml.bak
+grep -q "database_id = \"$DB_ID\"" wrangler.toml \
+  || error "Failed to patch database_id in wrangler.toml. Please update it manually: database_id = \"$DB_ID\""
 success "D1 database ready (ID: $DB_ID)"
 
-# ─── D1 Migrations ───────────────────────────────────────────────────────────
-info "Applying D1 migrations..."
-(cd worker && wrangler d1 migrations apply edgeshop-db --remote --yes)
-success "All migrations applied"
+# ─── D1 Schema ────────────────────────────────────────────────────────────────
+# A single canonical schema file, not a sequence of numbered migrations —
+# see worker/migrations/schema.sql. (An existing pre-POD deployment instead
+# converges automatically via worker/src/lib/migrate.ts on first request;
+# this path is for a brand-new database only.)
+info "Applying schema..."
+npx wrangler d1 execute "$DB_NAME" --remote --file=worker/migrations/schema.sql
+success "Schema applied"
 
 # ─── R2 Bucket ───────────────────────────────────────────────────────────────
-info "Creating R2 bucket (edgeshop-images)..."
-R2_OUTPUT=$(wrangler r2 bucket create edgeshop-images 2>&1 || true)
+info "Creating R2 bucket (${BUCKET_NAME})..."
+R2_OUTPUT=$(npx wrangler r2 bucket create "$BUCKET_NAME" 2>&1 || true)
 if echo "$R2_OUTPUT" | grep -q "already exists"; then
   warn "R2 bucket already exists — skipping creation"
 else
   success "R2 bucket created"
 fi
+sed -i.bak "s/^bucket_name = \".*\"/bucket_name = \"$BUCKET_NAME\"/" wrangler.toml
+rm -f wrangler.toml.bak
 
 success "R2 bucket ready — it stays private; images are proxied through the worker at /img/<key>"
 
@@ -69,74 +87,56 @@ success "R2 bucket ready — it stays private; images are proxied through the wo
 info "Setting secrets..."
 
 JWT_SECRET=$(openssl rand -hex 32)
-printf '%s' "$JWT_SECRET" | wrangler secret put JWT_SECRET --name edgeshop-worker
+printf '%s' "$JWT_SECRET" | npx wrangler secret put JWT_SECRET
 success "JWT_SECRET auto-generated and set"
 
 echo ""
-warn "Razorpay webhook secret is optional — Razorpay API keys are configured in Admin → Integrations."
-warn "You only need this if you use Razorpay webhooks for payment confirmation."
+warn "Razorpay webhook secret is optional — Cash on Delivery needs no payment setup at all,"
+warn "and Razorpay API keys themselves are configured later in Admin → Settings → Payments."
 read -rp "$(echo -e "${CYAN}RAZORPAY_WEBHOOK_SECRET (press Enter to skip):${NC} ")" RZP_SECRET
 if [ -n "$RZP_SECRET" ]; then
-  printf '%s' "$RZP_SECRET" | wrangler secret put RAZORPAY_WEBHOOK_SECRET --name edgeshop-worker
+  printf '%s' "$RZP_SECRET" | npx wrangler secret put RAZORPAY_WEBHOOK_SECRET
   success "RAZORPAY_WEBHOOK_SECRET set"
 else
-  warn "Skipped — set later with: wrangler secret put RAZORPAY_WEBHOOK_SECRET"
+  warn "Skipped — set later with: npx wrangler secret put RAZORPAY_WEBHOOK_SECRET"
 fi
 
-# ─── Deploy Worker ────────────────────────────────────────────────────────────
-info "Deploying Worker..."
-(cd worker && npm run deploy)
-success "Worker deployed"
+# ─── Build + Deploy ────────────────────────────────────────────────────────────
+info "Building frontend and deploying the worker..."
+DEPLOY_OUT=$(npm run deploy 2>&1)
+echo "$DEPLOY_OUT"
+success "Deployed"
 
-# ─── Update FRONTEND_URL ─────────────────────────────────────────────────────
-echo ""
-warn "What will your Cloudflare Pages URL be? (default: https://edgeshop.pages.dev)"
-warn "You can update this later in worker/wrangler.toml if unsure."
-read -rp "$(echo -e "${CYAN}Pages URL (press Enter for default):${NC} ")" PAGES_URL
-PAGES_URL="${PAGES_URL:-https://edgeshop.pages.dev}"
-
-python3 -c "
-import sys
-path = 'worker/wrangler.toml'
-old = 'FRONTEND_URL = \"https://edgeshop.pages.dev\"'
-new = 'FRONTEND_URL = \"' + sys.argv[1] + '\"'
-content = open(path).read()
-open(path, 'w').write(content.replace(old, new, 1))
-" "$PAGES_URL"
-
-info "Re-deploying Worker with updated FRONTEND_URL..."
-(cd worker && npm run deploy)
-success "Worker re-deployed"
-
-# ─── Deploy Frontend ──────────────────────────────────────────────────────────
-info "Building and deploying frontend..."
-(cd frontend && npm install && npm run build && wrangler pages deploy dist --project-name edgeshop)
-success "Frontend deployed"
+WORKER_URL=$(echo "$DEPLOY_OUT" | grep -oE 'https://[a-zA-Z0-9._-]+\.workers\.dev' | head -1 || true)
+WORKER_URL="${WORKER_URL:-https://edgeshop.<your-subdomain>.workers.dev}"
 
 # ─── Summary ─────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}  EdgeShop deployed successfully\!${NC}"
+echo -e "${GREEN}  EdgeShop deployed successfully!${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo -e "  Store:  ${CYAN}$PAGES_URL${NC}"
-echo -e "  Admin:  ${CYAN}$PAGES_URL/admin${NC}"
+echo -e "  Storefront:  ${CYAN}${WORKER_URL}${NC}"
+echo -e "  Admin:       ${CYAN}${WORKER_URL}/admin${NC}"
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
-echo "  1. Protect /admin with Cloudflare Access:"
+echo "  1. Create your admin account — there is no seeded admin user:"
+echo "     Register normally at ${WORKER_URL}/account/register."
+echo "     The FIRST customer ever created is auto-promoted to super_admin."
+echo "     To promote a LATER account instead:"
+echo "       npx wrangler d1 execute ${DB_NAME} --remote --command \\"
+echo "         \"UPDATE customers SET role='super_admin' WHERE email='you@example.com'\""
+echo ""
+echo "  2. Protect /admin with Cloudflare Access (optional but recommended):"
 echo "     Zero Trust Dashboard → Access → Applications → Add Self-hosted"
-echo "     Application URL: $PAGES_URL/admin/*"
+echo "     Application URL: ${WORKER_URL}/admin/*"
 echo ""
-echo "  2. Configure payments (optional):"
-echo "     Admin → Integrations → Payment → Enter Razorpay keys"
-echo ""
-echo "  3. Configure email (optional):"
-echo "     Admin → Integrations → Email → Enter Resend/SendGrid/Brevo key"
+echo "  3. Configure payments and email (optional):"
+echo "     Admin → Settings → Payments (Razorpay) / Email (Resend, SendGrid, Brevo)"
 echo ""
 echo "  4. Set your store name and currency:"
-echo "     Admin → Settings"
+echo "     Admin → Settings → Store"
 echo ""
 echo -e "${YELLOW}To deploy updates in future:${NC}"
-echo "  cd worker && npm run deploy"
-echo "  cd frontend && npm run build && wrangler pages deploy dist --project-name edgeshop"
+echo "  npm run deploy"
 echo ""

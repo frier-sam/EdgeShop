@@ -70,7 +70,8 @@ Open **Settings → Variables and Secrets** and add:
 
 | Key | Type | Value |
 |---|---|---|
-| `JWT_SECRET` | **Secret** | Any random 32+ character string |
+| `JWT_SECRET` | **Secret** | Any random 32+ character string — required, customer/admin auth won't work without it |
+| `RAZORPAY_WEBHOOK_SECRET` | **Secret** | Only needed if you use Razorpay; can be added later |
 
 To generate a JWT secret: [1password.com/password-generator](https://1password.com/password-generator/) (set length to 40, letters + numbers).
 
@@ -82,12 +83,22 @@ Trigger a redeploy from the Worker dashboard so the new bindings and secrets tak
 
 ---
 
-## Step 8 — First-time Admin Setup
+## Step 8 — First Admin Login
 
-Open your worker URL (e.g. `https://edgeshop.workers.dev/admin`) and configure:
+There is no seeded admin user and no staff-invite screen — the app deliberately doesn't have one. Instead:
 
-- **Settings** — store name, currency, your store URL (used in abandoned cart emails)
-- **Integrations** — payment (Razorpay), email (Resend/SendGrid/Brevo), shipping (ShipRocket)
+1. Open your worker URL and register a normal customer account at `/account/register`.
+2. The **first** customer ever created in a fresh database is automatically promoted to `role = 'super_admin'` (see `worker/src/routes/auth.ts`) — no manual step needed for the very first account.
+3. Log back in (or reload) and `/admin` is now accessible.
+
+To promote a *later* account (e.g. a second admin, or you registered a test account first by accident):
+
+```bash
+npx wrangler d1 execute edgeshop-db --remote --command \
+  "UPDATE customers SET role='super_admin' WHERE email='someone@example.com'"
+```
+
+Once logged in, everything else — store name/currency, payments (Razorpay), shipping, printing (DPI/bleed/safe-area/upload limits), and email (Resend/SendGrid/Brevo) — is configured in one place: **Admin → Settings**.
 
 ---
 
@@ -121,4 +132,4 @@ Add these to GitHub **Settings → Secrets and variables → Actions**:
 | `CLOUDFLARE_API_TOKEN` | Cloudflare → My Profile → API Tokens → Edit Cloudflare Workers |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare dashboard → right sidebar |
 
-The workflow at `.github/workflows/deploy.yml` builds and deploys on every push to `main`.
+Copy `.github/workflows-example/deploy.yml` to `.github/workflows/deploy.yml` to enable it (kept out of `workflows/` on purpose so a fork doesn't auto-deploy to someone else's account). It builds the frontend and runs `wrangler deploy` on every push to `main`.

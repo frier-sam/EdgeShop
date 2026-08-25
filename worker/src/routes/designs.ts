@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
 import { verifyJWT, getOrCreateJwtSecret } from '../lib/auth'
+import { validateSidesUsed, checkSidesAreCustomizable, validateDesignJsonPayload } from '../lib/designValidation'
 
 // POD.md §7.1 / §8 — public design + art-upload endpoints. Mounted at
 // `/api` in index.ts (NOT under /api/admin/*): every route here is defined
@@ -210,33 +211,16 @@ designs.post('/designs', async (c) => {
     return c.json({ error: 'product_id is required' }, 400)
   }
 
-  if (typeof body.design_json !== 'string' || body.design_json.length === 0) {
-    return c.json({ error: 'design_json is required' }, 400)
-  }
-  // Measure actual UTF-8 byte length, not UTF-16 code units — a cap
-  // described in KB should mean bytes, and multi-byte characters
-  // (emoji, non-Latin text objects) would otherwise undercount.
-  const designJsonBytes = new TextEncoder().encode(body.design_json).length
-  if (designJsonBytes > DESIGN_JSON_MAX_BYTES) {
-    return c.json({ error: `design_json is too large (max ${DESIGN_JSON_MAX_BYTES / 1024}KB)` }, 400)
-  }
-  let parsedDesign: Record<string, unknown>
-  try {
-    parsedDesign = JSON.parse(body.design_json)
-  } catch {
-    return c.json({ error: 'design_json is not valid JSON' }, 400)
-  }
-  if (typeof parsedDesign !== 'object' || parsedDesign === null) {
-    return c.json({ error: 'design_json must be an object' }, 400)
+  const designJsonCheck = validateDesignJsonPayload(body.design_json, DESIGN_JSON_MAX_BYTES)
+  if (!designJsonCheck.ok) {
+    return c.json({ error: designJsonCheck.error }, 400)
   }
 
-  if (!Array.isArray(body.sides_used) || body.sides_used.length === 0) {
-    return c.json({ error: 'sides_used must be a non-empty array' }, 400)
+  const sidesCheck = validateSidesUsed(body.sides_used)
+  if (!sidesCheck.ok) {
+    return c.json({ error: sidesCheck.error }, 400)
   }
-  const sidesUsed = body.sides_used.map(String)
-  if (sidesUsed.some((s) => s !== 'front' && s !== 'back')) {
-    return c.json({ error: 'sides_used may only contain "front" or "back"' }, 400)
-  }
+  const sidesUsed = sidesCheck.sides
 
   const product = await c.env.DB.prepare(
     "SELECT id, is_customizable FROM products WHERE id = ? AND status = 'active'"
@@ -248,11 +232,9 @@ designs.post('/designs', async (c) => {
     'SELECT side, customizable FROM product_sides WHERE product_id = ?'
   ).bind(productId).all<{ side: string; customizable: number }>()
 
-  for (const side of sidesUsed) {
-    const row = sideRows.find((r) => r.side === side)
-    if (!row || !row.customizable) {
-      return c.json({ error: `Side "${side}" is not a customizable side of this product` }, 400)
-    }
+  const sidesCustomizableCheck = checkSidesAreCustomizable(sidesUsed, sideRows)
+  if (!sidesCustomizableCheck.ok) {
+    return c.json({ error: sidesCustomizableCheck.error }, 400)
   }
 
   const customerId = await getCustomerIdFromRequest(c)

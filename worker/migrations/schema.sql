@@ -165,7 +165,8 @@ INSERT OR IGNORE INTO _migrations (name) VALUES
   ('0010_order_events.sql'),
   ('0011_integrations.sql'),
   ('0012_rewrite_image_urls.sql'),
-  ('0013_pod_reset.sql');
+  ('0013_pod_reset.sql'),
+  ('0014_design_retention_setting.sql');
 
 -- ────────────────────────────────────────────────────────────
 -- Seed default settings
@@ -189,7 +190,8 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
   ('print_dpi',               '300'),
   ('print_bleed_percent',     '4'),
   ('print_safe_percent',      '4'),
-  ('max_art_upload_mb',       '15');
+  ('max_art_upload_mb',       '15'),
+  ('design_retention_days',   '30');
 -- Note: 'jwt_secret' is intentionally NOT seeded here — it is
 -- lazily generated (and persisted) on first use by
 -- worker/src/lib/auth.ts:getOrCreateJwtSecret(). Pre-seeding it

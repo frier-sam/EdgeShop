@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # ============================================================
-#  EdgeShop — One-Click Cloudflare Deploy
+#  EdgeShop POD — One-Click Cloudflare Deploy
 #  Usage: bash deploy.sh
+#
+#  Deploys as a SINGLE Cloudflare Worker (root wrangler.toml)
+#  that serves the API (/api/*, /img/*, /sitemap.xml) AND the
+#  built React frontend via the [assets] binding. There is no
+#  separate Cloudflare Pages project — see README.md / DEPLOY.md.
 # ============================================================
 set -euo pipefail
 
@@ -15,8 +20,6 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WORKER_DIR="$SCRIPT_DIR/worker"
-FRONTEND_DIR="$SCRIPT_DIR/frontend"
 
 # ── Helpers ───────────────────────────────────────────────────
 log()     { echo -e "${BLUE}▶${NC}  $*"; }
@@ -43,9 +46,11 @@ sed_i() {
   fi
 }
 
+cd "$SCRIPT_DIR"
+
 # ── Step 1: Prerequisites ─────────────────────────────────────
 check_prerequisites() {
-  header "1 / 7 — Checking Prerequisites"
+  header "1 / 6 — Checking Prerequisites"
 
   command -v node >/dev/null 2>&1 \
     || die "Node.js not found. Install from https://nodejs.org"
@@ -55,95 +60,68 @@ check_prerequisites() {
     || die "npm not found."
   success "npm $(npm --version)"
 
-  if ! command -v wrangler >/dev/null 2>&1; then
-    warn "wrangler not found — installing globally..."
-    npm install -g wrangler
-  fi
-  success "wrangler $(wrangler --version 2>/dev/null | head -1)"
+  log "Installing dependencies (root workspaces: worker + frontend)..."
+  npm install --silent
+  success "Dependencies installed — wrangler is available via npx from the repo root"
 }
 
 # ── Step 2: Auth ──────────────────────────────────────────────
 check_auth() {
-  header "2 / 7 — Cloudflare Authentication"
+  header "2 / 6 — Cloudflare Authentication"
 
-  if ! wrangler whoami >/dev/null 2>&1; then
+  if ! npx wrangler whoami >/dev/null 2>&1; then
     warn "Not logged in — opening Cloudflare login..."
-    wrangler login
+    npx wrangler login
   fi
 
-  WHOAMI=$(wrangler whoami 2>/dev/null || echo "")
-  success "Logged in to Cloudflare"
-
-  # Extract account ID from whoami output
-  ACCOUNT_ID=$(echo "$WHOAMI" | grep -oE '[0-9a-f]{32}' | head -1 || true)
-  if [[ -z "$ACCOUNT_ID" ]]; then
-    ask "Could not auto-detect Account ID."
-    ask "Find it at: https://dash.cloudflare.com → right sidebar"
-    printf "  Account ID: "
-    read -r ACCOUNT_ID
-  fi
-  success "Account ID: $ACCOUNT_ID"
+  success "Logged in to Cloudflare ($(npx wrangler whoami 2>/dev/null | grep -oE '[^ ]+@[^ ]+\.[^ ]+' | head -1 || echo 'unknown account'))"
 }
 
 # ── Step 3: Collect config ────────────────────────────────────
 collect_config() {
-  header "3 / 7 — Configuration"
+  header "3 / 6 — Configuration"
 
   echo "  Press Enter to accept defaults shown in [brackets]."
   echo ""
-
-  ask "Project / Pages name [edgeshop]:"
-  printf "  › "
-  read -r PROJECT_NAME
-  PROJECT_NAME="${PROJECT_NAME:-edgeshop}"
 
   ask "Store display name [EdgeShop]:"
   printf "  › "
   read -r STORE_NAME
   STORE_NAME="${STORE_NAME:-EdgeShop}"
 
-  ask "Razorpay Webhook Secret (leave blank — you can set it later):"
+  ask "Razorpay Webhook Secret (leave blank — you can set it later, or skip Razorpay entirely and use COD only):"
   printf "  › "
   read -rs RAZORPAY_SECRET
   echo ""
 
-  ask "JWT Secret for customer auth (leave blank to auto-generate):"
-  printf "  › "
-  read -rs JWT_SECRET
-  echo ""
+  JWT_SECRET=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48 || true)
   if [[ -z "$JWT_SECRET" ]]; then
-    JWT_SECRET=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 48 || true)
-    if [[ -z "$JWT_SECRET" ]]; then
-      JWT_SECRET="$(date +%s)-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
-    fi
-    success "JWT secret auto-generated"
+    JWT_SECRET="$(date +%s)-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
   fi
+  success "JWT secret auto-generated"
 
-  ask "Resend API Key for transactional email (leave blank — you can set it later):"
+  ask "Resend API Key for transactional email (leave blank — you can set it later in Admin → Settings):"
   printf "  › "
   read -rs RESEND_API_KEY
   echo ""
 
   hr
-  echo "  Project name  : $PROJECT_NAME"
   echo "  Store name    : $STORE_NAME"
   echo "  Webhook secret: ${RAZORPAY_SECRET:+(set)}"
-  echo "  JWT secret    : (set)"
+  echo "  JWT secret    : (auto-generated)"
   echo "  Resend API key: ${RESEND_API_KEY:+(set)}"
   hr
 
-  DB_NAME="${PROJECT_NAME}-db"
-  BUCKET_NAME="${PROJECT_NAME}-images"
+  DB_NAME="edgeshop-db"
+  BUCKET_NAME="edgeshop-images"
 }
 
 # ── Step 4: D1 database ───────────────────────────────────────
 setup_d1() {
-  header "4 / 7 — D1 Database"
-
-  cd "$WORKER_DIR"
+  header "4 / 6 — D1 Database"
 
   # Check if already created
-  EXISTING_DB_ID=$(wrangler d1 list 2>/dev/null \
+  EXISTING_DB_ID=$(npx wrangler d1 list 2>/dev/null \
     | grep -E "\b${DB_NAME}\b" \
     | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
     | head -1 || true)
@@ -153,7 +131,7 @@ setup_d1() {
     DB_ID="$EXISTING_DB_ID"
   else
     log "Creating D1 database: $DB_NAME"
-    D1_OUT=$(wrangler d1 create "$DB_NAME" 2>&1)
+    D1_OUT=$(npx wrangler d1 create "$DB_NAME" 2>&1)
     echo "$D1_OUT"
     DB_ID=$(echo "$D1_OUT" \
       | grep -oE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' \
@@ -164,57 +142,51 @@ setup_d1() {
     success "D1 database created: $DB_ID"
   fi
 
-  # Patch wrangler.toml: database_id + database_name + bucket_name
-  log "Patching wrangler.toml..."
-  sed_i "s/database_id = \"placeholder-replace-after-creation\"/database_id = \"${DB_ID}\"/" wrangler.toml
-  sed_i "s/database_name = \"edgeshop-db\"/database_name = \"${DB_NAME}\"/" wrangler.toml
-  sed_i "s/bucket_name = \"edgeshop-images\"/bucket_name = \"${BUCKET_NAME}\"/" wrangler.toml
-  sed_i "s/name = \"edgeshop-worker\"/name = \"${PROJECT_NAME}-worker\"/" wrangler.toml
+  # Patch wrangler.toml (repo root) — match on the KEY, not a specific
+  # placeholder value, since the committed file already carries the
+  # original dev database's real (but useless-to-you) id.
+  log "Patching wrangler.toml with your database_id..."
+  sed_i "s/^database_id = \".*\"/database_id = \"${DB_ID}\"/" wrangler.toml
+  grep -q "database_id = \"${DB_ID}\"" wrangler.toml \
+    || die "Failed to patch database_id in wrangler.toml. Set it manually: database_id = \"${DB_ID}\""
   success "wrangler.toml patched"
 
-  # Run migrations
-  log "Applying D1 migrations..."
-  wrangler d1 execute "$DB_NAME" --file=migrations/0001_initial.sql
-  wrangler d1 execute "$DB_NAME" --file=migrations/0002_v2_schema.sql
-  wrangler d1 execute "$DB_NAME" --file=migrations/0003_abandoned_cart.sql
-  success "Migrations applied"
+  # Apply the canonical POD schema — a single file, not a sequence of
+  # numbered migrations (those were retired; see worker/migrations/schema.sql).
+  log "Applying schema..."
+  npx wrangler d1 execute "$DB_NAME" --remote --file=worker/migrations/schema.sql
+  success "Schema applied"
 
   # Seed store name
   log "Seeding store name..."
-  wrangler d1 execute "$DB_NAME" \
+  npx wrangler d1 execute "$DB_NAME" --remote \
     --command="INSERT OR REPLACE INTO settings (key, value) VALUES ('store_name', '${STORE_NAME}')"
   success "Store name seeded: $STORE_NAME"
 }
 
 # ── Step 5: R2 bucket ─────────────────────────────────────────
 setup_r2() {
-  header "5 / 7 — R2 Image Storage"
+  header "5 / 6 — R2 Image Storage"
 
-  cd "$WORKER_DIR"
-
-  # Create bucket if it doesn't exist
-  if wrangler r2 bucket list 2>/dev/null | grep -q "\b${BUCKET_NAME}\b"; then
+  if npx wrangler r2 bucket list 2>/dev/null | grep -q "\b${BUCKET_NAME}\b"; then
     warn "R2 bucket '$BUCKET_NAME' already exists — skipping creation."
   else
     log "Creating R2 bucket: $BUCKET_NAME"
-    wrangler r2 bucket create "$BUCKET_NAME"
+    npx wrangler r2 bucket create "$BUCKET_NAME"
     success "R2 bucket created: $BUCKET_NAME"
   fi
+
+  sed_i "s/^bucket_name = \".*\"/bucket_name = \"${BUCKET_NAME}\"/" wrangler.toml
 
   success "R2 bucket ready — no public access step needed. All objects (mockups, uploads, design previews) are served same-origin through the worker at /img/<key>, so the bucket stays private."
 }
 
-# ── Step 6: Deploy worker ─────────────────────────────────────
+# ── Step 6: Build + deploy ────────────────────────────────────
 deploy_worker() {
-  header "6 / 7 — Deploying Worker"
+  header "6 / 6 — Building & Deploying"
 
-  cd "$WORKER_DIR"
-
-  log "Installing worker dependencies..."
-  npm install --silent
-
-  log "Deploying worker to Cloudflare Workers..."
-  WORKER_OUT=$(wrangler deploy 2>&1)
+  log "Building frontend and deploying the worker (npm run deploy)..."
+  WORKER_OUT=$(npm run deploy 2>&1)
   echo "$WORKER_OUT"
 
   WORKER_URL=$(echo "$WORKER_OUT" \
@@ -227,82 +199,31 @@ deploy_worker() {
     printf "  › "
     read -r WORKER_URL
   fi
-  success "Worker live: $WORKER_URL"
+  success "Live: $WORKER_URL"
 
   # Set Razorpay webhook secret
   if [[ -n "$RAZORPAY_SECRET" ]]; then
     log "Setting RAZORPAY_WEBHOOK_SECRET..."
-    echo "$RAZORPAY_SECRET" | wrangler secret put RAZORPAY_WEBHOOK_SECRET
+    echo "$RAZORPAY_SECRET" | npx wrangler secret put RAZORPAY_WEBHOOK_SECRET
     success "Webhook secret set"
   else
-    warn "Webhook secret not set. Run later:  cd worker && wrangler secret put RAZORPAY_WEBHOOK_SECRET"
+    warn "Webhook secret not set. Run later:  npx wrangler secret put RAZORPAY_WEBHOOK_SECRET"
   fi
 
-  # Set JWT secret (required for customer auth)
+  # Set JWT secret (required for customer + admin auth)
   log "Setting JWT_SECRET..."
-  echo "$JWT_SECRET" | wrangler secret put JWT_SECRET
+  echo "$JWT_SECRET" | npx wrangler secret put JWT_SECRET
   success "JWT secret set"
 
   # Set Resend API key (optional — used for transactional email)
   if [[ -n "$RESEND_API_KEY" ]]; then
     log "Seeding Resend API key into settings..."
-    wrangler d1 execute "$DB_NAME" \
+    npx wrangler d1 execute "$DB_NAME" --remote \
       --command="INSERT OR REPLACE INTO settings (key, value) VALUES ('email_api_key', '${RESEND_API_KEY}')"
     success "Resend API key seeded"
   else
     warn "Resend API key not set. Add it later in Admin → Settings."
   fi
-}
-
-# ── Step 7: Deploy frontend ───────────────────────────────────
-deploy_frontend() {
-  header "7 / 7 — Deploying Frontend (Cloudflare Pages)"
-
-  cd "$FRONTEND_DIR"
-
-  log "Installing frontend dependencies..."
-  npm install --silent
-
-  log "Patching robots.txt with Worker URL..."
-  sed_i "s|https://YOUR-WORKER-URL/sitemap.xml|${WORKER_URL}/sitemap.xml|" "$FRONTEND_DIR/public/robots.txt"
-  success "robots.txt sitemap URL set to ${WORKER_URL}/sitemap.xml"
-
-  log "Building frontend..."
-  npm run build
-
-  log "Deploying to Cloudflare Pages (project: ${PROJECT_NAME})..."
-  PAGES_OUT=$(wrangler pages deploy dist \
-    --project-name "${PROJECT_NAME}" \
-    --branch main \
-    2>&1)
-  echo "$PAGES_OUT"
-
-  PAGES_URL=$(echo "$PAGES_OUT" \
-    | grep -oE 'https://[a-zA-Z0-9._-]+\.pages\.dev' \
-    | head -1 || true)
-
-  if [[ -z "$PAGES_URL" ]]; then
-    warn "Could not auto-detect Pages URL."
-    ask "Enter your Cloudflare Pages URL:"
-    printf "  › "
-    read -r PAGES_URL
-  fi
-  success "Frontend live: $PAGES_URL"
-
-  # Update FRONTEND_URL in wrangler.toml and redeploy worker
-  log "Updating worker CORS with Pages URL and redeploying..."
-  cd "$WORKER_DIR"
-  sed_i "s|FRONTEND_URL = \"https://edgeshop.pages.dev\"|FRONTEND_URL = \"${PAGES_URL}\"|" wrangler.toml
-  wrangler deploy >/dev/null 2>&1
-  success "Worker redeployed with CORS for $PAGES_URL"
-
-  # Set WORKER_URL env var for Pages Functions (bot detection middleware)
-  log "Setting WORKER_URL in Pages environment..."
-  cd "$WORKER_DIR"
-  echo "$WORKER_URL" | wrangler pages secret put WORKER_URL \
-    --project-name "${PROJECT_NAME}" 2>/dev/null || \
-    warn "Could not auto-set WORKER_URL. Set it manually in Cloudflare Pages dashboard:"$'\n'"  Settings → Environment variables → Add: WORKER_URL = $WORKER_URL"
-  success "WORKER_URL set to $WORKER_URL"
 }
 
 # ── Summary ───────────────────────────────────────────────────
@@ -312,46 +233,47 @@ print_summary() {
   echo -e "${BOLD}${GREEN}║           EdgeShop is live!                         ║${NC}"
   echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════════╝${NC}"
   echo ""
-  echo -e "  ${BOLD}Storefront :${NC}  $PAGES_URL"
-  echo -e "  ${BOLD}Admin Panel:${NC}  $PAGES_URL/admin"
-  echo -e "  ${BOLD}Worker API :${NC}  $WORKER_URL"
-  echo ""
-  echo -e "  ${BOLD}SEO note:${NC}   Bot detection middleware active."
-  echo "             If WORKER_URL was not auto-set, add it in:"
-  echo "             Cloudflare Pages → ${PROJECT_NAME} → Settings → Env Vars"
-  echo "             Key: WORKER_URL   Value: \$WORKER_URL"
+  echo -e "  ${BOLD}Storefront :${NC}  $WORKER_URL"
+  echo -e "  ${BOLD}Admin Panel:${NC}  $WORKER_URL/admin"
   echo -e "  ${BOLD}Webhook URL:${NC}  $WORKER_URL/api/webhook/razorpay"
   echo ""
   hr
   echo -e "${BOLD}Next steps:${NC}"
   echo ""
-  echo "  1. Protect /admin with Cloudflare Access (Zero Trust):"
+  echo "  1. Create your admin account (there is no seeded admin user):"
+  echo "     Go to ${WORKER_URL}/account/register and register normally."
+  echo "     The FIRST customer ever created is auto-promoted to super_admin."
+  echo "     Log back in and /admin will be accessible."
+  echo "     To promote a LATER account:"
+  echo "       npx wrangler d1 execute ${DB_NAME} --remote --command \\"
+  echo "         \"UPDATE customers SET role='super_admin' WHERE email='you@example.com'\""
+  echo ""
+  echo "  2. Protect /admin with Cloudflare Access (Zero Trust) (optional but recommended):"
   echo "     https://one.dash.cloudflare.com/"
-  echo "     → Create an Application for: ${PAGES_URL}/admin/*"
+  echo "     → Create an Application for: ${WORKER_URL}/admin/*"
   echo "     → Add policy: allow by email / GitHub / Google"
   echo ""
-  echo "  2. Add Razorpay keys:"
-  echo "     Go to ${PAGES_URL}/admin → Settings"
-  echo "     Enter your Key ID and Key Secret"
+  echo "  3. Add Razorpay keys (optional — Cash on Delivery works with no setup):"
+  echo "     Go to ${WORKER_URL}/admin → Settings → Payments"
   echo ""
   if [[ -z "$RAZORPAY_SECRET" ]]; then
-    echo "  3. Set Razorpay webhook secret:"
-    echo "     cd worker && wrangler secret put RAZORPAY_WEBHOOK_SECRET"
-    echo "     Then add the webhook in Razorpay dashboard:"
-    echo "     URL: $WORKER_URL/api/webhook/razorpay"
-    echo "     Event: payment.captured"
+    echo "  4. Set the Razorpay webhook secret when you're ready:"
+    echo "     npx wrangler secret put RAZORPAY_WEBHOOK_SECRET"
+    echo "     Then add the webhook in the Razorpay dashboard:"
+    echo "     URL: $WORKER_URL/api/webhook/razorpay   Event: payment.captured"
     echo ""
   else
-    echo "  3. Register Razorpay webhook:"
-    echo "     In Razorpay dashboard → Webhooks → Add:"
-    echo "     URL: $WORKER_URL/api/webhook/razorpay"
-    echo "     Event: payment.captured"
+    echo "  4. Register the Razorpay webhook:"
+    echo "     Razorpay dashboard → Webhooks → Add:"
+    echo "     URL: $WORKER_URL/api/webhook/razorpay   Event: payment.captured"
     echo ""
   fi
-  echo "  4. Add your first products:"
-  echo "     Go to ${PAGES_URL}/admin → Products → Add Product"
+  echo "  5. Add your first products:"
+  echo "     Go to ${WORKER_URL}/admin → Products → Add Product"
   echo ""
   hr
+  echo ""
+  echo -e "${YELLOW}To deploy updates in future:${NC}  npm run deploy"
   echo ""
   echo -e "${GREEN}  Happy selling! 🛍️${NC}"
   echo ""
@@ -361,16 +283,13 @@ print_summary() {
 main() {
   echo ""
   echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════════════════╗${NC}"
-  echo -e "${BOLD}${CYAN}║         EdgeShop — One-Click Cloudflare Deploy      ║${NC}"
+  echo -e "${BOLD}${CYAN}║      EdgeShop POD — One-Click Cloudflare Deploy     ║${NC}"
   echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════════════════╝${NC}"
   echo ""
   echo "  This script will:"
-  echo "   • Create a D1 database and run migrations"
-  echo "   • Create an R2 bucket for product images"
-  echo "   • Deploy the Hono API worker"
-  echo "   • Build and deploy the React frontend to Pages"
-  echo ""
-  echo "  One manual step: enabling R2 public access (30 seconds)."
+  echo "   • Create a D1 database and apply the schema"
+  echo "   • Create an R2 bucket for images (stays private — no public-access step)"
+  echo "   • Build the React frontend and deploy the single Worker that serves it"
   echo ""
   printf "  Press Enter to begin, or Ctrl+C to cancel..."
   read -r
@@ -382,7 +301,6 @@ main() {
   setup_d1
   setup_r2
   deploy_worker
-  deploy_frontend
   print_summary
 }
 

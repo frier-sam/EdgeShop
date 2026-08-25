@@ -21,6 +21,7 @@ interface Settings {
   print_bleed_percent: string
   print_safe_percent: string
   max_art_upload_mb: string
+  design_retention_days: string
   email_provider: string
   email_api_key: string
   email_from_name: string
@@ -43,6 +44,7 @@ const DEFAULT_FORM: Settings = {
   print_bleed_percent: '4',
   print_safe_percent: '4',
   max_art_upload_mb: '15',
+  design_retention_days: '30',
   email_provider: 'resend',
   email_api_key: '',
   email_from_name: '',
@@ -296,6 +298,19 @@ export default function AdminSettings() {
               />
               <p className="text-xs text-gray-400 mt-1">Largest file a customer can upload for their design.</p>
               <FieldErrorHint fieldError={fieldError} field="max_art_upload_mb" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Design Retention (days)</label>
+              <input
+                type="number" min={1} step="1"
+                value={form.design_retention_days}
+                onChange={(e) => setForm({ ...form, design_retention_days: e.target.value })}
+                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'design_retention_days')}`}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                A daily cleanup job deletes abandoned designs (never added to a paid order) and their preview images once they're older than this. Designs linked to an order are never deleted.
+              </p>
+              <FieldErrorHint fieldError={fieldError} field="design_retention_days" />
             </div>
           </div>
         </div>

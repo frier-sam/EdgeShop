@@ -52,6 +52,12 @@ const NUMERIC_KEYS: Record<string, { min: number; max?: number }> = {
   print_safe_percent: { min: 0, max: 25 },
   // A 0MB cap would reject every upload outright.
   max_art_upload_mb: { min: 1 },
+  // POD.md §9.1 — the orphan-design GC's retention window (worker's
+  // scheduled() handler, lib/gc.ts). Floored at 1 day: a 0-or-negative
+  // value would let the daily cron delete a design the same day it was
+  // created, plausibly wiping out a customer who is mid-"My Designs"
+  // re-edit or just hasn't finished checkout yet.
+  design_retention_days: { min: 1 },
 }
 
 const ALLOWED_KEYS = new Set<string>([...STRING_KEYS, ...Object.keys(NUMERIC_KEYS)])

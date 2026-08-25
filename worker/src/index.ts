@@ -15,6 +15,8 @@ import sitemap from './routes/sitemap'
 import adminCustomers from './routes/admin/customers'
 import designs from './routes/designs'
 import { runMigrations } from './lib/migrate'
+import { runOrphanDesignGC } from './lib/gc'
+import { isAllowedImgKey } from './lib/imgGuard'
 
 export type Env = {
   DB: D1Database
@@ -32,13 +34,13 @@ app.get('/api/health', (c) => c.json({ status: 'ok' }))
 // Same-origin R2 proxy — see POD.md §5.8. Serving mockups/uploads/design
 // previews from the site's own origin is what lets the customizer draw
 // them into a <canvas> without tainting it (cross-origin images block
-// every toDataURL() call with a SecurityError).
-const IMG_ALLOWED_PREFIXES = ['mockups/', 'uploads/', 'designs/']
-
+// every toDataURL() call with a SecurityError). The prefix/traversal
+// guard itself lives in lib/imgGuard.ts (pure, unit-tested) — see
+// imgGuard.test.ts for the cases this closes off.
 app.get('/img/*', async (c) => {
   const key = c.req.path.slice('/img/'.length)
 
-  if (!key || key.includes('..') || !IMG_ALLOWED_PREFIXES.some((p) => key.startsWith(p))) {
+  if (!isAllowedImgKey(key)) {
     return c.notFound()
   }
 
@@ -106,5 +108,23 @@ export default {
       return env.ASSETS.fetch(new Request(new URL('/', request.url).toString()))
     }
     return response
+  },
+
+  // POD.md §9.1 / §11 — daily orphan-design garbage collection. Deletes
+  // `designs` rows with `order_id IS NULL` older than the
+  // `design_retention_days` setting (default 30), plus their R2 preview
+  // objects. See lib/gc.ts for the selection rule and why uploads/ art
+  // GC is deliberately deferred rather than shipped unsafe. Scheduled by
+  // the `[triggers] crons` entry in wrangler.toml.
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    ctx.waitUntil(
+      runOrphanDesignGC(env.DB, env.BUCKET)
+        .then((result) => {
+          console.log(`[gc] orphan design cleanup: ${JSON.stringify(result)}`)
+        })
+        .catch((err) => {
+          console.error('[gc] orphan design cleanup failed:', err)
+        })
+    )
   },
 }

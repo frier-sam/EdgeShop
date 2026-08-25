@@ -4,6 +4,8 @@ Disallow: /admin
 Disallow: /checkout
 Disallow: /order-success
 Disallow: /account/
-Disallow: /search
+Disallow: /customize/
 
-Sitemap: https://YOUR-WORKER-URL/sitemap.xml
+# The storefront and the API are served from the same worker/origin
+# (see POD.md §2), so this is always correct with no per-deploy patching.
+Sitemap: /sitemap.xml

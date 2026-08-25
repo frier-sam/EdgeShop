@@ -219,6 +219,17 @@ const MIGRATIONS: Migration[] = [
       ],
     ],
   },
+  {
+    // Phase 9.1 (POD.md §9.1 / §11) — seed the orphan-design GC's
+    // retention window for databases that already ran 0013_pod_reset.sql
+    // before this setting existed. schema.sql's fresh-install seed
+    // already includes it (INSERT OR IGNORE), so this migration only
+    // matters for a live deployment converging via the migration runner.
+    name: '0014_design_retention_setting.sql',
+    phases: [
+      [`INSERT OR IGNORE INTO settings (key, value) VALUES ('design_retention_days', '30')`],
+    ],
+  },
 ]
 
 export async function runMigrations(db: D1Database): Promise<void> {
