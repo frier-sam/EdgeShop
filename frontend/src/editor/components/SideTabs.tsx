@@ -1,3 +1,4 @@
+import SegmentedControl from '../../components/ui/SegmentedControl'
 import type { EditorSideName, SidesRuntimeState } from '../types'
 
 export interface SideTabsProps {
@@ -5,34 +6,36 @@ export interface SideTabsProps {
   activeSide: EditorSideName
   onChange: (side: EditorSideName) => void
   state: SidesRuntimeState
+  className?: string
 }
 
 const LABELS: Record<EditorSideName, string> = { front: 'Front', back: 'Back' }
 
-/** POD.md §6.7 — front/back tabs, shown only when the product actually has a customizable back. */
-export default function SideTabs({ sides, activeSide, onChange, state }: SideTabsProps) {
+/**
+ * POD.md §6.7 / POD-UI.md §3 C4 — front/back tabs, shown only when the
+ * product actually has a customizable back. Built on the shared
+ * `SegmentedControl` primitive for the animated sliding indicator and
+ * roving-tabindex keyboard nav; a trailing dot on the label marks a side
+ * that already has artwork (SegmentedControl only accepts plain-text
+ * labels, so this rides in the label string rather than a separate badge
+ * node — still legible, and keeps the tab strip a single primitive
+ * instance rather than a bespoke re-implementation).
+ */
+export default function SideTabs({ sides, activeSide, onChange, state, className = '' }: SideTabsProps) {
   if (sides.length <= 1) return null
 
+  const options = sides.map((side) => {
+    const hasDesign = (state[side]?.objectCount ?? 0) > 0
+    return { value: side, label: hasDesign ? `${LABELS[side]} •` : LABELS[side] }
+  })
+
   return (
-    <div className="flex gap-1 rounded-full border border-line bg-surface p-1" role="tablist">
-      {sides.map((side) => {
-        const active = side === activeSide
-        const hasDesign = (state[side]?.objectCount ?? 0) > 0
-        return (
-          <button
-            key={side}
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(side)}
-            className={`relative flex min-h-9 items-center gap-1.5 rounded-full px-4 text-sm font-semibold transition-colors ${
-              active ? 'bg-ink text-paper' : 'text-ink-soft hover:text-ink'
-            }`}
-          >
-            {LABELS[side]}
-            {hasDesign && <span className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-paper' : 'bg-accent'}`} />}
-          </button>
-        )
-      })}
-    </div>
+    <SegmentedControl
+      options={options}
+      value={activeSide}
+      onChange={onChange}
+      aria-label="Side"
+      className={className}
+    />
   )
 }

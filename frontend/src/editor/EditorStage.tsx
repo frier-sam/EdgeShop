@@ -42,6 +42,14 @@ export interface EditorStageProps {
   initialSnapshots?: Partial<Record<EditorSideName, SideSnapshot>>
   /** Fires whenever a side's snapshot is cached on swap-out, i.e. the moment it stops being the live/active side — lets the caller keep an always-fresh copy of every side's {json,width,height} without needing to force a side switch (see CustomizerEditor's add-to-cart flow). */
   onSnapshotCached?: (side: EditorSideName, snapshot: SideSnapshot) => void
+  /**
+   * POD-UI.md §3 Workstream C7 — live object count of the currently active
+   * side, purely to decide whether to show the "Tap + to add text or an
+   * image" empty-state prompt. Presentational only: never written to the
+   * canvas, so it can never leak into a print file. Omit (or leave
+   * undefined) to never show the prompt.
+   */
+  objectCount?: number
 }
 
 /**
@@ -83,6 +91,7 @@ export default function EditorStage({
   onAfterSideSwap,
   initialSnapshots,
   onSnapshotCached,
+  objectCount,
 }: EditorStageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasElRef = useRef<HTMLCanvasElement | null>(null)
@@ -208,12 +217,26 @@ export default function EditorStage({
     setCanvasInteractive(canvas, mode === 'edit')
   }, [canvas, mode])
 
-  const showGuides = mode === 'edit' && !!geometry
+  // POD.md §5.2/§6.2 — this is presentation-only: `geometry` (computed by
+  // the frozen computeStageGeometry) still drives every guide's left/top/
+  // width/height exactly as before. The only change here is HOW visibility
+  // toggles between edit/preview — an opacity + pointer-events transition
+  // instead of an unmount/mount — so switching modes cross-fades smoothly
+  // (POD-UI.md §3 C6) rather than snapping. Guides stay functionally
+  // hidden in preview either way: `pointer-events-none` was already
+  // unconditional on every guide, and `setCanvasInteractive` (unchanged,
+  // fabric/canvas.ts) is what actually disables/hides selection handles.
+  const guidesReady = !!geometry
+  const guidesVisible = mode === 'edit'
+  const isEmpty = mode === 'edit' && guidesReady && (objectCount ?? 1) === 0
+  const guideTransitionCls = `pointer-events-none absolute transition-opacity duration-base ease-out-soft ${
+    guidesVisible ? 'opacity-100' : 'opacity-0'
+  }`
 
   return (
     <div
       ref={containerRef}
-      className="relative h-full w-full select-none overflow-hidden bg-[#e9e4da]"
+      className="relative h-full w-full select-none overflow-hidden overscroll-contain bg-surface-2"
       style={{ touchAction: 'pinch-zoom' }}
       data-testid="editor-stage"
     >
@@ -224,15 +247,15 @@ export default function EditorStage({
         className="pointer-events-none absolute inset-0 h-full w-full object-contain"
       />
 
-      {showGuides && geometry && (
+      {guidesReady && geometry && (
         <div
-          className="scrim pointer-events-none absolute"
+          className={`scrim ${guideTransitionCls}`}
           style={{
             left: geometry.bleedRectPx.x,
             top: geometry.bleedRectPx.y,
             width: geometry.bleedRectPx.w,
             height: geometry.bleedRectPx.h,
-            boxShadow: '0 0 0 9999px rgba(26,21,18,0.45)',
+            boxShadow: '0 0 0 9999px rgba(16,16,20,0.45)',
           }}
         />
       )}
@@ -245,9 +268,29 @@ export default function EditorStage({
         <canvas ref={canvasElRef} />
       </div>
 
-      {showGuides && geometry && (
+      {/* POD-UI.md §3 C7 — empty-state prompt. A DOM overlay, positioned by
+          the same frozen geometry as the print guide, so it sits centred
+          in the print area without ever becoming a canvas object (and
+          therefore can never leak into the exported print file). */}
+      {isEmpty && geometry && (
         <div
-          className="safe-guide pointer-events-none absolute rounded-sm border border-dashed border-accent/80"
+          className="pointer-events-none absolute flex items-center justify-center p-4 text-center animate-fade-in"
+          style={{
+            left: geometry.printRectPx.x,
+            top: geometry.printRectPx.y,
+            width: geometry.printRectPx.w,
+            height: geometry.printRectPx.h,
+          }}
+        >
+          <p className="rounded-btn bg-surface/80 px-3 py-2 text-xs font-medium text-ink-soft shadow-card">
+            Tap + to add text or an image
+          </p>
+        </div>
+      )}
+
+      {guidesReady && geometry && (
+        <div
+          className={`safe-guide rounded-sm border border-dashed border-accent/80 ${guideTransitionCls}`}
           style={{
             left: geometry.safeRectPx.x,
             top: geometry.safeRectPx.y,
@@ -257,9 +300,9 @@ export default function EditorStage({
         />
       )}
 
-      {showGuides && geometry && (
+      {guidesReady && geometry && (
         <div
-          className="print-guide pointer-events-none absolute border-2 border-ink/60"
+          className={`print-guide border-2 border-ink/60 ${guideTransitionCls}`}
           style={{
             left: geometry.printRectPx.x,
             top: geometry.printRectPx.y,

@@ -31,6 +31,13 @@ export interface PriceFooterProps {
  * side that currently has >=1 object. Also doubles as the mode's primary
  * action bar: "Preview" while editing, "Back to editing" / "Add to cart"
  * once in preview (POD.md §6.8).
+ *
+ * POD-UI.md §3 Workstream C5 — migrated to the new `Button` API (variants
+ * primary/secondary/ghost/danger), the total re-plays a pop animation
+ * whenever it changes value (i.e. a side gains/loses its first/last
+ * object and its print fee drops in or out), and the fee breakdown wraps
+ * onto multiple lines instead of truncating so every line item stays
+ * legible down to 360px.
  */
 export default function PriceFooter({
   currency,
@@ -52,37 +59,58 @@ export default function PriceFooter({
   const fmt = (n: number) => `${currency}${n.toFixed(2)}`
 
   return (
-    <div className="flex flex-col gap-3 border-t border-line bg-paper px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+    <div className="flex flex-col gap-3 border-t border-line bg-surface px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
       <div className="min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <span className="text-lg font-semibold text-ink">{fmt(total)}</span>
+          {/* Remounting on `total` replays the `badge-pop` keyframe each time
+              the price actually changes value (e.g. the back side gains its
+              first object and its print fee joins the total) — a cheap,
+              robust way to animate a value change without a tween library. */}
+          <span key={total} className="animate-badge-pop text-lg font-semibold text-ink">
+            {fmt(total)}
+          </span>
           {sizeLabel && <span className="text-xs text-ink-soft">Size {sizeLabel}</span>}
         </div>
-        <p className="truncate text-xs text-ink-soft">
-          {fmt(basePrice)} base
-          {sizeDelta !== 0 && ` + ${fmt(sizeDelta)} size`}
-          {activeFees.map((s) => ` + ${fmt(s.fee)} ${s.label.toLowerCase()} print`).join('')}
-        </p>
+        <div className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-ink-soft">
+          <span>{fmt(basePrice)} base</span>
+          {sizeDelta !== 0 && <span>+ {fmt(sizeDelta)} size</span>}
+          {activeFees.map((s) => (
+            <span key={s.side}>
+              + {fmt(s.fee)} {s.label.toLowerCase()} print
+            </span>
+          ))}
+        </div>
         {blockingDpiIssue && mode === 'preview' && (
           <p className="mt-0.5 text-xs font-medium text-danger">Fix the low-resolution image before adding to cart.</p>
         )}
         {addingToCart && addingToCartStatus && (
-          <p className="mt-0.5 text-xs font-medium text-ink-soft">{addingToCartStatus}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-xs font-medium text-ink-soft">
+            <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-ink-faint border-t-ink-soft" aria-hidden="true" />
+            {addingToCartStatus}
+          </p>
         )}
       </div>
 
-      <div className="flex shrink-0 gap-2">
+      <div className="flex shrink-0 flex-wrap gap-2">
         {mode === 'edit' ? (
-          <Button variant="accent" size="lg" onClick={onPreview}>
+          <Button variant="primary" size="lg" fullWidth onClick={onPreview} className="sm:w-auto">
             Preview
           </Button>
         ) : (
           <>
-            <Button variant="outline" size="lg" onClick={onBackToEdit} disabled={addingToCart}>
+            <Button variant="secondary" size="md" onClick={onBackToEdit} disabled={addingToCart}>
               Back to editing
             </Button>
-            <Button variant="accent" size="lg" onClick={onAddToCart} disabled={blockingDpiIssue || addingToCart}>
-              {addingToCart ? 'Adding…' : 'Add to cart'}
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              className="sm:w-auto"
+              loading={addingToCart}
+              disabled={blockingDpiIssue}
+              onClick={onAddToCart}
+            >
+              Add to cart
             </Button>
           </>
         )}

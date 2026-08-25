@@ -11,6 +11,9 @@ import ToolRail from './components/ToolRail'
 import PropertiesPanel from './components/PropertiesPanel'
 import SideTabs from './components/SideTabs'
 import PriceFooter, { type FooterSideFee } from './components/PriceFooter'
+import { useIsMobile } from './components/useIsMobile'
+import Sheet from '../components/ui/Sheet'
+import Badge from '../components/ui/Badge'
 import { DEFAULT_DESIGN_FONT, ensureFontsReady } from './fonts'
 import { uploadArt, isAcceptedArtFile, UploadArtError } from './uploadArt'
 import { sanitizeSvgFile } from './sanitizeSvg'
@@ -152,6 +155,20 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
 
   const objectsApi = useEditorObjects({ fabric, canvas, onContentChange: handleContentChange })
 
+  // POD-UI.md §3 Workstream C1/C2 — mobile gets a bottom Sheet for object
+  // properties (opens automatically on selection, at peek height, with the
+  // colour swatch row as its first element); desktop keeps an always-open
+  // right rail with the same PropertiesPanel content. `useIsMobile` (a real
+  // matchMedia listener, not a CSS-hidden wrapper) matters here because
+  // Sheet has side effects — body scroll lock, focus trap, Escape handler —
+  // that must not fire on desktop just because the sheet is visually hidden.
+  const isMobile = useIsMobile()
+  const closeProperties = useCallback(() => {
+    if (!canvas) return
+    canvas.discardActiveObject()
+    canvas.requestRenderAll()
+  }, [canvas])
+
   // Preload the default design font as soon as the customizer mounts, so
   // the first "Add text" doesn't show a flash of the fallback font.
   useEffect(() => {
@@ -177,7 +194,9 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
         new Set(
           canvas
             .getObjects()
-            .filter((o) => o.type === 'IText')
+            // Fabric v6's runtime type is 'i-text' (lowercase, hyphenated),
+            // not the 'IText' class name — see PropertiesPanel.tsx's note.
+            .filter((o) => o.type === 'i-text')
             .map((o) => (o as unknown as { fontFamily?: string }).fontFamily)
             .filter((f): f is string => !!f)
         )
@@ -373,18 +392,18 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
   }
 
   return (
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-paper">
-      <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 sm:px-6">
+    <div className="flex h-[100dvh] flex-col overflow-hidden overscroll-none bg-paper">
+      <header className="flex min-h-11 items-center justify-between gap-3 border-b border-line px-4 py-2 sm:px-6">
         <button
           onClick={() => navigate(`/product/${product.id}`)}
-          className="flex items-center gap-1.5 text-sm font-medium text-ink-soft transition-colors hover:text-ink"
+          className="flex min-h-11 min-w-0 items-center gap-1.5 truncate text-sm font-medium text-ink-soft transition-colors duration-fast hover:text-ink"
         >
-          <span aria-hidden>←</span> {product.name}
+          <span aria-hidden className="shrink-0">←</span> <span className="truncate">{product.name}</span>
         </button>
-        <SideTabs sides={sideOrder} activeSide={activeSide} onChange={setActiveSide} state={sidesState} />
-        <span className="w-16 shrink-0 text-right text-xs uppercase tracking-wide text-ink-soft md:w-24">
+        <SideTabs sides={sideOrder} activeSide={activeSide} onChange={setActiveSide} state={sidesState} className="shrink-0" />
+        <Badge variant={mode === 'preview' ? 'accent' : 'neutral'} className="shrink-0 uppercase tracking-wide">
           {mode === 'preview' ? 'Preview' : 'Editing'}
-        </span>
+        </Badge>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
@@ -403,6 +422,11 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
           </div>
         )}
 
+        {/* POD-UI.md §3 C2 — the stage is the only flexible element in this
+            row: on mobile the properties panel no longer lives in-flow here
+            (it moved to an overlay Sheet below), so the stage claims the
+            full remaining viewport height instead of being squeezed by a
+            224px strip. */}
         <div className="relative min-h-0 flex-1">
           {activeSideRow ? (
             <EditorStage
@@ -423,44 +447,59 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
               onAfterSideSwap={objectsApi.resumeAndReseedHistory}
               initialSnapshots={initialStageSnapshots}
               onSnapshotCached={handleSnapshotCached}
+              objectCount={objectsApi.objectCount}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-sm text-ink-soft">This product has no customizable side.</div>
           )}
           {!fabric && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-paper/70">
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 bg-paper/80 backdrop-blur-[1px]">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-line border-t-accent" aria-hidden="true" />
               <p className="text-sm text-ink-soft">Loading design tools…</p>
             </div>
           )}
         </div>
 
         {mode === 'edit' && (
-          <div className="hidden w-72 shrink-0 overflow-y-auto border-l border-line md:block">
+          <div className="hidden w-72 shrink-0 overflow-y-auto border-l border-line bg-surface md:block">
             <PropertiesPanel {...propertiesPanelProps} />
           </div>
         )}
       </div>
 
       {mode === 'edit' && (
-        <>
-          {objectsApi.selected && (
-            <div className="max-h-56 shrink-0 overflow-y-auto border-t border-line md:hidden">
-              <PropertiesPanel {...propertiesPanelProps} />
-            </div>
-          )}
-          <div className="md:hidden">
-            <ToolRail
-              onAddText={() => objectsApi.addText(DEFAULT_DESIGN_FONT)}
-              onPickImage={handlePickImage}
-              onAddShape={(kind) => objectsApi.addShape(kind)}
-              onUndo={objectsApi.undo}
-              onRedo={objectsApi.redo}
-              canUndo={objectsApi.canUndo}
-              canRedo={objectsApi.canRedo}
-              uploading={uploading}
-            />
-          </div>
-        </>
+        <div className="md:hidden">
+          <ToolRail
+            onAddText={() => objectsApi.addText(DEFAULT_DESIGN_FONT)}
+            onPickImage={handlePickImage}
+            onAddShape={(kind) => objectsApi.addShape(kind)}
+            onUndo={objectsApi.undo}
+            onRedo={objectsApi.redo}
+            canUndo={objectsApi.canUndo}
+            canRedo={objectsApi.canRedo}
+            uploading={uploading}
+          />
+        </div>
+      )}
+
+      {/* POD-UI.md §3 C1 — the headline fix. On mobile, selecting any object
+          auto-opens this bottom Sheet at `peek` height with the colour
+          swatch row as the very first thing inside it (before any tab),
+          so colour is one tap from selection instead of buried below
+          font/size controls in a 224px scrolling strip. `useIsMobile` (not
+          a CSS breakpoint) gates whether this ever opens, so the Sheet's
+          body-scroll-lock/focus-trap side effects never fire on desktop. */}
+      {isMobile && mode === 'edit' && (
+        <Sheet
+          open={!!objectsApi.selected}
+          onClose={closeProperties}
+          initialSnap="peek"
+          peekHeight="42vh"
+          fullHeight="88vh"
+          title={objectsApi.selected?.type === 'i-text' ? 'Text' : objectsApi.selected?.type === 'image' ? 'Image' : 'Shape'}
+        >
+          <PropertiesPanel {...propertiesPanelProps} />
+        </Sheet>
       )}
 
       <PriceFooter

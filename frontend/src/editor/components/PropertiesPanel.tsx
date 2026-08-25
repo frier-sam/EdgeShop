@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import type { FabricCanvas, FabricObject } from '../fabric/loadFabric'
 import { DESIGN_FONTS } from '../fonts'
 import { dpiSeverity, type DpiSeverity } from '../geometry'
+import ColorSwatchRow from './ColorSwatchRow'
+import SegmentedControl from '../../components/ui/SegmentedControl'
 
 interface CommonActions {
   onDuplicate: () => void
@@ -21,10 +23,21 @@ export interface PropertiesPanelProps extends CommonActions {
   imageDpi: number | null
 }
 
-const TEXT_TYPE = 'IText'
-const IMAGE_TYPE = 'Image'
-const RECT_TYPE = 'Rect'
-const SHAPE_TYPES = ['Rect', 'Circle', 'Triangle', 'Polygon', 'Line']
+// Fabric v6 runtime `.type` values are lowercase (verified against the
+// installed fabric@6.9.1 source — FabricObject's `type` getter does
+// `this.constructor.type.toLowerCase()`, and IText further maps that to
+// 'i-text'). NOT the PascalCase ('IText'/'Image'/'Rect') the pre-overhaul
+// code compared against, which meant these branches never matched and
+// the entire per-type controls set (text/image/shape) silently never
+// rendered — the real, deeper cause behind Finding #1's "cramped strip";
+// colour wasn't just hard to reach, its controls weren't mounting at all.
+const TEXT_TYPE = 'i-text'
+const IMAGE_TYPE = 'image'
+const RECT_TYPE = 'rect'
+const LINE_TYPE = 'line'
+const SHAPE_TYPES = ['rect', 'circle', 'triangle', 'polygon', 'line']
+
+type TabKey = 'style' | 'text' | 'arrange'
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -36,12 +49,13 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 }
 
 const inputCls =
-  'w-full rounded-lg border border-line bg-surface px-2.5 h-9 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30'
+  'w-full rounded-btn border border-line bg-surface px-2.5 h-11 text-sm text-ink transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/30'
+const colorInputCls = 'h-11 w-full cursor-pointer rounded-btn border border-line bg-surface transition-transform duration-fast active:scale-[0.98]'
 const btnCls =
-  'flex h-9 items-center justify-center rounded-lg border border-line bg-surface text-xs font-medium text-ink transition-colors hover:border-ink disabled:opacity-40'
+  'flex h-11 items-center justify-center rounded-btn border border-line bg-surface text-xs font-medium text-ink transition-[background-color,border-color,transform] duration-fast active:scale-[0.97] hover:border-ink/30 disabled:opacity-40'
 const toggleBtnCls = (active: boolean) =>
-  `flex h-9 w-9 items-center justify-center rounded-lg border text-sm font-semibold transition-colors ${
-    active ? 'border-ink bg-ink text-paper' : 'border-line bg-surface text-ink hover:border-ink'
+  `flex h-11 w-11 items-center justify-center rounded-btn border text-sm font-semibold transition-colors duration-fast ${
+    active ? 'border-ink bg-ink text-paper' : 'border-line bg-surface text-ink hover:border-ink/30'
   }`
 
 function DpiBadge({ dpi }: { dpi: number }) {
@@ -50,7 +64,7 @@ function DpiBadge({ dpi }: { dpi: number }) {
   const isBlock = severity === 'block'
   return (
     <div
-      className={`mb-3 rounded-lg px-3 py-2 text-xs font-medium ${
+      className={`mb-3 rounded-btn px-3 py-2 text-xs font-medium ${
         isBlock ? 'bg-danger/10 text-danger' : 'bg-accent-soft text-accent-dark'
       }`}
     >
@@ -63,9 +77,10 @@ function DpiBadge({ dpi }: { dpi: number }) {
   )
 }
 
-function CommonActionsRow(props: CommonActions) {
+/** POD.md §6.7 acceptance / POD-UI.md §3 C1 — layer order, duplicate and delete, grouped into their own "Arrange" tab. */
+function ArrangeSection(props: CommonActions) {
   return (
-    <div className="mb-4 grid grid-cols-2 gap-2 border-b border-line pb-4">
+    <div className="grid grid-cols-2 gap-2">
       <button className={btnCls} onClick={props.onCenter}>
         Center
       </button>
@@ -91,12 +106,41 @@ function CommonActionsRow(props: CommonActions) {
   )
 }
 
-/** POD.md §6.4 — text tool controls: font family, size, colour, bold/italic, alignment, letter-spacing. */
+/** Opacity applies to every object type — lives in the Style tab regardless of what's selected. */
+function OpacityRow({ selected, onCommit }: { selected: FabricObject; onCommit: () => void }) {
+  const obj = selected as unknown as { opacity: number; set: (p: Record<string, unknown>) => void }
+  const [opacity, setOpacity] = useState(obj.opacity ?? 1)
+
+  useEffect(() => {
+    setOpacity(obj.opacity ?? 1)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected])
+
+  return (
+    <Row label={`Opacity (${Math.round(opacity * 100)}%)`}>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={opacity}
+        className="w-full accent-accent"
+        onChange={(e) => {
+          const v = Number(e.target.value)
+          setOpacity(v)
+          obj.set({ opacity: v })
+          onCommit()
+        }}
+      />
+    </Row>
+  )
+}
+
+/** POD.md §6.4 — text tool controls: font family, size, weight/italic, alignment, letter-spacing. Colour lives in Style (see ColorRow), not here. */
 function TextControls({ selected, onCommit }: { selected: FabricObject; onCommit: () => void }) {
   const obj = selected as unknown as {
     fontFamily: string
     fontSize: number
-    fill: string
     fontWeight: string | number
     fontStyle: string
     textAlign: string
@@ -105,7 +149,6 @@ function TextControls({ selected, onCommit }: { selected: FabricObject; onCommit
   }
   const [fontFamily, setFontFamily] = useState(obj.fontFamily)
   const [fontSize, setFontSize] = useState(obj.fontSize)
-  const [fill, setFill] = useState(String(obj.fill ?? '#1a1512'))
   const [bold, setBold] = useState(obj.fontWeight === 700 || obj.fontWeight === 'bold')
   const [italic, setItalic] = useState(obj.fontStyle === 'italic')
   const [align, setAlign] = useState(obj.textAlign || 'center')
@@ -114,7 +157,6 @@ function TextControls({ selected, onCommit }: { selected: FabricObject; onCommit
   useEffect(() => {
     setFontFamily(obj.fontFamily)
     setFontSize(obj.fontSize)
-    setFill(String(obj.fill ?? '#1a1512'))
     setBold(obj.fontWeight === 700 || obj.fontWeight === 'bold')
     setItalic(obj.fontStyle === 'italic')
     setAlign(obj.textAlign || 'center')
@@ -156,23 +198,12 @@ function TextControls({ selected, onCommit }: { selected: FabricObject; onCommit
           }}
         />
       </Row>
-      <Row label="Colour">
-        <input
-          type="color"
-          value={fill}
-          className="h-9 w-full cursor-pointer rounded-lg border border-line bg-surface"
-          onChange={(e) => {
-            setFill(e.target.value)
-            obj.set({ fill: e.target.value })
-            onCommit()
-          }}
-        />
-      </Row>
-      <Row label="Style">
+      <Row label="Weight & style">
         <div className="flex gap-2">
           <button
             className={toggleBtnCls(bold)}
             aria-pressed={bold}
+            aria-label="Bold"
             onClick={() => {
               const next = !bold
               setBold(next)
@@ -185,6 +216,7 @@ function TextControls({ selected, onCommit }: { selected: FabricObject; onCommit
           <button
             className={toggleBtnCls(italic)}
             aria-pressed={italic}
+            aria-label="Italic"
             onClick={() => {
               const next = !italic
               setItalic(next)
@@ -201,6 +233,8 @@ function TextControls({ selected, onCommit }: { selected: FabricObject; onCommit
           {(['left', 'center', 'right'] as const).map((a) => (
             <button
               key={a}
+              aria-label={`Align ${a}`}
+              aria-pressed={align === a}
               className={toggleBtnCls(align === a)}
               onClick={() => {
                 setAlign(a)
@@ -232,116 +266,63 @@ function TextControls({ selected, onCommit }: { selected: FabricObject; onCommit
   )
 }
 
-/** POD.md §6.5 — image controls: opacity, flip (remove-background is explicitly out of scope). */
-function ImageControls({ selected, onCommit, dpi }: { selected: FabricObject; onCommit: () => void; dpi: number | null }) {
-  const obj = selected as unknown as { opacity: number; flipX: boolean; flipY: boolean; set: (p: Record<string, unknown>) => void }
-  const [opacity, setOpacity] = useState(obj.opacity ?? 1)
-
-  useEffect(() => {
-    setOpacity(obj.opacity ?? 1)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected])
-
+/** POD.md §6.5 — image controls: flip (remove-background is explicitly out of scope; opacity lives in Style's shared OpacityRow). */
+function ImageControls({ selected, onCommit }: { selected: FabricObject; onCommit: () => void }) {
+  const obj = selected as unknown as { flipX: boolean; flipY: boolean; set: (p: Record<string, unknown>) => void }
   return (
-    <div>
-      {dpi !== null && <DpiBadge dpi={dpi} />}
-      <Row label={`Opacity (${Math.round(opacity * 100)}%)`}>
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={opacity}
-          className="w-full accent-accent"
-          onChange={(e) => {
-            const v = Number(e.target.value)
-            setOpacity(v)
-            obj.set({ opacity: v })
-            onCommit()
-          }}
-        />
-      </Row>
-      <Row label="Flip">
-        <div className="flex gap-2">
-          <button
-            className={toggleBtnCls(obj.flipX)}
-            onClick={() => {
-              obj.set({ flipX: !obj.flipX })
-              onCommit()
-            }}
-          >
-            ↔
-          </button>
-          <button
-            className={toggleBtnCls(obj.flipY)}
-            onClick={() => {
-              obj.set({ flipY: !obj.flipY })
-              onCommit()
-            }}
-          >
-            ↕
-          </button>
-        </div>
-      </Row>
-    </div>
+    <Row label="Flip">
+      <div className="flex gap-2">
+        <button className={toggleBtnCls(obj.flipX)} aria-label="Flip horizontal" onClick={() => { obj.set({ flipX: !obj.flipX }); onCommit() }}>
+          ↔
+        </button>
+        <button className={toggleBtnCls(obj.flipY)} aria-label="Flip vertical" onClick={() => { obj.set({ flipY: !obj.flipY }); onCommit() }}>
+          ↕
+        </button>
+      </div>
+    </Row>
   )
 }
 
-/** POD.md §6.6 — shape controls: fill, stroke colour + width, corner radius (rect only). */
-function ShapeControls({ selected, onCommit }: { selected: FabricObject; onCommit: () => void }) {
+/** POD.md §6.6 — shape controls beyond the shared colour row: stroke colour + width, corner radius (rect only). */
+function ShapeExtraControls({ selected, onCommit }: { selected: FabricObject; onCommit: () => void }) {
   const obj = selected as unknown as {
     type: string
-    fill: string
     stroke: string | null
     strokeWidth: number
     rx?: number
-    ry?: number
     set: (p: Record<string, unknown>) => void
   }
-  const [fill, setFill] = useState(String(obj.fill ?? '#c2410c'))
+  const isLine = obj.type === LINE_TYPE
   const [stroke, setStroke] = useState(String(obj.stroke ?? ''))
   const [strokeWidth, setStrokeWidth] = useState(obj.strokeWidth ?? 0)
   const [radius, setRadius] = useState(obj.rx ?? 0)
 
   useEffect(() => {
-    setFill(String(obj.fill ?? '#c2410c'))
     setStroke(String(obj.stroke ?? ''))
     setStrokeWidth(obj.strokeWidth ?? 0)
     setRadius(obj.rx ?? 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected])
 
-  const isLine = obj.type === 'Line'
-
   return (
     <div>
+      {/* A line's only colour IS its stroke — already covered by the shared
+          colour row above, so no separate stroke-colour picker here. */}
       {!isLine && (
-        <Row label="Fill">
+        <Row label="Stroke colour">
           <input
             type="color"
-            value={fill}
-            className="h-9 w-full cursor-pointer rounded-lg border border-line bg-surface"
+            value={stroke || '#101014'}
+            className={colorInputCls}
             onChange={(e) => {
-              setFill(e.target.value)
-              obj.set({ fill: e.target.value })
+              setStroke(e.target.value)
+              obj.set({ stroke: e.target.value, strokeWidth: strokeWidth || 2 })
+              if (!strokeWidth) setStrokeWidth(2)
               onCommit()
             }}
           />
         </Row>
       )}
-      <Row label="Stroke colour">
-        <input
-          type="color"
-          value={stroke || '#1a1512'}
-          className="h-9 w-full cursor-pointer rounded-lg border border-line bg-surface"
-          onChange={(e) => {
-            setStroke(e.target.value)
-            obj.set({ stroke: e.target.value, strokeWidth: strokeWidth || 2 })
-            if (!strokeWidth) setStrokeWidth(2)
-            onCommit()
-          }}
-        />
-      </Row>
       <Row label={`Stroke width (${strokeWidth})`}>
         <input
           type="range"
@@ -378,7 +359,36 @@ function ShapeControls({ selected, onCommit }: { selected: FabricObject; onCommi
   )
 }
 
+/**
+ * POD-UI.md §3 Workstream C1 — the headline fix. Rendered as the FIRST
+ * thing in both the mobile properties `Sheet` and the desktop rail (see
+ * CustomizerEditor.tsx), so colour is one tap away from selection: no
+ * scrolling, no tab switch. `primaryColor` is lifted up here (rather than
+ * living inside TextControls/ShapeExtraControls' own local state, as it
+ * did pre-overhaul) specifically so a tap on a swatch here and a tap on
+ * the Style tab's larger colour picker always agree — both write through
+ * the same setter.
+ */
 export default function PropertiesPanel({ selected, onCommit, imageDpi, ...actions }: PropertiesPanelProps) {
+  const [tab, setTab] = useState<TabKey>('style')
+  const [primaryColor, setPrimaryColorState] = useState('#101014')
+
+  const type = selected?.type
+  const isText = type === TEXT_TYPE
+  const isImage = type === IMAGE_TYPE
+  const isShape = !!type && SHAPE_TYPES.includes(type) && !isImage
+  const isLine = type === LINE_TYPE
+  const isColorable = isText || isShape // text/shape fill, or line stroke — never image
+
+  useEffect(() => {
+    setTab('style')
+    if (!selected) return
+    const obj = selected as unknown as { fill?: string | null; stroke?: string | null }
+    const next = isLine ? obj.stroke : obj.fill
+    if (typeof next === 'string') setPrimaryColorState(next)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected])
+
   if (!selected) {
     return (
       <div className="flex h-full items-center justify-center p-6 text-center text-sm text-ink-soft">
@@ -387,14 +397,45 @@ export default function PropertiesPanel({ selected, onCommit, imageDpi, ...actio
     )
   }
 
-  const type = selected.type
+  const applyPrimaryColor = (hex: string) => {
+    const obj = selected as unknown as { set: (p: Record<string, unknown>) => void }
+    obj.set(isLine ? { stroke: hex } : { fill: hex })
+    setPrimaryColorState(hex)
+    onCommit()
+  }
+
+  const tabs: { value: TabKey; label: string }[] = [
+    { value: 'style', label: 'Style' },
+    ...(isText ? [{ value: 'text' as const, label: 'Text' }] : []),
+    { value: 'arrange', label: 'Arrange' },
+  ]
+  const activeTab = tabs.some((t) => t.value === tab) ? tab : 'style'
 
   return (
-    <div className="p-4">
-      <CommonActionsRow {...actions} />
-      {type === TEXT_TYPE && <TextControls selected={selected} onCommit={onCommit} />}
-      {type === IMAGE_TYPE && <ImageControls selected={selected} onCommit={onCommit} dpi={imageDpi} />}
-      {SHAPE_TYPES.includes(type) && type !== IMAGE_TYPE && <ShapeControls selected={selected} onCommit={onCommit} />}
+    <div className="flex flex-col gap-4 p-4">
+      {isColorable && (
+        <ColorSwatchRow value={primaryColor} onChange={applyPrimaryColor} label={isLine ? 'Colour' : isText ? 'Text colour' : 'Fill colour'} />
+      )}
+
+      <SegmentedControl options={tabs} value={activeTab} onChange={setTab} aria-label="Object properties" className="w-full" />
+
+      <div>
+        {activeTab === 'style' && (
+          <div>
+            {isImage && imageDpi !== null && <DpiBadge dpi={imageDpi} />}
+            {isColorable && (
+              <Row label={isLine ? 'Colour' : isText ? 'Text colour' : 'Fill'}>
+                <input type="color" value={primaryColor} className={colorInputCls} onChange={(e) => applyPrimaryColor(e.target.value)} />
+              </Row>
+            )}
+            {isShape && <ShapeExtraControls selected={selected} onCommit={onCommit} />}
+            <OpacityRow selected={selected} onCommit={onCommit} />
+            {isImage && <ImageControls selected={selected} onCommit={onCommit} />}
+          </div>
+        )}
+        {activeTab === 'text' && isText && <TextControls selected={selected} onCommit={onCommit} />}
+        {activeTab === 'arrange' && <ArrangeSection {...actions} />}
+      </div>
     </div>
   )
 }
