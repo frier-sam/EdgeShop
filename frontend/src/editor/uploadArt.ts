@@ -4,19 +4,15 @@
 // add-to-cart, so the editor always holds a stable same-origin URL and
 // design_json never carries base64 image data.
 //
-// `POST /api/uploads/art` is a Phase 7 endpoint (POD.md §8, Phase 7.1) —
-// it does not exist yet. Until it ships, a 404 (or the route being
-// entirely absent in dev) falls back to a local `URL.createObjectURL`
-// blob so the editor is fully usable and testable today.
-//
-// >>> PHASE 7 TODO: once POST /api/uploads/art exists, delete the
-// >>> `usedFallback` branch below (and the object-URL revocation dance in
-// >>> the image tool) — every upload should then always return a real
-// >>> same-origin /img/uploads/<uuid>.<ext> URL.
+// `POST /api/uploads/art` (POD.md §7.1) now exists for real. The Phase 6
+// 404-fallback that returned a local `URL.createObjectURL` blob has been
+// removed: design_json only ever references same-origin `/img/uploads/...`
+// URLs from here on, since the merchant's print render (and the checkout
+// price re-validation, which reads the design's stored art) depends on
+// those URLs actually resolving.
 
 export interface UploadArtResult {
   url: string
-  usedFallback: boolean
 }
 
 export class UploadArtError extends Error {}
@@ -41,22 +37,19 @@ export async function uploadArt(blob: Blob, filename: string, maxSizeMb: number)
   try {
     res = await fetch('/api/uploads/art', { method: 'POST', body: formData })
   } catch {
-    // Network-level failure (route not mounted at all in this dev worker, etc).
-    return { url: URL.createObjectURL(blob), usedFallback: true }
+    throw new UploadArtError('Could not reach the server. Check your connection and try again.')
   }
 
-  if (res.status === 404) {
-    return { url: URL.createObjectURL(blob), usedFallback: true }
-  }
   if (!res.ok) {
-    throw new UploadArtError(`Upload failed (${res.status}).`)
+    const data = (await res.json().catch(() => ({}))) as { error?: string }
+    throw new UploadArtError(data.error ?? `Upload failed (${res.status}).`)
   }
 
   const data = (await res.json()) as { url?: string }
   if (!data.url) {
     throw new UploadArtError('Upload response was missing a url.')
   }
-  return { url: data.url, usedFallback: false }
+  return { url: data.url }
 }
 
 export const ACCEPTED_ART_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] as const

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useCartStore } from '../store/cartStore'
+import { useCartStore, type ServerQuoteItem } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
 import { loadRazorpay, openRazorpayModal } from '../utils/razorpay'
 import { COUNTRY_CODES } from '../utils/countryCodes'
@@ -26,6 +26,17 @@ interface CheckoutResponse {
   razorpay_key_id?: string
 }
 
+interface PriceMismatchResponse {
+  error: 'price_mismatch'
+  quote: {
+    subtotal: number
+    print_total: number
+    shipping_amount: number
+    total_amount: number
+    items: ServerQuoteItem[]
+  }
+}
+
 function setNoIndex() {
   let el = document.querySelector('meta[name="robots"]')
   if (!el) {
@@ -42,6 +53,7 @@ export default function CheckoutPage() {
   const lines = useCartStore((s) => s.lines)
   const subtotal = useCartStore((s) => s.subtotal)
   const clearCart = useCartStore((s) => s.clearCart)
+  const reconcilePricing = useCartStore((s) => s.reconcilePricing)
   const token = useAuthStore((s) => s.token)
 
   const { data: settings } = useQuery<Settings>({
@@ -65,6 +77,7 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [stockErrors, setStockErrors] = useState<string[]>([])
+  const [priceChanged, setPriceChanged] = useState(false)
 
   const currency = currencySymbol(settings?.currency)
   const codEnabled = settings?.cod_enabled !== 'false'
@@ -124,6 +137,7 @@ export default function CheckoutPage() {
     e.preventDefault()
     setError('')
     setStockErrors([])
+    setPriceChanged(false)
     setSubmitting(true)
 
     try {
@@ -138,27 +152,40 @@ export default function CheckoutPage() {
           ...formFields,
           customer_phone: country_code + form.customer_phone,
           payment_method: paymentMethod,
+          // POD.md §7.3 — the server re-reads products/sizes/sides/designs
+          // and recomputes every price itself; the client sends only what
+          // identifies each line, never a price. `total_amount` below is
+          // still sent, purely so the server can detect + report a mismatch.
           items: lines.map((l) => ({
             product_id: l.product_id,
-            name: l.name,
-            price: l.unit_price,
             quantity: l.quantity,
-            image_url: l.preview_url ?? '',
             size: l.size ?? undefined,
             design_id: l.design_id ?? undefined,
           })),
           total_amount: total,
-          shipping_amount: shippingAmount,
         }),
       })
 
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string; items?: Array<{ id: number; name: string; available: number }> }
+        const data = (await res.json()) as
+          | { error?: string; items?: Array<{ id: number; name: string; available: number }> }
+          | PriceMismatchResponse
         if (data.error === 'stock_error') {
           const msgs = data.items?.length
             ? data.items.map((i) => (i.available === 0 ? `"${i.name}" is out of stock` : `Only ${i.available} left in stock for "${i.name}"`))
             : ['Some items in your cart are no longer available. Please review your cart.']
           setStockErrors(msgs)
+          setSubmitting(false)
+          return
+        }
+        if (data.error === 'price_mismatch' && 'quote' in data) {
+          // Refresh the quote: pull the server-computed prices onto the
+          // cart lines in place, then ask the shopper to review and
+          // re-submit — never silently charge the corrected (possibly
+          // higher) total without them seeing it.
+          reconcilePricing(data.quote.items)
+          setPriceChanged(true)
+          setError('Prices for one or more items in your cart have changed. Please review your updated total below and place the order again.')
           setSubmitting(false)
           return
         }
@@ -364,10 +391,18 @@ export default function CheckoutPage() {
               </ul>
             </div>
           )}
-          {error && <p className="rounded-lg bg-danger/5 px-4 py-3 text-sm text-danger">{error}</p>}
+          {error && (
+            <p className={`rounded-lg px-4 py-3 text-sm ${priceChanged ? 'border border-amber-300 bg-amber-50 text-amber-800' : 'bg-danger/5 text-danger'}`}>
+              {error}
+            </p>
+          )}
 
           <Button type="submit" variant="accent" size="lg" fullWidth disabled={submitting}>
-            {submitting ? 'Processing…' : `Place Order — ${currency}${total.toFixed(2)}`}
+            {submitting
+              ? 'Processing…'
+              : priceChanged
+                ? `Place Order at Updated Total — ${currency}${total.toFixed(2)}`
+                : `Place Order — ${currency}${total.toFixed(2)}`}
           </Button>
         </form>
       </div>

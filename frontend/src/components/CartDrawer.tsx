@@ -82,7 +82,7 @@ export default function CartDrawer({ isOpen, lines, currency, onClose, onUpdateQ
                         {line.name}
                       </p>
                     </Link>
-                    <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
+                    <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
                       {line.size && <span>Size {line.size}</span>}
                       {line.design_id && (
                         <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent-dark">
@@ -90,6 +90,22 @@ export default function CartDrawer({ isOpen, lines, currency, onClose, onUpdateQ
                         </span>
                       )}
                     </div>
+                    {line.print_fees.length > 0 && (
+                      <p className="mb-1 text-[11px] text-ink-soft">
+                        {line.print_fees
+                          .map((f) => `${f.side === 'front' ? 'Front' : 'Back'} print +${currency}${f.fee.toFixed(2)}`)
+                          .join(' · ')}
+                      </p>
+                    )}
+                    {line.design_id && (
+                      <Link
+                        to={`/customize/${line.product_id}?design=${line.design_id}${line.size ? `&size=${encodeURIComponent(line.size)}` : ''}`}
+                        onClick={onClose}
+                        className="mb-2 inline-block text-[11px] font-medium text-accent underline underline-offset-2 hover:text-accent-dark"
+                      >
+                        Edit design
+                      </Link>
+                    )}
                     <p className="mb-3 text-xs text-ink-soft">
                       {currency}
                       {line.unit_price.toFixed(2)}

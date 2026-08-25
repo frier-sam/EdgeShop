@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
-import type { OrderItem } from '../types'
+import type { ResolvedLineItem } from '../lib/pricing'
 import { sendEmail } from '../lib/email'
 import { orderConfirmationHtml, newOrderAlertHtml } from '../lib/emailTemplates'
 import { decrementStock } from './checkout'
@@ -68,14 +68,15 @@ webhook.post('/razorpay', async (c) => {
       'SELECT * FROM orders WHERE razorpay_order_id = ?'
     ).bind(order_id).first<{
       id: string; customer_name: string; customer_email: string;
-      items_json: string; total_amount: number; shipping_address: string; payment_method: string;
+      items_json: string; total_amount: number; shipping_amount: number;
+      shipping_address: string; payment_method: string;
     }>()
 
     if (order) {
       // Decrement stock now that payment is confirmed (not at order creation, to avoid
       // reducing stock for abandoned Razorpay sessions)
       try {
-        const items = JSON.parse(order.items_json) as OrderItem[]
+        const items = JSON.parse(order.items_json) as ResolvedLineItem[]
         await decrementStock(c.env.DB, items)
       } catch (err) {
         console.error('Stock decrement failed for order:', order.id, err)
@@ -88,6 +89,8 @@ webhook.post('/razorpay', async (c) => {
         const eCfg: Record<string, string> = {}
         for (const row of emailRows.results) eCfg[row.key] = row.value
 
+        const origin = new URL(c.req.url).origin
+
         // Confirmation to customer
         await sendEmail(
           {
@@ -98,8 +101,10 @@ webhook.post('/razorpay', async (c) => {
               customer_name: order.customer_name,
               items_json: order.items_json,
               total_amount: order.total_amount,
+              shipping_amount: order.shipping_amount,
               payment_method: order.payment_method,
               shipping_address: order.shipping_address,
+              origin,
             }),
           },
           { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }

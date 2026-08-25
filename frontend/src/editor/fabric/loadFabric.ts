@@ -23,3 +23,5 @@ export type FabricCanvas = InstanceType<FabricModule['Canvas']>
 export type FabricObject = InstanceType<FabricModule['FabricObject']>
 export type FabricIText = InstanceType<FabricModule['IText']>
 export type FabricImage = InstanceType<FabricModule['FabricImage']>
+/** Non-interactive canvas — no selection/event wiring — used for offscreen rendering (preview compositor, POD.md §5.6). */
+export type FabricStaticCanvas = InstanceType<FabricModule['StaticCanvas']>

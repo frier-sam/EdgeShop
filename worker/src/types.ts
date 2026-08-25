@@ -82,14 +82,10 @@ export interface Order {
   customer_id: number | null
 }
 
-export interface OrderItem {
-  product_id: number
-  name: string
-  price: number
-  quantity: number
-  image_url: string
-  size?: string
-}
+// NOTE: the old flat `OrderItem` shape (product_id/name/price/quantity/
+// image_url/size) is gone — POD.md §7.4's items_json shape is now
+// `ResolvedLineItem`, defined in lib/pricing.ts alongside the
+// server-side price recomputation that produces it (POD.md §7.3).
 
 export interface Customer {
   id: number

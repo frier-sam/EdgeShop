@@ -131,4 +131,35 @@ describe('Cart Store', () => {
     useCartStore.getState().addLine(line())
     expect(useCartStore.getState().isCartOpen).toBe(true)
   })
+
+  // POD.md §7.3/§7.4 — checkout's price_mismatch response carries a corrected
+  // quote; reconcilePricing must overwrite pricing fields (never quantity).
+  describe('reconcilePricing', () => {
+    it('overwrites pricing fields on the matching line without touching quantity', () => {
+      useCartStore.getState().addLine(line({ size: 'M', design_id: 'dsn_1', unit_price: 598, quantity: 3 }))
+      useCartStore.getState().reconcilePricing([
+        {
+          product_id: 1,
+          size: 'M',
+          design_id: 'dsn_1',
+          base_price: 499,
+          size_delta: 0,
+          print_fees: [{ side: 'front', fee: 149 }],
+          unit_price: 648,
+        },
+      ])
+      const updated = useCartStore.getState().lines[0]
+      expect(updated.unit_price).toBe(648)
+      expect(updated.print_fees).toEqual([{ side: 'front', fee: 149 }])
+      expect(updated.quantity).toBe(3)
+    })
+
+    it('leaves lines with no matching server item untouched', () => {
+      useCartStore.getState().addLine(line({ size: 'L', unit_price: 499 }))
+      useCartStore.getState().reconcilePricing([
+        { product_id: 999, size: null, design_id: null, base_price: 1, size_delta: 0, print_fees: [], unit_price: 1 },
+      ])
+      expect(useCartStore.getState().lines[0].unit_price).toBe(499)
+    })
+  })
 })

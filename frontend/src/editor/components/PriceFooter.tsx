@@ -20,6 +20,10 @@ export interface PriceFooterProps {
   onAddToCart: () => void
   /** Any designed side has an image below the hard DPI floor (POD.md §5.1 — blocks add-to-cart, warn-only doesn't). */
   blockingDpiIssue: boolean
+  /** POD.md §7.2 — true while the add-to-cart sequence (save design, render + upload previews) is in flight. */
+  addingToCart?: boolean
+  /** Short status text shown next to the total while `addingToCart` is true, e.g. "Uploading previews…". */
+  addingToCartStatus?: string
 }
 
 /**
@@ -40,6 +44,8 @@ export default function PriceFooter({
   onBackToEdit,
   onAddToCart,
   blockingDpiIssue,
+  addingToCart = false,
+  addingToCartStatus,
 }: PriceFooterProps) {
   const activeFees = sides.filter((s) => (sidesState[s.side]?.objectCount ?? 0) > 0)
   const total = basePrice + sizeDelta + activeFees.reduce((sum, s) => sum + s.fee, 0)
@@ -60,6 +66,9 @@ export default function PriceFooter({
         {blockingDpiIssue && mode === 'preview' && (
           <p className="mt-0.5 text-xs font-medium text-danger">Fix the low-resolution image before adding to cart.</p>
         )}
+        {addingToCart && addingToCartStatus && (
+          <p className="mt-0.5 text-xs font-medium text-ink-soft">{addingToCartStatus}</p>
+        )}
       </div>
 
       <div className="flex shrink-0 gap-2">
@@ -69,11 +78,11 @@ export default function PriceFooter({
           </Button>
         ) : (
           <>
-            <Button variant="outline" size="lg" onClick={onBackToEdit}>
+            <Button variant="outline" size="lg" onClick={onBackToEdit} disabled={addingToCart}>
               Back to editing
             </Button>
-            <Button variant="accent" size="lg" onClick={onAddToCart} disabled={blockingDpiIssue}>
-              Add to cart
+            <Button variant="accent" size="lg" onClick={onAddToCart} disabled={blockingDpiIssue || addingToCart}>
+              {addingToCart ? 'Adding…' : 'Add to cart'}
             </Button>
           </>
         )}

@@ -1,9 +1,20 @@
 import { Hono } from 'hono'
 import type { Env } from '../index'
-import type { OrderItem } from '../types'
 import { sendEmail } from '../lib/email'
 import { orderConfirmationHtml, newOrderAlertHtml } from '../lib/emailTemplates'
 import { verifyJWT, getOrCreateJwtSecret } from '../lib/auth'
+import {
+  computeLine,
+  computeOrderQuote,
+  pricesMatch,
+  type LineInput,
+  type PricingProduct,
+  type PricingSize,
+  type PricingSide,
+  type PricingDesign,
+  type ResolvedLineItem,
+  type OrderQuote,
+} from '../lib/pricing'
 
 const checkout = new Hono<{ Bindings: Env }>()
 
@@ -20,21 +31,22 @@ async function getCustomerIdFromHeader(authHeader: string, db: D1Database): Prom
   }
 }
 
-// NOTE: pricing here is still fully client-trusted, carried forward from v1.
-// Phase 7 (POD.md §7.3) replaces this with full server-side recomputation
-// from products/product_sides/product_sizes/designs and rejects mismatches.
-// This function is scoped to Phase 3: make checkout compile and behave
-// sanely against the new schema, not fix that flaw.
+interface StockLine {
+  product_id: number
+  name: string
+  quantity: number
+  size?: string | null
+}
+
 async function validateStock(
   db: D1Database,
-  items: OrderItem[]
+  items: StockLine[]
 ): Promise<Array<{ id: number; name: string; available: number }> | null> {
   if (!items.length) return null
   const insufficient: Array<{ id: number; name: string; available: number }> = []
 
   for (const item of items) {
     if (item.size) {
-      // Sized product — stock lives on product_sizes for that label.
       const sizeRow = await db.prepare(
         'SELECT stock_count FROM product_sizes WHERE product_id = ? AND label = ?'
       ).bind(item.product_id, item.size).first<{ stock_count: number }>()
@@ -44,7 +56,6 @@ async function validateStock(
         insufficient.push({ id: item.product_id, name: item.name, available: sizeRow.stock_count })
       }
     } else {
-      // Sizeless product — stock lives on products.stock_count.
       const product = await db.prepare(
         'SELECT id, name, stock_count FROM products WHERE id = ?'
       ).bind(item.product_id).first<{ id: number; name: string; stock_count: number }>()
@@ -58,7 +69,7 @@ async function validateStock(
   return insufficient.length > 0 ? insufficient : null
 }
 
-export async function decrementStock(db: D1Database, items: OrderItem[]): Promise<void> {
+export async function decrementStock(db: D1Database, items: StockLine[]): Promise<void> {
   const stmts = items.map((item) =>
     item.size
       ? db.prepare(
@@ -69,6 +80,88 @@ export async function decrementStock(db: D1Database, items: OrderItem[]): Promis
         ).bind(item.quantity, item.product_id)
   )
   if (stmts.length > 0) await db.batch(stmts)
+}
+
+/**
+ * POD.md §7.3 — the security-critical rewrite. Re-reads products,
+ * product_sizes, product_sides and designs fresh from D1 for EVERY line
+ * the client posted, and recomputes the whole order server-side via
+ * lib/pricing.ts. The client's `items` therefore only ever carries
+ * `{ product_id, quantity, size?, design_id? }` — no price of any kind is
+ * trusted from the request body. `total_amount` is still accepted, but
+ * purely so a mismatch can be detected and reported back as a
+ * `price_mismatch`, never used to create the order or the Razorpay charge.
+ */
+async function buildQuote(
+  db: D1Database,
+  items: LineInput[]
+): Promise<{ ok: true; quote: OrderQuote } | { ok: false; error: string; product_id?: number }> {
+  if (!Array.isArray(items) || items.length === 0) {
+    return { ok: false, error: 'empty_cart' }
+  }
+
+  const resolvedItems: ResolvedLineItem[] = []
+
+  for (const input of items) {
+    const productId = Number(input.product_id)
+    const product = await db.prepare(
+      'SELECT id, name, base_price, status, is_customizable FROM products WHERE id = ?'
+    ).bind(productId).first<PricingProduct>()
+
+    const size = input.size
+      ? await db.prepare(
+          'SELECT label, price_delta, stock_count FROM product_sizes WHERE product_id = ? AND label = ?'
+        ).bind(productId, input.size).first<PricingSize>()
+      : null
+
+    const { results: sides } = await db.prepare(
+      'SELECT side, customizable, print_fee FROM product_sides WHERE product_id = ?'
+    ).bind(productId).all<PricingSide>()
+
+    let design: PricingDesign | null = null
+    let previewJson: Record<string, string> = {}
+    if (input.design_id) {
+      design = await db.prepare(
+        'SELECT id, product_id, design_json, sides_used FROM designs WHERE id = ?'
+      ).bind(input.design_id).first<PricingDesign>()
+      const previewRow = await db.prepare('SELECT preview_json FROM designs WHERE id = ?')
+        .bind(input.design_id).first<{ preview_json: string }>()
+      try { previewJson = JSON.parse(previewRow?.preview_json ?? '{}') } catch { /* leave empty */ }
+    }
+
+    const result = computeLine({
+      input: { ...input, product_id: productId },
+      product: product ?? null,
+      size: size ?? null,
+      sides: sides ?? [],
+      design,
+      previewJson,
+    })
+
+    if (!result.ok) {
+      return { ok: false, error: result.error, product_id: productId }
+    }
+    resolvedItems.push(result.item)
+  }
+
+  const shipRows = await db.prepare(
+    "SELECT key, value FROM settings WHERE key IN ('flat_shipping_amount', 'free_shipping_over')"
+  ).all<{ key: string; value: string }>()
+  const shipCfg: Record<string, string> = {}
+  for (const row of shipRows.results) shipCfg[row.key] = row.value
+
+  const quote = computeOrderQuote(resolvedItems, {
+    flat_shipping_amount: Number(shipCfg.flat_shipping_amount ?? 49),
+    free_shipping_over: Number(shipCfg.free_shipping_over ?? 999),
+  })
+
+  return { ok: true, quote }
+}
+
+async function linkDesignsToOrder(db: D1Database, orderId: string, items: ResolvedLineItem[]): Promise<void> {
+  const designIds = Array.from(new Set(items.map((i) => i.design_id).filter((id): id is string => !!id)))
+  if (designIds.length === 0) return
+  await db.batch(designIds.map((id) => db.prepare('UPDATE designs SET order_id = ? WHERE id = ?').bind(orderId, id)))
 }
 
 checkout.post('/', async (c) => {
@@ -82,12 +175,10 @@ checkout.post('/', async (c) => {
     shipping_pincode?: string
     shipping_country?: string
     payment_method: 'razorpay' | 'cod'
-    items: OrderItem[]
+    items: LineInput[]
     total_amount: number
-    shipping_amount: number
   }>()
 
-  // Basic validation
   if (!body.customer_name || !body.customer_email || !body.shipping_address) {
     return c.json({ error: 'Missing required fields' }, 400)
   }
@@ -95,18 +186,33 @@ checkout.post('/', async (c) => {
     return c.json({ error: 'Invalid payment_method' }, 400)
   }
 
+  const quoteResult = await buildQuote(c.env.DB, body.items)
+  if (!quoteResult.ok) {
+    return c.json({ error: quoteResult.error, product_id: quoteResult.product_id }, 400)
+  }
+  const { quote } = quoteResult
+
+  if (!pricesMatch(Number(body.total_amount), quote.total_amount)) {
+    return c.json(
+      {
+        error: 'price_mismatch',
+        quote: {
+          subtotal: quote.subtotal,
+          print_total: quote.print_total,
+          shipping_amount: quote.shipping_amount,
+          total_amount: quote.total_amount,
+          items: quote.items,
+        },
+      },
+      400
+    )
+  }
+
   const orderId = `ORD-${Date.now()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`
-  const shippingAmount = body.shipping_amount ?? 0
-  const totalAmount = body.total_amount ?? 0
-  // Legacy client payload carries no side/print-fee breakdown — the whole
-  // pre-shipping amount is treated as subtotal until Phase 7 recomputes
-  // this server-side from products/sides/sizes/designs.
-  const subtotal = Math.max(0, totalAmount - shippingAmount)
-  const printTotal = 0
+  const stockLines: StockLine[] = quote.items.map((i) => ({ product_id: i.product_id, name: i.name, quantity: i.quantity, size: i.size }))
 
   if (body.payment_method === 'cod') {
-    // Stock check — must happen before INSERT
-    const stockIssues = await validateStock(c.env.DB, body.items)
+    const stockIssues = await validateStock(c.env.DB, stockLines)
     if (stockIssues) {
       return c.json({ error: 'stock_error', items: stockIssues }, 400)
     }
@@ -127,14 +233,15 @@ checkout.post('/', async (c) => {
       body.shipping_state ?? '',
       body.shipping_pincode ?? '',
       body.shipping_country ?? 'India',
-      JSON.stringify(body.items),
-      subtotal,
-      printTotal,
-      shippingAmount,
-      totalAmount
+      JSON.stringify(quote.items),
+      quote.subtotal,
+      quote.print_total,
+      quote.shipping_amount,
+      quote.total_amount
     ).run()
 
-    // Link order to customer if logged in
+    await linkDesignsToOrder(c.env.DB, orderId, quote.items)
+
     const authHeaderCod = c.req.header('Authorization') ?? ''
     const customerIdCod = await getCustomerIdFromHeader(authHeaderCod, c.env.DB)
     if (customerIdCod !== null) {
@@ -142,19 +249,17 @@ checkout.post('/', async (c) => {
         .bind(customerIdCod, orderId).run()
     }
 
-    // Decrement stock for each ordered item (COD orders are immediately confirmed)
-    await decrementStock(c.env.DB, body.items)
+    await decrementStock(c.env.DB, stockLines)
 
-    // Wrap all email logic so any failure doesn't break the order response
     try {
-      // Fetch email settings
       const emailRows = await c.env.DB.prepare(
         "SELECT key, value FROM settings WHERE key IN ('email_api_key','email_from_name','email_from_address','merchant_email')"
       ).all<{ key: string; value: string }>()
       const eCfg: Record<string, string> = {}
       for (const row of emailRows.results) eCfg[row.key] = row.value
 
-      // Send order confirmation to customer
+      const origin = new URL(c.req.url).origin
+
       try {
         await sendEmail(
           {
@@ -163,17 +268,18 @@ checkout.post('/', async (c) => {
             html: orderConfirmationHtml({
               id: orderId,
               customer_name: body.customer_name,
-              items_json: JSON.stringify(body.items),
-              total_amount: totalAmount,
+              items_json: JSON.stringify(quote.items),
+              total_amount: quote.total_amount,
+              shipping_amount: quote.shipping_amount,
               payment_method: 'cod',
               shipping_address: body.shipping_address,
+              origin,
             }),
           },
           { email_api_key: eCfg.email_api_key ?? '', email_from_name: eCfg.email_from_name ?? '', email_from_address: eCfg.email_from_address ?? '' }
         )
       } catch { /* non-fatal — order already placed */ }
 
-      // Send new order alert to merchant
       if (eCfg.merchant_email) {
         try {
           await sendEmail(
@@ -184,7 +290,7 @@ checkout.post('/', async (c) => {
                 id: orderId,
                 customer_name: body.customer_name,
                 customer_email: body.customer_email,
-                total_amount: totalAmount,
+                total_amount: quote.total_amount,
                 payment_method: 'cod',
               }),
             },
@@ -210,8 +316,7 @@ checkout.post('/', async (c) => {
     return c.json({ error: 'Razorpay not configured' }, 503)
   }
 
-  // Stock check before creating Razorpay order
-  const rzpStockIssues = await validateStock(c.env.DB, body.items)
+  const rzpStockIssues = await validateStock(c.env.DB, stockLines)
   if (rzpStockIssues) {
     return c.json({ error: 'stock_error', items: rzpStockIssues }, 400)
   }
@@ -220,8 +325,10 @@ checkout.post('/', async (c) => {
   const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: authHeader },
+    // The Razorpay order is created from the SERVER-computed total, never
+    // body.total_amount — this is the whole point of §7.3.
     body: JSON.stringify({
-      amount: Math.round(totalAmount * 100),
+      amount: Math.round(quote.total_amount * 100),
       currency: 'INR',
       receipt: orderId,
     }),
@@ -247,15 +354,16 @@ checkout.post('/', async (c) => {
     body.shipping_state ?? '',
     body.shipping_pincode ?? '',
     body.shipping_country ?? 'India',
-    JSON.stringify(body.items),
-    subtotal,
-    printTotal,
-    shippingAmount,
-    totalAmount,
+    JSON.stringify(quote.items),
+    quote.subtotal,
+    quote.print_total,
+    quote.shipping_amount,
+    quote.total_amount,
     rzpOrder.id
   ).run()
 
-  // Link order to customer if logged in
+  await linkDesignsToOrder(c.env.DB, orderId, quote.items)
+
   const authHeaderRzp = c.req.header('Authorization') ?? ''
   const customerIdRzp = await getCustomerIdFromHeader(authHeaderRzp, c.env.DB)
   if (customerIdRzp !== null) {

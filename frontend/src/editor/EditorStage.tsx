@@ -16,7 +16,7 @@ import {
 import { computeStageGeometry, type NormalizedRect, type StageGeometry } from './geometry'
 import type { EditorMode, EditorSideName } from './types'
 
-interface SideSnapshot {
+export interface SideSnapshot {
   json: string
   width: number
   height: number
@@ -38,6 +38,10 @@ export interface EditorStageProps {
   onBeforeSideSwap?: () => void
   /** Fires once the side-switch content swap has fully settled — wire to useEditorObjects().resumeAndReseedHistory. */
   onAfterSideSwap?: () => void
+  /** POD.md §7.3 — re-editing an existing design (`/customize/:id?design=`). Seeds the internal per-side snapshot cache once, on mount, so opening on a side other than the design's first side still restores correctly. Read once; later prop changes are ignored (this component never remounts across a design load). */
+  initialSnapshots?: Partial<Record<EditorSideName, SideSnapshot>>
+  /** Fires whenever a side's snapshot is cached on swap-out, i.e. the moment it stops being the live/active side — lets the caller keep an always-fresh copy of every side's {json,width,height} without needing to force a side switch (see CustomizerEditor's add-to-cart flow). */
+  onSnapshotCached?: (side: EditorSideName, snapshot: SideSnapshot) => void
 }
 
 /**
@@ -77,6 +81,8 @@ export default function EditorStage({
   onObjectCountChange,
   onBeforeSideSwap,
   onAfterSideSwap,
+  initialSnapshots,
+  onSnapshotCached,
 }: EditorStageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasElRef = useRef<HTMLCanvasElement | null>(null)
@@ -84,7 +90,11 @@ export default function EditorStage({
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
   const [geometry, setGeometry] = useState<StageGeometry | null>(null)
 
-  const snapshotsRef = useRef<Partial<Record<EditorSideName, SideSnapshot>>>({})
+  // Seeded once from `initialSnapshots` (re-editing an existing design —
+  // POD.md §7.3). `useRef`'s initializer only runs on the first render, so
+  // later prop changes are intentionally ignored — this component's
+  // lifetime never spans "load one design, then load a different one".
+  const snapshotsRef = useRef<Partial<Record<EditorSideName, SideSnapshot>>>(initialSnapshots ?? {})
   const prevSideKeyRef = useRef<EditorSideName | null>(null)
   const onCanvasReadyRef = useRef(onCanvasReady)
   onCanvasReadyRef.current = onCanvasReady
@@ -94,6 +104,8 @@ export default function EditorStage({
   onBeforeSideSwapRef.current = onBeforeSideSwap
   const onAfterSideSwapRef = useRef(onAfterSideSwap)
   onAfterSideSwapRef.current = onAfterSideSwap
+  const onSnapshotCachedRef = useRef(onSnapshotCached)
+  onSnapshotCachedRef.current = onSnapshotCached
 
   // Create the Fabric canvas exactly once, as soon as the module and the
   // <canvas> element both exist. Disposed on unmount only.
@@ -158,7 +170,9 @@ export default function EditorStage({
         // useEditorObjects' suspendHistory/resumeAndReseedHistory).
         onBeforeSideSwapRef.current?.()
         if (prevSideKey) {
-          snapshotsRef.current[prevSideKey] = { json: snapshotCanvas(canvas!), ...getCanvasSize(canvas!) }
+          const outgoing = { json: snapshotCanvas(canvas!), ...getCanvasSize(canvas!) }
+          snapshotsRef.current[prevSideKey] = outgoing
+          onSnapshotCachedRef.current?.(prevSideKey, outgoing)
         }
         const stored = snapshotsRef.current[sideKey]
         if (stored) {

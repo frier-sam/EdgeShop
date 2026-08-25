@@ -44,10 +44,14 @@ const NUMERIC_KEYS: Record<string, { min: number; max?: number }> = {
   flat_shipping_amount: { min: 0 },
   free_shipping_over: { min: 0 },
   default_print_fee: { min: 0 },
-  print_dpi: { min: 0 },
+  // Floored well above 0: a 0-DPI export multiplier collapses the print
+  // canvas to zero pixels and the fulfilment render silently fails. 72 is
+  // the lowest DPI anyone would plausibly print at (screen resolution).
+  print_dpi: { min: 72 },
   print_bleed_percent: { min: 0, max: 25 },
   print_safe_percent: { min: 0, max: 25 },
-  max_art_upload_mb: { min: 0 },
+  // A 0MB cap would reject every upload outright.
+  max_art_upload_mb: { min: 1 },
 }
 
 const ALLOWED_KEYS = new Set<string>([...STRING_KEYS, ...Object.keys(NUMERIC_KEYS)])

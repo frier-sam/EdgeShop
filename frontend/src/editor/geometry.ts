@@ -148,6 +148,44 @@ export function computeStageGeometry(input: StageGeometryInput): StageGeometry {
   return { containBox, printRectPx, bleedRectPx, safeRectPx }
 }
 
+// ── Reference (canonical) geometry — POD.md §5.6, §7.2 ───────────────────
+//
+// Persisted `design_json` and the add-to-cart preview compositor both need
+// a canvas size for each side that is INDEPENDENT of whatever the shopper's
+// viewport happened to be. Rather than inventing a second coordinate
+// system, both reuse `computeStageGeometry` with a synthetic "stage" that
+// is exactly the mockup rendered at `PREVIEW_REFERENCE_WIDTH` px wide (the
+// same width POD.md §5.6 specifies for the preview render). The resulting
+// `bleedRectPx` is then, by construction, both:
+//   - the exact size/position to draw the art layer onto in the preview
+//     compositor (no rescale step needed — see editor/preview.ts), and
+//   - the canonical width/height a side's Fabric JSON is rescaled to
+//     before it's POSTed to the server (see editor/fabric/rescaleSnapshot.ts),
+//     so re-editing on a different device rescales FROM this fixed
+//     reference size instead of an arbitrary "whatever the last save's
+//     viewport was" size.
+export const PREVIEW_REFERENCE_WIDTH = 1000
+
+export function computeReferenceGeometry(
+  imageNaturalW: number,
+  imageNaturalH: number,
+  printRect: NormalizedRect,
+  bleedPercent: number,
+  safePercent: number,
+  refWidth: number = PREVIEW_REFERENCE_WIDTH
+): StageGeometry {
+  const stageH = imageNaturalW > 0 ? refWidth * (imageNaturalH / imageNaturalW) : 0
+  return computeStageGeometry({
+    stageW: refWidth,
+    stageH,
+    imageNaturalW,
+    imageNaturalH,
+    printRect,
+    bleedPercent,
+    safePercent,
+  })
+}
+
 // ── DPI (POD.md §5.1, §6.5) ──────────────────────────────────────────────
 
 /** Below this, show a non-blocking "may look blurry" badge on the object. */

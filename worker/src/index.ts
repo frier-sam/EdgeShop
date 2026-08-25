@@ -13,6 +13,7 @@ import account from './routes/account'
 import { requireAdmin } from './middleware/requireAdmin'
 import sitemap from './routes/sitemap'
 import adminCustomers from './routes/admin/customers'
+import designs from './routes/designs'
 import { runMigrations } from './lib/migrate'
 
 export type Env = {
@@ -61,6 +62,11 @@ app.get('/img/*', async (c) => {
 
 app.route('/api/settings', settings)
 app.route('/api/products', products)
+// POD.md §7.1 — public design + art-upload endpoints (/api/uploads/art,
+// /api/designs*). Deliberately mounted BEFORE the requireAdmin wildcard
+// below and outside /api/admin/*, since customers (including guests) use
+// these at add-to-cart time.
+app.route('/api', designs)
 
 // Protect all admin routes with JWT staff check
 app.use('/api/admin/*', requireAdmin)

@@ -12,6 +12,8 @@ import {
   DPI_WARN_THRESHOLD,
   DPI_BLOCK_THRESHOLD,
   starPoints,
+  computeReferenceGeometry,
+  PREVIEW_REFERENCE_WIDTH,
 } from '../geometry'
 
 describe('computeContainBox', () => {
@@ -178,6 +180,34 @@ describe('computeEffectiveDpi (POD.md §5.1 / §6.5)', () => {
   it('degrades gracefully instead of dividing by zero', () => {
     expect(computeEffectiveDpi({ assetNaturalWidth: 100, objectWidthPx: 0, canvasCssWidth: 800, printWidthIn: 12 })).toBe(Infinity)
     expect(computeEffectiveDpi({ assetNaturalWidth: 100, objectWidthPx: 100, canvasCssWidth: 0, printWidthIn: 12 })).toBe(Infinity)
+  })
+})
+
+// POD.md §5.6/§7.2 — the canonical reference geometry both the preview
+// compositor and the design_json persistence rescale use.
+describe('computeReferenceGeometry', () => {
+  it('renders the mockup at exactly PREVIEW_REFERENCE_WIDTH wide with no letterboxing', () => {
+    // stageH is derived from the mockup's own aspect ratio, so contain-fit is always exact.
+    const geo = computeReferenceGeometry(1200, 1500, { x: 0.3, y: 0.28, w: 0.4, h: 0.34 }, 4, 4)
+    expect(geo.containBox.left).toBe(0)
+    expect(geo.containBox.top).toBe(0)
+    expect(geo.containBox.width).toBe(PREVIEW_REFERENCE_WIDTH)
+    expect(geo.containBox.height).toBeCloseTo(PREVIEW_REFERENCE_WIDTH * (1500 / 1200), 5)
+  })
+
+  it('is independent of viewport — same print rect always yields the same bleed rect', () => {
+    const printRect = { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }
+    const a = computeReferenceGeometry(1200, 1200, printRect, 4, 4)
+    const b = computeReferenceGeometry(1200, 1200, printRect, 4, 4)
+    expect(a.bleedRectPx).toEqual(b.bleedRectPx)
+  })
+
+  it('scales proportionally with a custom reference width', () => {
+    const printRect = { x: 0.25, y: 0.25, w: 0.5, h: 0.5 }
+    const at1000 = computeReferenceGeometry(1200, 1200, printRect, 4, 4, 1000)
+    const at2000 = computeReferenceGeometry(1200, 1200, printRect, 4, 4, 2000)
+    expect(at2000.bleedRectPx.w).toBeCloseTo(at1000.bleedRectPx.w * 2, 5)
+    expect(at2000.bleedRectPx.h).toBeCloseTo(at1000.bleedRectPx.h * 2, 5)
   })
 })
 

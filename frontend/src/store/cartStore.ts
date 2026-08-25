@@ -28,6 +28,17 @@ export function cartLineKey(product_id: number, size: string | null, design_id: 
   return `${product_id}:${size ?? '-'}:${design_id ?? 'plain'}`
 }
 
+/** One entry of the server's §7.3 price-mismatch quote — matched back onto cart lines by their composite key. */
+export interface ServerQuoteItem {
+  product_id: number
+  size: string | null
+  design_id: string | null
+  base_price: number
+  size_delta: number
+  print_fees: { side: 'front' | 'back'; fee: number }[]
+  unit_price: number
+}
+
 interface CartStore {
   lines: CartLine[]
   isCartOpen: boolean
@@ -39,6 +50,8 @@ interface CartStore {
   closeCart: () => void
   subtotal: () => number
   totalItems: () => number
+  /** POD.md §7.3/§7.4 — checkout returned `price_mismatch`: overwrite each matching line's pricing fields (never quantity) with the server-computed truth, so re-submitting the order actually matches what the server will charge. */
+  reconcilePricing: (items: ServerQuoteItem[]) => void
 }
 
 export const useCartStore = create<CartStore>()(
@@ -96,6 +109,24 @@ export const useCartStore = create<CartStore>()(
 
       subtotal: () => get().lines.reduce((sum, l) => sum + l.unit_price * l.quantity, 0),
       totalItems: () => get().lines.reduce((sum, l) => sum + l.quantity, 0),
+
+      reconcilePricing: (items) =>
+        set((state) => {
+          const byKey = new Map(items.map((i) => [cartLineKey(i.product_id, i.size, i.design_id), i]))
+          return {
+            lines: state.lines.map((line) => {
+              const match = byKey.get(line.key)
+              if (!match) return line
+              return {
+                ...line,
+                base_price: match.base_price,
+                size_delta: match.size_delta,
+                print_fees: match.print_fees,
+                unit_price: match.unit_price,
+              }
+            }),
+          }
+        }),
     }),
     {
       name: 'edgeshop-cart',
