@@ -3,6 +3,8 @@ import ImageUploader from './ImageUploader'
 import PrintAreaSelector, { DEFAULT_PRINT_RECT } from './PrintAreaSelector'
 import { adminFetch } from './lib/adminFetch'
 import { showToast } from './Toast'
+import Field from '../components/Field'
+import Button from '../components/Button'
 import type { ProductSide } from '../lib/types'
 import type { PrintRect } from './types'
 
@@ -164,15 +166,15 @@ export default function ProductSideCard({
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+    <div className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-card">
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-gray-800 capitalize">{side} side</h3>
+        <h3 className="font-display font-semibold capitalize text-ink">{side} side</h3>
         {removable && (
           <button
             type="button"
             onClick={handleRemove}
             disabled={removing}
-            className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+            className="text-xs font-medium text-danger transition-colors duration-fast hover:text-danger/80 disabled:opacity-50"
           >
             {removing ? 'Removing…' : 'Remove back side'}
           </button>
@@ -188,17 +190,17 @@ export default function ProductSideCard({
       />
 
       {productIsCustomizable ? (
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label className="flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
             checked={draft.customizable}
             onChange={(e) => update('customizable', e.target.checked)}
-            className="w-3.5 h-3.5 rounded border-gray-300"
+            className="h-4 w-4 rounded border-line text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
           />
-          <span className="text-sm text-gray-700">This side is customizable</span>
+          <span className="text-sm text-ink">This side is customizable</span>
         </label>
       ) : (
-        <p className="text-xs text-gray-400 italic">
+        <p className="text-xs italic text-ink-faint">
           Product-level "Customizable" is off in Basics — print-area controls are hidden. This side will just show the mockup.
         </p>
       )}
@@ -215,57 +217,42 @@ export default function ProductSideCard({
               printWidthIn={draft.printWidthIn}
             />
           ) : (
-            <p className="text-xs text-gray-400 italic">Upload a mockup to draw the print area.</p>
+            <p className="text-xs italic text-ink-faint">Upload a mockup to draw the print area.</p>
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Physical print width (inches)</label>
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={draft.printWidthIn}
-                onChange={(e) => update('printWidthIn', parseFloat(e.target.value) || 0)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Print fee (₹)</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                value={draft.printFee}
-                onChange={(e) => update('printFee', parseFloat(e.target.value) || 0)}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-              />
-            </div>
+            <Field
+              label="Physical print width (inches)"
+              type="number"
+              min="0.1"
+              step="0.1"
+              value={draft.printWidthIn}
+              onChange={(e) => update('printWidthIn', parseFloat(e.target.value) || 0)}
+            />
+            <Field
+              label="Print fee (₹)"
+              type="number"
+              min="0"
+              step="1"
+              value={draft.printFee}
+              onChange={(e) => update('printFee', parseFloat(e.target.value) || 0)}
+            />
           </div>
 
           {side === 'back' && frontSide && (
-            <button
-              type="button"
-              onClick={handleCopyFromFront}
-              className="text-xs px-2.5 py-1 border border-gray-300 rounded hover:border-gray-500 text-gray-600 transition-colors"
-            >
+            <Button type="button" variant="secondary" size="sm" onClick={handleCopyFromFront}>
               Copy from front
-            </button>
+            </Button>
           )}
         </div>
       )}
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
 
       <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={saving}
-          className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-        >
-          {saving ? 'Saving…' : `Save ${side} side`}
-        </button>
+        <Button type="button" variant="primary" loading={saving} onClick={handleSave}>
+          Save {side} side
+        </Button>
       </div>
     </div>
   )

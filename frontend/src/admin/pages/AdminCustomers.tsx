@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminFetch } from '../lib/adminFetch'
 import { SkeletonTable } from '../../components/Skeleton'
+import Field from '../../components/Field'
+import Button from '../../components/Button'
+import Badge from '../../components/ui/Badge'
 
 interface Customer {
   id: number
@@ -26,6 +29,29 @@ interface CustomerDetail {
 }
 
 const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' }
+
+function OrderHistory({ detail }: { detail: CustomerDetail | undefined }) {
+  if (!detail) return <p className="text-xs text-ink-faint">Loading…</p>
+  if (detail.orders.length === 0) return <p className="text-xs text-ink-faint">No orders yet.</p>
+  return (
+    <div className="space-y-1.5">
+      {detail.orders.map(order => (
+        <div key={order.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-ink">
+          <Link
+            to={`/admin/orders/${order.id}`}
+            className="font-mono text-accent hover:underline"
+            onClick={e => e.stopPropagation()}
+          >
+            {order.id}
+          </Link>
+          <span className="text-ink-faint">{new Date(order.created_at).toLocaleDateString()}</span>
+          <Badge variant="neutral" size="sm" className="capitalize">{order.order_status}</Badge>
+          <span className="font-medium">{order.total_amount.toFixed(2)}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function AdminCustomers() {
   const queryClient = useQueryClient()
@@ -68,128 +94,165 @@ export default function AdminCustomers() {
 
   const customers = data?.customers ?? []
 
+  function confirmDelete(c: Customer, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (window.confirm(`Delete ${c.email}? Their order history will be preserved.`)) {
+      deleteMutation.mutate(c.id)
+    }
+  }
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-gray-800">Customers</h1>
-        <span className="text-sm text-gray-500">{data?.total ?? 0} total</span>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">Customers</h1>
+        <span className="text-sm text-ink-soft">{data?.total ?? 0} total</span>
       </div>
 
       <div className="mb-4">
-        <input
-          type="text"
-          placeholder="Search by name or email..."
+        <Field
+          label="Search"
+          containerClassName="max-w-sm"
+          placeholder="Search by name or email…"
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1) }}
-          className="w-full max-w-sm border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-300"
         />
       </div>
 
       {isLoading && <SkeletonTable rows={8} cols={5} />}
 
       {!isLoading && customers.length === 0 && (
-        <p className="text-sm text-gray-500 py-8 text-center">No customers found.</p>
+        <p className="rounded-card border border-line bg-surface py-8 text-center text-sm text-ink-faint">No customers found.</p>
       )}
 
       {customers.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Phone</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Registered</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Orders</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Spent</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {customers.map(customer => (
-                <>
-                  <tr
-                    key={customer.id}
-                    className="hover:bg-gray-50 cursor-pointer"
-                    onClick={() => setExpandedId(expandedId === customer.id ? null : customer.id)}
+        <>
+          {/* Mobile: card list */}
+          <div className="space-y-3 md:hidden">
+            {customers.map(customer => {
+              const expanded = expandedId === customer.id
+              return (
+                <div key={customer.id} className="rounded-card border border-line bg-surface shadow-card">
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(expanded ? null : customer.id)}
+                    className="w-full p-4 text-left"
+                    aria-expanded={expanded}
                   >
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900">{customer.name || '—'}</p>
-                      <p className="text-xs text-gray-500">{customer.email}</p>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600 hidden sm:table-cell">{customer.phone || '—'}</td>
-                    <td className="px-4 py-3 text-gray-500 hidden md:table-cell">
-                      {new Date(customer.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-right text-gray-700">{customer.order_count}</td>
-                    <td className="px-4 py-3 text-right font-medium text-gray-900">
-                      {currency}{Number(customer.total_spent).toFixed(2)}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={e => {
-                          e.stopPropagation()
-                          if (window.confirm(`Delete ${customer.email}? Their order history will be preserved.`)) {
-                            deleteMutation.mutate(customer.id)
-                          }
-                        }}
-                        className="text-xs text-red-500 hover:text-red-700"
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-ink">{customer.name || '—'}</p>
+                        <p className="truncate text-xs text-ink-faint">{customer.email}</p>
+                      </div>
+                      <p className="shrink-0 font-semibold text-ink">{currency}{Number(customer.total_spent).toFixed(2)}</p>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-soft">
+                      <span>{customer.phone || '—'}</span>
+                      <span>{customer.order_count} order{customer.order_count !== 1 ? 's' : ''}</span>
+                      <span>Joined {new Date(customer.created_at).toLocaleDateString()}</span>
+                    </div>
+                  </button>
+                  {expanded && (
+                    <div className="border-t border-line bg-surface-2 p-4">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">Order history</p>
+                      <OrderHistory detail={detail} />
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        className="mt-3"
+                        onClick={(e) => confirmDelete(customer, e)}
                       >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                  {expandedId === customer.id && detail && (
-                    <tr key={`${customer.id}-detail`}>
-                      <td colSpan={6} className="px-4 py-3 bg-gray-50">
-                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Order History</p>
-                        {detail.orders.length === 0 ? (
-                          <p className="text-xs text-gray-400">No orders yet.</p>
-                        ) : (
-                          <div className="space-y-1.5">
-                            {detail.orders.map(order => (
-                              <div key={order.id} className="flex items-center justify-between text-xs text-gray-700">
-                                <Link
-                                  to={`/admin/orders/${order.id}`}
-                                  className="text-indigo-600 hover:underline font-mono"
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  {order.id}
-                                </Link>
-                                <span>{new Date(order.created_at).toLocaleDateString()}</span>
-                                <span className="capitalize px-1.5 py-0.5 rounded bg-gray-200 text-gray-700">{order.order_status}</span>
-                                <span className="font-medium">{currency}{order.total_amount.toFixed(2)}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
+                        Delete customer
+                      </Button>
+                    </div>
                   )}
-                </>
-              ))}
-            </tbody>
-          </table>
+                </div>
+              )
+            })}
+          </div>
 
+          {/* Desktop: table */}
+          <div className="hidden overflow-hidden rounded-card border border-line bg-surface md:block">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line bg-surface-2">
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Customer</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Registered</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-ink-soft">Orders</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-ink-soft">Spent</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-ink-soft">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {customers.map(customer => {
+                  const expanded = expandedId === customer.id
+                  return (
+                    <Fragment key={customer.id}>
+                      <tr
+                        className="cursor-pointer transition-colors duration-fast hover:bg-surface-2"
+                        onClick={() => setExpandedId(expanded ? null : customer.id)}
+                      >
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-ink">{customer.name || '—'}</p>
+                          <p className="text-xs text-ink-faint">{customer.email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-ink-soft">{customer.phone || '—'}</td>
+                        <td className="px-4 py-3 text-ink-faint">
+                          {new Date(customer.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-3 text-right text-ink-soft">{customer.order_count}</td>
+                        <td className="px-4 py-3 text-right font-medium text-ink">
+                          {currency}{Number(customer.total_spent).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={(e) => confirmDelete(customer, e)}
+                            className="text-xs font-medium text-danger hover:text-danger/80"
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded && (
+                        <tr>
+                          <td colSpan={6} className="bg-surface-2 px-4 py-3">
+                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-faint">Order history</p>
+                            <OrderHistory detail={detail} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+
+            {(data?.pages ?? 1) > 1 && (
+              <div className="flex items-center justify-center gap-4 border-t border-line py-4">
+                <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
+                  ← Prev
+                </Button>
+                <span className="text-sm text-ink-soft">Page {page} of {data?.pages}</span>
+                <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.min(data?.pages ?? 1, p + 1))} disabled={page === data?.pages}>
+                  Next →
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile pagination */}
           {(data?.pages ?? 1) > 1 && (
-            <div className="flex items-center justify-center gap-4 py-4 border-t border-gray-100">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="text-sm px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40"
-              >
+            <div className="mt-4 flex items-center justify-center gap-4 md:hidden">
+              <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}>
                 ← Prev
-              </button>
-              <span className="text-sm text-gray-500">Page {page} of {data?.pages}</span>
-              <button
-                onClick={() => setPage(p => Math.min(data?.pages ?? 1, p + 1))}
-                disabled={page === data?.pages}
-                className="text-sm px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40"
-              >
+              </Button>
+              <span className="text-sm text-ink-soft">Page {page} of {data?.pages}</span>
+              <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.min(data?.pages ?? 1, p + 1))} disabled={page === data?.pages}>
                 Next →
-              </button>
+              </Button>
             </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )

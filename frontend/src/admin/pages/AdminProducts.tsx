@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
 import { SkeletonTable } from '../../components/Skeleton'
+import Button from '../../components/Button'
+import Field from '../../components/Field'
+import Badge from '../../components/ui/Badge'
 
 interface AdminProductRow {
   id: number
@@ -15,6 +18,14 @@ interface AdminProductRow {
   is_customizable: number
   stock_count: number
   front_image: string | null
+}
+
+function Thumb({ p }: { p: AdminProductRow }) {
+  return (
+    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-btn bg-surface-2">
+      {p.front_image && <img src={p.front_image} alt={p.name} className="h-full w-full object-cover" />}
+    </div>
+  )
 }
 
 export default function AdminProducts() {
@@ -47,110 +58,128 @@ export default function AdminProducts() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-gray-900">Products</h1>
-        <button
-          onClick={() => navigate('/admin/products/new')}
-          className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 transition-colors"
-        >
-          + Add Product
-        </button>
+      <div className="mb-6 flex items-center justify-between gap-3">
+        <h1 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">Products</h1>
+        <Button variant="primary" onClick={() => navigate('/admin/products/new')}>
+          + Add product
+        </Button>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-4">
-        <input
+      <div className="mb-4 flex flex-wrap gap-3">
+        <Field
+          label="Search"
+          containerClassName="min-w-40 flex-1"
           type="search"
-          placeholder="Search products..."
+          placeholder="Search products…"
           value={q}
           onChange={e => { setQ(e.target.value); setPage(1) }}
-          className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 min-w-40 focus:outline-none focus:border-gray-500"
         />
-        <select
+        <Field
+          label="Status"
+          as="select"
+          containerClassName="w-40"
           value={statusFilter}
           onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
-          className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-        >
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="draft">Draft</option>
-        </select>
+          options={[
+            { value: '', label: 'All statuses' },
+            { value: 'active', label: 'Active' },
+            { value: 'draft', label: 'Draft' },
+          ]}
+        />
       </div>
 
       {isLoading ? (
         <SkeletonTable rows={8} cols={5} />
       ) : products.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <p className="mb-2">No products yet</p>
-          <button onClick={() => navigate('/admin/products/new')} className="text-sm underline">Add your first product</button>
+        <div className="rounded-card border border-line bg-surface py-16 text-center text-ink-faint">
+          <p className="mb-3">No products yet</p>
+          <Button variant="secondary" size="sm" onClick={() => navigate('/admin/products/new')}>
+            Add your first product
+          </Button>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Image</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Status</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Stock</th>
-                <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {products.map((p) => (
-                <tr key={p.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded overflow-hidden">
-                      {p.front_image && <img src={p.front_image} alt={p.name} className="w-full h-full object-cover" />}
+        <>
+          {/* Mobile: card list */}
+          <div className="space-y-3 md:hidden">
+            {products.map((p) => (
+              <div key={p.id} className="rounded-card border border-line bg-surface p-4 shadow-card">
+                <div className="flex gap-3">
+                  <Thumb p={p} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-ink">{p.name}</p>
+                    <p className="mt-0.5 text-sm text-ink-soft">₹{p.base_price.toFixed(2)}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <Badge variant={p.status === 'active' ? 'success' : 'neutral'} size="sm">{p.status}</Badge>
+                      {!!p.is_customizable && <Badge variant="accent" size="sm">Customizable</Badge>}
+                      <span className="text-xs text-ink-faint">Stock {p.stock_count}</span>
                     </div>
-                  </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    {p.name}
-                    {!!p.is_customizable && (
-                      <span className="ml-2 text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 align-middle">
-                        Customizable
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-gray-700">₹{p.base_price.toFixed(2)}</td>
-                  <td className="px-4 py-3 hidden sm:table-cell">
-                    <span className={`text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded-full ${
-                      p.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
-                    }`}>
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">{p.stock_count}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Link to={`/admin/products/${p.id}`} className="text-blue-600 hover:text-blue-800 text-xs mr-3">Edit</Link>
-                    <button onClick={() => setDeleteId(p.id)} className="text-red-500 hover:text-red-700 text-xs">Delete</button>
-                  </td>
+                  </div>
+                </div>
+                <div className="mt-3 flex gap-2 border-t border-line pt-3">
+                  <Button as={Link} to={`/admin/products/${p.id}`} variant="secondary" size="sm" fullWidth>
+                    Edit
+                  </Button>
+                  <Button variant="danger" size="sm" fullWidth onClick={() => setDeleteId(p.id)}>
+                    Delete
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-hidden rounded-card border border-line bg-surface md:block">
+            <table className="w-full text-sm">
+              <thead className="border-b border-line bg-surface-2">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Image</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Price</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Stock</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-ink-soft">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {products.map((p) => (
+                  <tr key={p.id} className="transition-colors duration-fast hover:bg-surface-2">
+                    <td className="px-4 py-3">
+                      <Thumb p={p} />
+                    </td>
+                    <td className="px-4 py-3 font-medium text-ink">
+                      {p.name}
+                      {!!p.is_customizable && (
+                        <Badge variant="accent" size="sm" className="ml-2 align-middle">Customizable</Badge>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-ink-soft">₹{p.base_price.toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <Badge variant={p.status === 'active' ? 'success' : 'neutral'} size="sm">{p.status}</Badge>
+                    </td>
+                    <td className="px-4 py-3 text-ink-soft">{p.stock_count}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Link to={`/admin/products/${p.id}`} className="mr-4 text-xs font-medium text-accent hover:text-accent-dark">Edit</Link>
+                      <button onClick={() => setDeleteId(p.id)} className="text-xs font-medium text-danger hover:text-danger/80">Delete</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-4 text-sm text-gray-500">
+        <div className="mt-4 flex items-center justify-between text-sm text-ink-soft">
           <span>{totalProducts} product{totalProducts !== 1 ? 's' : ''} — page {page} of {totalPages}</span>
           <div className="flex gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
+            <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page <= 1}>
               ← Prev
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
               Next →
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -158,19 +187,23 @@ export default function AdminProducts() {
       {/* Delete confirmation */}
       {deleteId !== null && (
         <>
-          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setDeleteId(null)} />
+          <div className="fixed inset-0 z-40 animate-fade-in bg-ink/40" onClick={() => setDeleteId(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full shadow-xl">
-              <h3 className="font-semibold text-gray-900 mb-2">Delete product?</h3>
-              <p className="text-sm text-gray-500 mb-6">This action cannot be undone.</p>
+            <div className="w-full max-w-sm animate-scale-in rounded-card bg-surface p-6 shadow-lift">
+              <h3 className="mb-2 font-display font-semibold text-ink">Delete product?</h3>
+              <p className="mb-6 text-sm text-ink-soft">This action cannot be undone.</p>
               <div className="flex gap-3">
-                <button onClick={() => setDeleteId(null)} className="flex-1 py-2 border border-gray-300 text-sm rounded text-gray-600 hover:bg-gray-50">
+                <Button variant="secondary" fullWidth onClick={() => setDeleteId(null)}>
                   Cancel
-                </button>
-                <button onClick={() => deleteMutation.mutate(deleteId)} disabled={deleteMutation.isPending}
-                  className="flex-1 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50">
-                  {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-                </button>
+                </Button>
+                <Button
+                  variant="danger"
+                  fullWidth
+                  loading={deleteMutation.isPending}
+                  onClick={() => deleteMutation.mutate(deleteId)}
+                >
+                  Delete
+                </Button>
               </div>
             </div>
           </div>

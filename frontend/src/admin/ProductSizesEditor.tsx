@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { adminFetch } from './lib/adminFetch'
 import { showToast } from './Toast'
+import Button from '../components/Button'
+import IconButton from '../components/ui/IconButton'
 import type { ProductSize } from '../lib/types'
 import type { SizeDraftRow } from './types'
 
@@ -33,6 +35,10 @@ function validateRows(rows: SizeDraftRow[]): string | null {
   }
   return null
 }
+
+const ROW_INPUT_CLASSES =
+  'h-11 w-full rounded-btn border border-line bg-surface px-3 text-sm text-ink transition-colors duration-fast ' +
+  'focus:outline-none focus:border-ink focus:ring-2 focus:ring-accent/30'
 
 export default function ProductSizesEditor({ productId, initialSizes, onSaved }: ProductSizesEditorProps) {
   const [rows, setRows] = useState<SizeDraftRow[]>(() => rowsFromSizes(initialSizes))
@@ -94,44 +100,42 @@ export default function ProductSizesEditor({ productId, initialSizes, onSaved }:
   }
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+    <div className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-card">
       <div className="flex items-center justify-between">
-        <h2 className="font-medium text-gray-800">Sizes</h2>
-        <button
-          type="button"
-          onClick={addRow}
-          className="text-xs px-2.5 py-1 border border-gray-300 rounded hover:border-gray-500 text-gray-600 transition-colors"
-        >
+        <h2 className="font-display font-semibold text-ink">Sizes</h2>
+        <Button type="button" variant="secondary" size="sm" onClick={addRow}>
           + Add size
-        </button>
+        </Button>
       </div>
 
       {rows.length === 0 ? (
-        <p className="text-xs text-gray-400 italic">
+        <p className="text-xs italic text-ink-faint">
           No sizes — this is a single-SKU product. Stock is tracked on Basics instead.
         </p>
       ) : (
         <div className="space-y-2">
-          <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr_auto] gap-2 text-[11px] uppercase tracking-wide text-gray-400 px-1">
+          <div className="hidden grid-cols-[1fr_1fr_1fr_auto] gap-2 px-1 text-[11px] uppercase tracking-wide text-ink-faint sm:grid">
             <span>Label</span>
             <span>Price delta (₹)</span>
             <span>Stock</span>
             <span></span>
           </div>
           {rows.map((row, i) => (
-            <div key={row.key} className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+            <div key={row.key} className="grid grid-cols-2 items-center gap-2 rounded-btn border border-line p-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:border-0 sm:p-0">
               <input
                 value={row.label}
                 onChange={(e) => updateRow(row.key, { label: e.target.value })}
                 placeholder="S / M / L / XL"
-                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                aria-label="Size label"
+                className={ROW_INPUT_CLASSES}
               />
               <input
                 type="number"
                 step="0.01"
                 value={row.price_delta}
                 onChange={(e) => updateRow(row.key, { price_delta: parseFloat(e.target.value) || 0 })}
-                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                aria-label="Price delta"
+                className={ROW_INPUT_CLASSES}
               />
               <input
                 type="number"
@@ -139,37 +143,30 @@ export default function ProductSizesEditor({ productId, initialSizes, onSaved }:
                 step="1"
                 value={row.stock_count}
                 onChange={(e) => updateRow(row.key, { stock_count: parseInt(e.target.value, 10) || 0 })}
-                className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+                aria-label="Stock count"
+                className={ROW_INPUT_CLASSES}
               />
-              <div className="flex gap-1 justify-end">
-                <button type="button" onClick={() => moveRow(row.key, -1)} disabled={i === 0}
-                  className="text-xs px-1.5 py-1 border border-gray-200 rounded text-gray-500 hover:border-gray-400 disabled:opacity-30" aria-label="Move up">
-                  ↑
-                </button>
-                <button type="button" onClick={() => moveRow(row.key, 1)} disabled={i === rows.length - 1}
-                  className="text-xs px-1.5 py-1 border border-gray-200 rounded text-gray-500 hover:border-gray-400 disabled:opacity-30" aria-label="Move down">
-                  ↓
-                </button>
-                <button type="button" onClick={() => removeRow(row.key)}
-                  className="text-xs px-1.5 py-1 border border-gray-200 rounded text-red-500 hover:border-red-400" aria-label="Remove">
-                  ×
-                </button>
+              <div className="col-span-2 flex justify-end gap-1 sm:col-span-1">
+                <IconButton variant="ghost" size="sm" onClick={() => moveRow(row.key, -1)} disabled={i === 0} aria-label="Move up">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 19V5M5 12l7-7 7 7" /></svg>
+                </IconButton>
+                <IconButton variant="ghost" size="sm" onClick={() => moveRow(row.key, 1)} disabled={i === rows.length - 1} aria-label="Move down">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M19 12l-7 7-7-7" /></svg>
+                </IconButton>
+                <IconButton variant="ghost" size="sm" onClick={() => removeRow(row.key)} aria-label="Remove size" className="text-danger hover:bg-danger/10">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+                </IconButton>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
 
-      <button
-        type="button"
-        onClick={handleSave}
-        disabled={saving}
-        className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-      >
-        {saving ? 'Saving…' : 'Save sizes'}
-      </button>
+      <Button type="button" variant="primary" loading={saving} onClick={handleSave}>
+        Save sizes
+      </Button>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 import { useRef, type PointerEvent as ReactPointerEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import type { PrintRect } from './types'
+import Button from '../components/Button'
 
 // Minimum rect size, as a flat fraction of each axis (POD.md §4.1:
 // "enforce a sensible minimum size (e.g. 5% of the image)").
@@ -31,6 +32,8 @@ const HANDLE_CURSOR: Record<HandleKey, string> = {
   w: 'ew-resize', e: 'ew-resize',
 }
 
+// Positions the (larger, invisible) hit-target; the visible puck is
+// centred inside it via flex, so the two stay in sync automatically.
 const HANDLE_POSITION: Record<HandleKey, string> = {
   nw: 'top-0 left-0 -translate-x-1/2 -translate-y-1/2',
   n: 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2',
@@ -175,65 +178,68 @@ export default function PrintAreaSelector({ imageUrl, imageW, imageH, value, onC
     : null
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div
         ref={containerRef}
-        className="relative w-full bg-gray-100 rounded overflow-hidden touch-none select-none"
+        className="relative w-full touch-none select-none overflow-hidden rounded-card bg-surface-2"
         style={{ aspectRatio: `${imageW} / ${imageH}` }}
       >
         <img
           src={imageUrl}
           alt="Mockup"
           draggable={false}
-          className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none"
+          className="pointer-events-none absolute inset-0 h-full w-full select-none object-fill"
         />
         {/* The rect itself doubles as the dimmed scrim: a huge box-shadow
             spread fills everything outside it, clipped by the container's
-            overflow-hidden. */}
+            overflow-hidden. A dual-tone (white + accent) boundary keeps the
+            print-area edge legible whether the mockup underneath it is
+            light or dark — a single-colour line can vanish against either. */}
         <div
           role="group"
           aria-label="Print area — drag to move, drag handles to resize, arrow keys to nudge"
           tabIndex={0}
           onPointerDown={(e) => startDrag(e, 'move')}
           onKeyDown={handleKeyDown}
-          className="absolute border-2 border-indigo-500 cursor-move touch-none focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1"
+          className="absolute cursor-move touch-none outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
           style={{
             left: `${value.print_x * 100}%`,
             top: `${value.print_y * 100}%`,
             width: `${value.print_w * 100}%`,
             height: `${value.print_h * 100}%`,
-            boxShadow: '0 0 0 9999px rgba(0,0,0,0.35)',
+            boxShadow:
+              '0 0 0 2px #ffffff, 0 0 0 4px var(--color-accent), 0 0 0 9999px rgb(16 16 20 / 0.6)',
           }}
         >
           {(Object.keys(HANDLE_AXES) as HandleKey[]).map((h) => (
             <div
               key={h}
               onPointerDown={(e) => startDrag(e, h)}
-              className={`absolute w-3 h-3 bg-white border-2 border-indigo-500 rounded-full touch-none ${HANDLE_POSITION[h]}`}
+              // Hit target is a full 24px (touch-floor) square even though
+              // the visible puck is smaller — POD-UI.md §D3: "large enough
+              // to grab on touch (≥24px hit area even if visually smaller)".
+              className={`absolute flex h-6 w-6 touch-none items-center justify-center ${HANDLE_POSITION[h]}`}
               style={{ cursor: HANDLE_CURSOR[h] }}
-            />
+            >
+              {/* White fill + dark ring reads on any garment colour —
+                  black jacket or white tee alike — unlike a single accent
+                  dot which can disappear against a similarly-toned mockup. */}
+              <span className="pointer-events-none block h-3 w-3 rounded-full border-2 border-ink bg-white shadow-[0_1px_3px_rgb(0_0_0_/_0.4)]" />
+            </div>
           ))}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={handleReset}
-          className="text-xs px-2.5 py-1 border border-gray-300 rounded hover:border-gray-500 text-gray-600 transition-colors"
-        >
+        <Button type="button" variant="secondary" size="sm" onClick={handleReset}>
           Reset
-        </button>
-        <button
-          type="button"
-          onClick={handleCenter}
-          className="text-xs px-2.5 py-1 border border-gray-300 rounded hover:border-gray-500 text-gray-600 transition-colors"
-        >
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={handleCenter}>
           Center
-        </button>
+        </Button>
       </div>
 
-      <div className="text-[11px] text-gray-500 font-mono leading-relaxed">
+      <div className="font-mono text-[11px] leading-relaxed text-ink-soft">
         <div>
           x {round3(value.print_x)} &nbsp; y {round3(value.print_y)} &nbsp; w {round3(value.print_w)} &nbsp; h {round3(value.print_h)}
         </div>

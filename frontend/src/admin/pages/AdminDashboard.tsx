@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminFetch } from '../lib/adminFetch'
-import { SkeletonStatCards } from '../../components/Skeleton'
+import { SkeletonStatCards, Skeleton } from '../../components/Skeleton'
+import Badge from '../../components/ui/Badge'
 
 // POD.md §8.4 — trimmed to what a merchant needs at a glance for
 // fulfilment: today's orders, revenue today/30d, orders waiting to be
@@ -33,56 +34,56 @@ export default function AdminDashboard() {
 
   if (isLoading) return (
     <div className="space-y-6">
-      <div className="h-7 w-32 bg-gray-200 rounded animate-pulse" />
+      <Skeleton className="h-7 w-32" />
       <SkeletonStatCards count={4} />
-      <div className="bg-white rounded-lg border border-gray-200 h-64 animate-pulse" />
+      <div className="h-64 rounded-card border border-line bg-surface" />
     </div>
   )
-  if (isError) return <p className="text-sm text-red-500">Failed to load dashboard. Please refresh.</p>
+  if (isError) return <p className="text-sm text-danger">Failed to load dashboard. Please refresh.</p>
   if (!data) return null
 
   const stats = [
-    { label: 'Orders Today', value: data.orders_today.toString() },
-    { label: 'Revenue Today', value: `₹${data.revenue_today.toLocaleString('en-IN')}` },
+    { label: 'Orders today', value: data.orders_today.toString() },
+    { label: 'Revenue today', value: `₹${data.revenue_today.toLocaleString('en-IN')}` },
     { label: 'Revenue (30d)', value: `₹${data.revenue_30d.toLocaleString('en-IN')}` },
-    { label: 'Pending Fulfilment', value: data.pending_fulfilment.toString() },
+    { label: 'Pending fulfilment', value: data.pending_fulfilment.toString(), emphasize: data.pending_fulfilment > 0 },
   ]
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
+      <h1 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">Dashboard</h1>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(({ label, value }) => (
-          <div key={label} className="bg-white rounded-lg border border-gray-200 p-4">
-            <p className="text-xs text-gray-500 mb-1">{label}</p>
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {stats.map(({ label, value, emphasize }) => (
+          <div key={label} className="rounded-card border border-line bg-surface p-4 shadow-card">
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-soft">{label}</p>
+            <p className={`mt-1 font-display text-2xl font-bold ${emphasize ? 'text-accent' : 'text-ink'}`}>{value}</p>
           </div>
         ))}
       </div>
 
       {/* Low stock */}
-      <div className="bg-white rounded-lg border border-gray-200">
-        <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-medium text-gray-800 text-sm">Low Stock (&lt; 5)</h2>
-          <Link to="/admin/products" className="text-xs text-blue-600 hover:text-blue-800">View all</Link>
+      <div className="rounded-card border border-line bg-surface shadow-card">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
+          <h2 className="text-sm font-semibold text-ink">Low stock (&lt; 5)</h2>
+          <Link to="/admin/products" className="text-xs font-medium text-accent transition-colors duration-fast hover:text-accent-dark">
+            View all
+          </Link>
         </div>
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-line">
           {data.low_stock.length === 0 && (
-            <p className="px-4 py-6 text-sm text-gray-400 text-center">All products are well stocked.</p>
+            <p className="px-4 py-6 text-center text-sm text-ink-faint">All products are well stocked.</p>
           )}
           {data.low_stock.map(row => (
-            <div key={`${row.product_id}-${row.size_label ?? 'base'}`} className="px-4 py-3 flex items-center justify-between">
-              <p className="text-sm text-gray-900">
+            <div key={`${row.product_id}-${row.size_label ?? 'base'}`} className="flex items-center justify-between px-4 py-3">
+              <p className="text-sm text-ink">
                 {row.name}
-                {row.size_label && <span className="text-gray-400"> &middot; {row.size_label}</span>}
+                {row.size_label && <span className="text-ink-faint"> &middot; {row.size_label}</span>}
               </p>
-              <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                row.stock_count === 0 ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-              }`}>
+              <Badge variant={row.stock_count === 0 ? 'danger' : 'warning'} size="sm">
                 {row.stock_count === 0 ? 'Out of stock' : `${row.stock_count} left`}
-              </span>
+              </Badge>
             </div>
           ))}
         </div>

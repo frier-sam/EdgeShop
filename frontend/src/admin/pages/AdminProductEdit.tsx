@@ -5,6 +5,9 @@ import { showToast } from '../Toast'
 import { adminFetch } from '../lib/adminFetch'
 import ProductSideCard from '../ProductSideCard'
 import ProductSizesEditor from '../ProductSizesEditor'
+import Field from '../../components/Field'
+import Button from '../../components/Button'
+import { Skeleton } from '../../components/Skeleton'
 import type { ProductDetail, ProductSide, ProductSize } from '../../lib/types'
 
 const DEFAULT_PRINT_FEE_FALLBACK = 99
@@ -35,6 +38,15 @@ function basicsFromProduct(p: ProductDetail): BasicsDraft {
   }
 }
 
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-card">
+      <h2 className="font-display font-semibold text-ink">{title}</h2>
+      {children}
+    </div>
+  )
+}
+
 // ── Preview check (POD.md §4.4 point 4) ──────────────────────────────
 // Sample text dropped into the print area over the front mockup so a
 // merchant can sanity-check placement before publishing. Deliberately a
@@ -42,14 +54,13 @@ function basicsFromProduct(p: ProductDetail): BasicsDraft {
 // Phase 6's job).
 function PreviewCheck({ front }: { front: ProductSide }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-3">
-      <h2 className="font-medium text-gray-800">Preview check</h2>
-      <p className="text-xs text-gray-400">Sample text dropped into the saved print area — a rough sanity check, not the real editor.</p>
+    <Section title="Preview check">
+      <p className="-mt-2 text-xs text-ink-faint">Sample text dropped into the saved print area — a rough sanity check, not the real editor.</p>
       <div
-        className="relative w-full max-w-sm rounded overflow-hidden bg-gray-100"
+        className="relative w-full max-w-sm overflow-hidden rounded-btn bg-surface-2"
         style={{ aspectRatio: `${front.image_w} / ${front.image_h}` }}
       >
-        <img src={front.image_url} alt="Front mockup" className="absolute inset-0 w-full h-full object-fill" />
+        <img src={front.image_url} alt="Front mockup" className="absolute inset-0 h-full w-full object-fill" />
         <div
           className="absolute flex items-center justify-center overflow-hidden p-1"
           style={{
@@ -59,12 +70,12 @@ function PreviewCheck({ front }: { front: ProductSide }) {
             height: `${front.print_h * 100}%`,
           }}
         >
-          <span className="text-[10px] sm:text-sm font-bold text-gray-900 bg-white/80 px-1.5 py-0.5 rounded text-center leading-tight">
+          <span className="rounded bg-white/80 px-1.5 py-0.5 text-center text-[10px] font-bold leading-tight text-ink sm:text-sm">
             Your Design Here
           </span>
         </div>
       </div>
-    </div>
+    </Section>
   )
 }
 
@@ -101,81 +112,72 @@ function CreateProductForm() {
   return (
     <div className="max-w-2xl space-y-6">
       <div>
-        <Link to="/admin/products" className="text-xs text-gray-400 hover:text-gray-700 mb-1 inline-block">
+        <Link to="/admin/products" className="mb-1 inline-block text-xs text-ink-faint transition-colors duration-fast hover:text-ink">
           ← Back to Products
         </Link>
-        <h1 className="text-xl font-semibold text-gray-900">New Product</h1>
+        <h1 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">New Product</h1>
       </div>
-      <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Name *</label>
-          <input
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+      <Section title="Basics">
+        <Field
+          label="Name"
+          required
+          value={form.name}
+          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+        />
+        <Field
+          label="Description"
+          as="textarea"
+          rows={3}
+          value={form.description}
+          onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+        />
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label="Base price (₹)"
+            required
+            type="number" min="0" step="0.01"
+            value={form.base_price}
+            onChange={(e) => setForm((f) => ({ ...f, base_price: e.target.value }))}
           />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Description</label>
-          <textarea
-            rows={3}
-            value={form.description}
-            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500 resize-y"
+          <Field
+            label="Stock"
+            type="number" min="0"
+            value={form.stock_count}
+            onChange={(e) => setForm((f) => ({ ...f, stock_count: e.target.value }))}
+            hint="Only used if the product ends up with no sizes."
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Base Price (₹) *</label>
-            <input
-              type="number" min="0" step="0.01"
-              value={form.base_price}
-              onChange={(e) => setForm((f) => ({ ...f, base_price: e.target.value }))}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Stock</label>
-            <input
-              type="number" min="0"
-              value={form.stock_count}
-              onChange={(e) => setForm((f) => ({ ...f, stock_count: e.target.value }))}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            />
-            <p className="text-[11px] text-gray-400 mt-1">Only used if the product ends up with no sizes.</p>
-          </div>
+          <Field
+            label="Category"
+            value={form.category}
+            onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
+          />
+          <Field
+            label="Status"
+            as="select"
+            value={form.status}
+            onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as 'active' | 'draft' }))}
+            options={[
+              { value: 'active', label: 'Active' },
+              { value: 'draft', label: 'Draft' },
+            ]}
+          />
         </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Category</label>
-            <input
-              value={form.category}
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Status</label>
-            <select
-              value={form.status}
-              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as 'active' | 'draft' }))}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            >
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
-            </select>
-          </div>
-        </div>
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label className="flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
             checked={form.is_customizable}
             onChange={(e) => setForm((f) => ({ ...f, is_customizable: e.target.checked }))}
-            className="w-3.5 h-3.5 rounded border-gray-300"
+            className="h-4 w-4 rounded border-line text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
           />
-          <span className="text-sm text-gray-700">Customizable (customer can print their own design on this product)</span>
+          <span className="text-sm text-ink">Customizable (customer can print their own design on this product)</span>
         </label>
-        <button
+        <Button
+          fullWidth
+          size="lg"
+          loading={createMutation.isPending}
+          disabled={!form.name.trim() || form.base_price === ''}
           onClick={() => {
             if (!form.name.trim() || form.base_price === '') return
             createMutation.mutate({
@@ -189,13 +191,11 @@ function CreateProductForm() {
               is_customizable: form.is_customizable ? 1 : 0,
             })
           }}
-          disabled={createMutation.isPending || !form.name.trim() || form.base_price === ''}
-          className="w-full py-2.5 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
         >
-          {createMutation.isPending ? 'Creating…' : 'Create Product'}
-        </button>
-        <p className="text-xs text-gray-400 text-center">Mockups, print areas and sizes can be added after creating the product.</p>
-      </div>
+          Create product
+        </Button>
+        <p className="text-center text-xs text-ink-faint">Mockups, print areas and sizes can be added after creating the product.</p>
+      </Section>
     </div>
   )
 }
@@ -274,8 +274,17 @@ function EditProductForm({ id }: { id: string }) {
     })
   }
 
-  if (isLoading || !basics) return <p className="text-sm text-gray-400">Loading…</p>
-  if (error || !product) return <p className="text-sm text-red-500">Product not found.</p>
+  if (isLoading || !basics) return (
+    <div className="max-w-2xl space-y-6">
+      <Skeleton className="h-7 w-48" />
+      <div className="space-y-3 rounded-card border border-line bg-surface p-5">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-11 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    </div>
+  )
+  if (error || !product) return <p className="text-sm text-danger">Product not found.</p>
 
   const frontSide = product.sides.find((s) => s.side === 'front') ?? null
   const backSide = product.sides.find((s) => s.side === 'back') ?? null
@@ -298,124 +307,100 @@ function EditProductForm({ id }: { id: string }) {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Link to="/admin/products" className="text-xs text-gray-400 hover:text-gray-700 mb-1 inline-block">
+          <Link to="/admin/products" className="mb-1 inline-block text-xs text-ink-faint transition-colors duration-fast hover:text-ink">
             ← Back to Products
           </Link>
-          <h1 className="text-xl font-semibold text-gray-900">{product.name}</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">{product.name}</h1>
         </div>
         <a
           href={`/product/${product.slug ?? id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 text-xs text-gray-500 hover:text-gray-800 border border-gray-200 rounded px-3 py-1.5 mt-5"
+          className="shrink-0 rounded-btn border border-line px-3 py-1.5 text-xs text-ink-soft transition-colors duration-fast hover:border-ink-faint hover:text-ink"
         >
           View on storefront ↗
         </a>
       </div>
 
       {/* 1. Basics */}
-      <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-        <h2 className="font-medium text-gray-800">Basics</h2>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Name *</label>
-          <input
-            value={basics.name}
-            onChange={(e) => setBasics({ ...basics, name: e.target.value })}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
+      <Section title="Basics">
+        <Field
+          label="Name"
+          required
+          value={basics.name}
+          onChange={(e) => setBasics({ ...basics, name: e.target.value })}
+        />
+        <Field
+          label="Slug"
+          value={basics.slug}
+          onChange={(e) => setBasics({ ...basics, slug: e.target.value })}
+          placeholder={product.slug ?? ''}
+        />
+        <Field
+          label="Description"
+          as="textarea"
+          rows={4}
+          value={basics.description}
+          onChange={(e) => setBasics({ ...basics, description: e.target.value })}
+        />
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label="Category"
+            value={basics.category}
+            onChange={(e) => setBasics({ ...basics, category: e.target.value })}
           />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Slug</label>
-          <input
-            value={basics.slug}
-            onChange={(e) => setBasics({ ...basics, slug: e.target.value })}
-            placeholder={product.slug ?? ''}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Description</label>
-          <textarea
-            rows={4}
-            value={basics.description}
-            onChange={(e) => setBasics({ ...basics, description: e.target.value })}
-            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500 resize-y"
+          <Field
+            label="Status"
+            as="select"
+            value={basics.status}
+            onChange={(e) => setBasics({ ...basics, status: e.target.value as 'active' | 'draft' })}
+            options={[
+              { value: 'active', label: 'Active' },
+              { value: 'draft', label: 'Draft' },
+            ]}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Category</label>
-            <input
-              value={basics.category}
-              onChange={(e) => setBasics({ ...basics, category: e.target.value })}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Status</label>
-            <select
-              value={basics.status}
-              onChange={(e) => setBasics({ ...basics, status: e.target.value as 'active' | 'draft' })}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            >
-              <option value="active">Active</option>
-              <option value="draft">Draft</option>
-            </select>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Base Price (₹) *</label>
-            <input
-              type="number" min="0" step="0.01"
-              value={basics.base_price}
-              onChange={(e) => setBasics({ ...basics, base_price: e.target.value })}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Compare-at Price</label>
-            <input
-              type="number" min="0" step="0.01"
-              value={basics.compare_price}
-              onChange={(e) => setBasics({ ...basics, compare_price: e.target.value })}
-              placeholder="Optional"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            />
-          </div>
+          <Field
+            label="Base price (₹)"
+            required
+            type="number" min="0" step="0.01"
+            value={basics.base_price}
+            onChange={(e) => setBasics({ ...basics, base_price: e.target.value })}
+          />
+          <Field
+            label="Compare-at price"
+            type="number" min="0" step="0.01"
+            value={basics.compare_price}
+            onChange={(e) => setBasics({ ...basics, compare_price: e.target.value })}
+            placeholder="Optional"
+          />
         </div>
         {!hasSizes && (
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Stock Count</label>
-            <input
-              type="number" min="0" step="1"
-              value={basics.stock_count}
-              onChange={(e) => setBasics({ ...basics, stock_count: e.target.value })}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            />
-            <p className="text-[11px] text-gray-400 mt-1">This product has no sizes, so stock is tracked here directly.</p>
-          </div>
+          <Field
+            label="Stock count"
+            type="number" min="0" step="1"
+            value={basics.stock_count}
+            onChange={(e) => setBasics({ ...basics, stock_count: e.target.value })}
+            hint="This product has no sizes, so stock is tracked here directly."
+          />
         )}
-        <label className="flex items-center gap-2 cursor-pointer">
+        <label className="flex cursor-pointer items-center gap-2">
           <input
             type="checkbox"
             checked={basics.is_customizable}
             onChange={(e) => setBasics({ ...basics, is_customizable: e.target.checked })}
-            className="w-3.5 h-3.5 rounded border-gray-300"
+            className="h-4 w-4 rounded border-line text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
           />
-          <span className="text-sm text-gray-700">Customizable</span>
+          <span className="text-sm text-ink">Customizable</span>
         </label>
-        {basicsError && <p className="text-xs text-red-500">{basicsError}</p>}
-        <button
-          onClick={handleSaveBasics}
-          disabled={basicsMutation.isPending}
-          className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-        >
-          {basicsMutation.isPending ? 'Saving…' : 'Save basics'}
-        </button>
-      </div>
+        {basicsError && <p className="text-xs text-danger">{basicsError}</p>}
+        <Button loading={basicsMutation.isPending} onClick={handleSaveBasics}>
+          Save basics
+        </Button>
+      </Section>
 
       {/* 2. Sizes */}
       <ProductSizesEditor
@@ -428,7 +413,7 @@ function EditProductForm({ id }: { id: string }) {
 
       {/* 3. Sides */}
       <div className="space-y-4">
-        <h2 className="font-medium text-gray-800 px-1">Sides</h2>
+        <h2 className="px-1 font-display font-semibold text-ink">Sides</h2>
         <ProductSideCard
           productId={numericId}
           side="front"
@@ -454,7 +439,7 @@ function EditProductForm({ id }: { id: string }) {
           <button
             type="button"
             onClick={() => setAddingBack(true)}
-            className="text-sm px-4 py-2 border border-dashed border-gray-300 rounded hover:border-gray-500 text-gray-500 transition-colors w-full text-center"
+            className="w-full rounded-card border border-dashed border-line py-3 text-center text-sm text-ink-soft transition-colors duration-fast hover:border-ink-faint hover:text-ink"
           >
             + Add back side
           </button>

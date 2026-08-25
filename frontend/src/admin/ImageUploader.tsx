@@ -1,6 +1,7 @@
 import { useState, useRef, type DragEvent } from 'react'
 import { processImage } from '../utils/imageProcessor'
 import { adminFetch } from './lib/adminFetch'
+import Button from '../components/Button'
 
 export interface UploadResult {
   url: string
@@ -96,21 +97,22 @@ export default function ImageUploader({ onUploadComplete, existingUrl, prefix }:
   const statusText: Record<UploadStatus, string> = {
     idle: 'Click or drag an image (PNG, JPG)',
     processing: 'Optimising to WebP…',
-    uploading: 'Uploading to R2…',
-    done: 'Upload complete!',
+    uploading: 'Uploading…',
+    done: 'Upload complete',
     error: errorMsg || 'Upload failed. Try again.',
   }
+  const busy = status === 'processing' || status === 'uploading'
 
   return (
     <div
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
-      className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors"
+      className="rounded-card border-2 border-dashed border-line p-6 text-center transition-colors duration-fast hover:border-ink-faint"
     >
       {preview && (
-        <img src={preview} alt="Preview" className="mx-auto mb-4 max-h-40 object-contain rounded" />
+        <img src={preview} alt="Preview" className="mx-auto mb-4 max-h-40 rounded-btn object-contain" />
       )}
-      <p className={`text-sm mb-3 ${status === 'error' ? 'text-red-500' : status === 'done' ? 'text-green-600' : 'text-gray-500'}`}>
+      <p className={`mb-3 text-sm ${status === 'error' ? 'text-danger' : status === 'done' ? 'text-success' : 'text-ink-soft'}`}>
         {statusText[status]}
       </p>
       <input
@@ -124,14 +126,9 @@ export default function ImageUploader({ onUploadComplete, existingUrl, prefix }:
           e.target.value = ''
         }}
       />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={status === 'processing' || status === 'uploading'}
-        className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-      >
-        {status === 'processing' || status === 'uploading' ? 'Working...' : 'Choose Image'}
-      </button>
+      <Button type="button" variant="primary" size="sm" loading={busy} onClick={() => inputRef.current?.click()}>
+        {busy ? 'Working…' : 'Choose image'}
+      </Button>
     </div>
   )
 }

@@ -26,6 +26,12 @@ export function showToast(message: string, type: Toast['type'] = 'success') {
   }, 4000)
 }
 
+const TOAST_CLASSES: Record<Toast['type'], string> = {
+  success: 'bg-ink text-white',
+  error: 'bg-danger text-white',
+  info: 'bg-accent text-on-accent',
+}
+
 export function ToastContainer() {
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -37,19 +43,16 @@ export function ToastContainer() {
   if (toasts.length === 0) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] space-y-2 pointer-events-none">
+    <div className="pointer-events-none fixed inset-x-4 bottom-4 z-[100] flex flex-col items-end gap-2 sm:inset-x-auto sm:right-4">
       {toasts.map(toast => (
         <div
           key={toast.id}
-          className={`px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white pointer-events-auto flex items-center gap-2 animate-in slide-in-from-bottom-2 duration-300 ${
-            toast.type === 'success' ? 'bg-gray-900' :
-            toast.type === 'error' ? 'bg-red-600' :
-            'bg-blue-600'
-          }`}
+          role="status"
+          className={`pointer-events-auto flex w-full items-center gap-2 rounded-btn px-4 py-3 text-sm font-medium shadow-lift animate-fade-up sm:w-auto ${TOAST_CLASSES[toast.type]}`}
         >
-          {toast.type === 'success' && <span>&#10003;</span>}
-          {toast.type === 'error' && <span>&#10005;</span>}
-          {toast.type === 'info' && <span>&#8505;</span>}
+          {toast.type === 'success' && <span aria-hidden="true">&#10003;</span>}
+          {toast.type === 'error' && <span aria-hidden="true">&#10005;</span>}
+          {toast.type === 'info' && <span aria-hidden="true">&#8505;</span>}
           {toast.message}
         </div>
       ))}

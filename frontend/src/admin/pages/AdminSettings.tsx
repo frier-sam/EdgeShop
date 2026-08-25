@@ -6,6 +6,8 @@ import { COUNTRY_CODES } from '../../utils/countryCodes'
 import { Skeleton } from '../../components/Skeleton'
 import ToggleField from '../../components/ToggleField'
 import SelectField from '../../components/SelectField'
+import Field from '../../components/Field'
+import Button from '../../components/Button'
 
 interface Settings {
   store_name: string
@@ -60,20 +62,19 @@ class SaveError extends Error {
   }
 }
 
-interface FieldErrorHintProps {
-  fieldError: { field?: string; message: string } | null
-  field: string
+type FieldError = { field?: string; message: string } | null
+
+function fieldErrorFor(fieldError: FieldError, field: string): string | undefined {
+  return fieldError?.field === field ? fieldError.message : undefined
 }
 
-function FieldErrorHint({ fieldError, field }: FieldErrorHintProps) {
-  if (!fieldError || fieldError.field !== field) return null
-  return <p className="text-xs text-red-500 mt-1">{fieldError.message}</p>
-}
-
-function errorBorder(fieldError: { field?: string; message: string } | null, field: string) {
-  return fieldError?.field === field
-    ? 'border-red-400 focus:border-red-500'
-    : 'border-gray-300 focus:border-gray-500'
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-card">
+      <h2 className="font-display font-semibold text-ink">{title}</h2>
+      {children}
+    </div>
+  )
 }
 
 export default function AdminSettings() {
@@ -85,7 +86,7 @@ export default function AdminSettings() {
   })
 
   const [form, setForm] = useState<Settings>(DEFAULT_FORM)
-  const [fieldError, setFieldError] = useState<{ field?: string; message: string } | null>(null)
+  const [fieldError, setFieldError] = useState<FieldError>(null)
 
   useEffect(() => {
     if (settings) setForm((prev) => ({ ...prev, ...settings }))
@@ -118,10 +119,10 @@ export default function AdminSettings() {
     <div className="max-w-2xl space-y-6">
       <Skeleton className="h-7 w-24" />
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="bg-white rounded-lg border border-gray-200 p-5 space-y-3">
+        <div key={i} className="space-y-3 rounded-card border border-line bg-surface p-5">
           <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-9 w-full" />
-          <Skeleton className="h-9 w-full" />
+          <Skeleton className="h-11 w-full" />
+          <Skeleton className="h-11 w-full" />
         </div>
       ))}
     </div>
@@ -129,25 +130,21 @@ export default function AdminSettings() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">Settings</h1>
+      <h1 className="mb-6 font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">Settings</h1>
 
       <form
         onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form) }}
         className="space-y-6"
       >
         {/* Store */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-          <h2 className="font-medium text-gray-800">Store</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Store Name</label>
-              <input
-                value={form.store_name}
-                onChange={(e) => setForm({ ...form, store_name: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'store_name')}`}
-              />
-              <FieldErrorHint fieldError={fieldError} field="store_name" />
-            </div>
+        <Section title="Store">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Store name"
+              value={form.store_name}
+              onChange={(e) => setForm({ ...form, store_name: e.target.value })}
+              error={fieldErrorFor(fieldError, 'store_name')}
+            />
             <SelectField
               label="Currency"
               value={form.currency}
@@ -162,163 +159,120 @@ export default function AdminSettings() {
               ]}
             />
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Default Country (phone dial code)</label>
-            <select
-              value={form.default_country_code}
-              onChange={(e) => setForm({ ...form, default_country_code: e.target.value })}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-            >
-              {COUNTRY_CODES.map((c) => (
-                <option key={c.code + c.name} value={c.code}>
-                  {c.code} — {c.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-400 mt-1">Pre-selected dial code on the checkout phone field.</p>
-          </div>
-        </div>
+          <Field
+            label="Default country (phone dial code)"
+            as="select"
+            value={form.default_country_code}
+            onChange={(e) => setForm({ ...form, default_country_code: e.target.value })}
+            hint="Pre-selected dial code on the checkout phone field."
+            options={COUNTRY_CODES.map((c) => ({ value: c.code, label: `${c.code} — ${c.name}` }))}
+          />
+        </Section>
 
         {/* Payments */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-          <h2 className="font-medium text-gray-800">Payments</h2>
+        <Section title="Payments">
           <ToggleField
             label="Cash on Delivery"
             description="Let customers pay on delivery instead of online."
             checked={form.cod_enabled === 'true'}
             onChange={(checked) => setForm({ ...form, cod_enabled: checked ? 'true' : 'false' })}
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Razorpay Key ID</label>
-              <input
-                value={form.razorpay_key_id}
-                onChange={(e) => setForm({ ...form, razorpay_key_id: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none font-mono ${errorBorder(fieldError, 'razorpay_key_id')}`}
-              />
-              <FieldErrorHint fieldError={fieldError} field="razorpay_key_id" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Razorpay Key Secret</label>
-              <input
-                type="password"
-                value={form.razorpay_key_secret}
-                onChange={(e) => setForm({ ...form, razorpay_key_secret: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none font-mono ${errorBorder(fieldError, 'razorpay_key_secret')}`}
-                autoComplete="off"
-              />
-              <FieldErrorHint fieldError={fieldError} field="razorpay_key_secret" />
-            </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Razorpay key ID"
+              value={form.razorpay_key_id}
+              onChange={(e) => setForm({ ...form, razorpay_key_id: e.target.value })}
+              error={fieldErrorFor(fieldError, 'razorpay_key_id')}
+            />
+            <Field
+              label="Razorpay key secret"
+              type="password"
+              autoComplete="off"
+              value={form.razorpay_key_secret}
+              onChange={(e) => setForm({ ...form, razorpay_key_secret: e.target.value })}
+              error={fieldErrorFor(fieldError, 'razorpay_key_secret')}
+            />
           </div>
-        </div>
+        </Section>
 
         {/* Shipping */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-          <h2 className="font-medium text-gray-800">Shipping</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Flat Shipping Amount</label>
-              <input
-                type="number" min={0} step="0.01"
-                value={form.flat_shipping_amount}
-                onChange={(e) => setForm({ ...form, flat_shipping_amount: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'flat_shipping_amount')}`}
-              />
-              <FieldErrorHint fieldError={fieldError} field="flat_shipping_amount" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Free Shipping Over</label>
-              <input
-                type="number" min={0} step="0.01"
-                value={form.free_shipping_over}
-                onChange={(e) => setForm({ ...form, free_shipping_over: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'free_shipping_over')}`}
-              />
-              <p className="text-xs text-gray-400 mt-1">Order subtotal above which shipping is free. 0 = never free.</p>
-              <FieldErrorHint fieldError={fieldError} field="free_shipping_over" />
-            </div>
+        <Section title="Shipping">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Flat shipping amount"
+              type="number" min={0} step="0.01"
+              value={form.flat_shipping_amount}
+              onChange={(e) => setForm({ ...form, flat_shipping_amount: e.target.value })}
+              error={fieldErrorFor(fieldError, 'flat_shipping_amount')}
+            />
+            <Field
+              label="Free shipping over"
+              type="number" min={0} step="0.01"
+              value={form.free_shipping_over}
+              onChange={(e) => setForm({ ...form, free_shipping_over: e.target.value })}
+              hint="Order subtotal above which shipping is free. 0 = never free."
+              error={fieldErrorFor(fieldError, 'free_shipping_over')}
+            />
           </div>
-        </div>
+        </Section>
 
         {/* Printing */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-          <h2 className="font-medium text-gray-800">Printing</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Default Print Fee</label>
-              <input
-                type="number" min={0} step="0.01"
-                value={form.default_print_fee}
-                onChange={(e) => setForm({ ...form, default_print_fee: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'default_print_fee')}`}
-              />
-              <p className="text-xs text-gray-400 mt-1">Pre-fills the per-side fee in the product editor.</p>
-              <FieldErrorHint fieldError={fieldError} field="default_print_fee" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Print DPI</label>
-              <input
-                type="number" min={0} step="1"
-                value={form.print_dpi}
-                onChange={(e) => setForm({ ...form, print_dpi: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'print_dpi')}`}
-              />
-              <p className="text-xs text-gray-400 mt-1">Resolution used for the print-ready export.</p>
-              <FieldErrorHint fieldError={fieldError} field="print_dpi" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Bleed %</label>
-              <input
-                type="number" min={0} max={25} step="0.5"
-                value={form.print_bleed_percent}
-                onChange={(e) => setForm({ ...form, print_bleed_percent: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'print_bleed_percent')}`}
-              />
-              <p className="text-xs text-gray-400 mt-1">How far artwork bleeds outside the print area. 0-25.</p>
-              <FieldErrorHint fieldError={fieldError} field="print_bleed_percent" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Safe Area %</label>
-              <input
-                type="number" min={0} max={25} step="0.5"
-                value={form.print_safe_percent}
-                onChange={(e) => setForm({ ...form, print_safe_percent: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'print_safe_percent')}`}
-              />
-              <p className="text-xs text-gray-400 mt-1">Inset kept clear of the print area edge. 0-25.</p>
-              <FieldErrorHint fieldError={fieldError} field="print_safe_percent" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Max Art Upload (MB)</label>
-              <input
-                type="number" min={0} step="1"
-                value={form.max_art_upload_mb}
-                onChange={(e) => setForm({ ...form, max_art_upload_mb: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'max_art_upload_mb')}`}
-              />
-              <p className="text-xs text-gray-400 mt-1">Largest file a customer can upload for their design.</p>
-              <FieldErrorHint fieldError={fieldError} field="max_art_upload_mb" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Design Retention (days)</label>
-              <input
-                type="number" min={1} step="1"
-                value={form.design_retention_days}
-                onChange={(e) => setForm({ ...form, design_retention_days: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'design_retention_days')}`}
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                A daily cleanup job deletes abandoned designs (never added to a paid order) and their preview images once they're older than this. Designs linked to an order are never deleted.
-              </p>
-              <FieldErrorHint fieldError={fieldError} field="design_retention_days" />
-            </div>
+        <Section title="Printing">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field
+              label="Default print fee"
+              type="number" min={0} step="0.01"
+              value={form.default_print_fee}
+              onChange={(e) => setForm({ ...form, default_print_fee: e.target.value })}
+              hint="Pre-fills the per-side fee in the product editor."
+              error={fieldErrorFor(fieldError, 'default_print_fee')}
+            />
+            <Field
+              label="Print DPI"
+              type="number" min={0} step="1"
+              value={form.print_dpi}
+              onChange={(e) => setForm({ ...form, print_dpi: e.target.value })}
+              hint="Resolution used for the print-ready export."
+              error={fieldErrorFor(fieldError, 'print_dpi')}
+            />
+            <Field
+              label="Bleed %"
+              type="number" min={0} max={25} step="0.5"
+              value={form.print_bleed_percent}
+              onChange={(e) => setForm({ ...form, print_bleed_percent: e.target.value })}
+              hint="How far artwork bleeds outside the print area. 0-25."
+              error={fieldErrorFor(fieldError, 'print_bleed_percent')}
+            />
+            <Field
+              label="Safe area %"
+              type="number" min={0} max={25} step="0.5"
+              value={form.print_safe_percent}
+              onChange={(e) => setForm({ ...form, print_safe_percent: e.target.value })}
+              hint="Inset kept clear of the print area edge. 0-25."
+              error={fieldErrorFor(fieldError, 'print_safe_percent')}
+            />
+            <Field
+              label="Max art upload (MB)"
+              type="number" min={0} step="1"
+              value={form.max_art_upload_mb}
+              onChange={(e) => setForm({ ...form, max_art_upload_mb: e.target.value })}
+              hint="Largest file a customer can upload for their design."
+              error={fieldErrorFor(fieldError, 'max_art_upload_mb')}
+            />
+            <Field
+              label="Design retention (days)"
+              type="number" min={1} step="1"
+              value={form.design_retention_days}
+              onChange={(e) => setForm({ ...form, design_retention_days: e.target.value })}
+              hint="A daily cleanup job deletes abandoned designs (never added to a paid order) and their preview images once they're older than this. Designs linked to an order are never deleted."
+              error={fieldErrorFor(fieldError, 'design_retention_days')}
+            />
           </div>
-        </div>
+        </Section>
 
         {/* Email */}
-        <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-4">
-          <h2 className="font-medium text-gray-800">Email</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Section title="Email">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <SelectField
               label="Provider"
               value={form.email_provider}
@@ -329,58 +283,42 @@ export default function AdminSettings() {
                 { value: 'brevo', label: 'Brevo' },
               ]}
             />
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">API Key</label>
-              <input
-                type="password"
-                value={form.email_api_key}
-                onChange={(e) => setForm({ ...form, email_api_key: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none font-mono ${errorBorder(fieldError, 'email_api_key')}`}
-                autoComplete="off"
-              />
-              <FieldErrorHint fieldError={fieldError} field="email_api_key" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">From Name</label>
-              <input
-                value={form.email_from_name}
-                onChange={(e) => setForm({ ...form, email_from_name: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'email_from_name')}`}
-              />
-              <FieldErrorHint fieldError={fieldError} field="email_from_name" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">From Address</label>
-              <input
-                type="email"
-                value={form.email_from_address}
-                onChange={(e) => setForm({ ...form, email_from_address: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'email_from_address')}`}
-              />
-              <FieldErrorHint fieldError={fieldError} field="email_from_address" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 mb-1">Merchant Email</label>
-              <input
-                type="email"
-                value={form.merchant_email}
-                onChange={(e) => setForm({ ...form, merchant_email: e.target.value })}
-                className={`w-full border rounded px-3 py-2 text-sm focus:outline-none ${errorBorder(fieldError, 'merchant_email')}`}
-              />
-              <p className="text-xs text-gray-400 mt-1">Where order and contact notifications are sent.</p>
-              <FieldErrorHint fieldError={fieldError} field="merchant_email" />
-            </div>
+            <Field
+              label="API key"
+              type="password"
+              autoComplete="off"
+              value={form.email_api_key}
+              onChange={(e) => setForm({ ...form, email_api_key: e.target.value })}
+              error={fieldErrorFor(fieldError, 'email_api_key')}
+            />
+            <Field
+              label="From name"
+              value={form.email_from_name}
+              onChange={(e) => setForm({ ...form, email_from_name: e.target.value })}
+              error={fieldErrorFor(fieldError, 'email_from_name')}
+            />
+            <Field
+              label="From address"
+              type="email"
+              value={form.email_from_address}
+              onChange={(e) => setForm({ ...form, email_from_address: e.target.value })}
+              error={fieldErrorFor(fieldError, 'email_from_address')}
+            />
+            <Field
+              label="Merchant email"
+              type="email"
+              value={form.merchant_email}
+              onChange={(e) => setForm({ ...form, merchant_email: e.target.value })}
+              hint="Where order and contact notifications are sent."
+              error={fieldErrorFor(fieldError, 'merchant_email')}
+            />
           </div>
-        </div>
+        </Section>
 
         <div className="flex items-center gap-4">
-          <button
-            type="submit"
-            disabled={saveMutation.isPending}
-            className="px-6 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-          >
-            {saveMutation.isPending ? 'Saving...' : 'Save Settings'}
-          </button>
+          <Button type="submit" variant="primary" loading={saveMutation.isPending}>
+            Save settings
+          </Button>
         </div>
       </form>
     </div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { ToastContainer } from './Toast'
 import { useAdminAuthStore } from '../store/adminAuthStore'
+import IconButton from '../components/ui/IconButton'
 
 // Minimal inline SVG icons — single color, stroke-based, 16×16 viewBox
 function IconHome() {
@@ -51,17 +52,17 @@ const NAV_ITEMS = [
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <nav className="flex-1 p-3 overflow-y-auto space-y-1">
+    <nav className="flex-1 space-y-1 overflow-y-auto p-3">
       {NAV_ITEMS.map(({ to, label, icon }) => (
         <NavLink
           key={to}
           to={to}
           onClick={onNavigate}
           className={({ isActive }) =>
-            `flex items-center gap-2.5 px-3 py-2 rounded text-sm font-medium transition-colors ${
+            `flex items-center gap-2.5 rounded-btn px-3 py-2.5 text-sm font-medium transition-colors duration-fast ${
               isActive
-                ? 'bg-gray-900 text-white'
-                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                ? 'bg-accent-soft text-accent-dark'
+                : 'text-ink-soft hover:bg-surface-2 hover:text-ink'
             }`
           }
         >
@@ -70,6 +71,21 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
         </NavLink>
       ))}
     </nav>
+  )
+}
+
+function AccountFooter({ adminName, adminRole, onSignOut }: { adminName: string; adminRole: string; onSignOut: () => void }) {
+  return (
+    <div className="border-t border-line p-3">
+      <p className="truncate text-xs font-medium text-ink">{adminName}</p>
+      <p className="mb-2 text-xs capitalize text-ink-faint">{adminRole.replace(/_/g, ' ')}</p>
+      <button
+        onClick={onSignOut}
+        className="text-left text-xs font-medium text-danger transition-colors duration-fast hover:text-danger/80"
+      >
+        Sign out
+      </button>
+    </div>
   )
 }
 
@@ -92,76 +108,64 @@ export default function AdminLayout() {
 
   if (!adminToken) return null
 
+  const signOut = () => { adminLogout(); navigate('/admin/login') }
+
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-gray-50">
+    <div className="flex min-h-screen flex-col bg-paper md:flex-row">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex md:flex-col w-60 bg-white border-r border-gray-200 min-h-screen shrink-0">
-        <div className="p-4 border-b border-gray-100">
-          <Link to="/" className="text-xs text-gray-400 hover:text-gray-600 block mb-1">← Storefront</Link>
-          <p className="font-semibold text-gray-800 text-sm">Admin Panel</p>
+      <aside className="hidden min-h-screen w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
+        <div className="border-b border-line p-4">
+          <Link to="/" className="mb-1 block text-xs text-ink-faint transition-colors duration-fast hover:text-ink-soft">← Storefront</Link>
+          <p className="font-display text-sm font-semibold text-ink">Admin Panel</p>
         </div>
         <SidebarNav />
-        <div className="p-3 border-t border-gray-100">
-          <p className="text-xs font-medium text-gray-700 truncate">{adminName}</p>
-          <p className="text-xs text-gray-400 capitalize mb-2">{adminRole.replace(/_/g, ' ')}</p>
-          <button
-            onClick={() => { adminLogout(); navigate('/admin/login') }}
-            className="w-full text-left text-xs text-red-500 hover:text-red-700 transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
+        <AccountFooter adminName={adminName} adminRole={adminRole} onSignOut={signOut} />
       </aside>
 
       {/* Mobile top bar */}
-      <div className="md:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-40">
+      <div className="sticky top-0 z-40 flex items-center justify-between border-b border-line bg-surface px-4 py-3 md:hidden">
         <div>
-          <Link to="/" className="text-xs text-gray-400">← Storefront</Link>
-          <p className="font-semibold text-gray-800 text-sm leading-none mt-0.5">Admin</p>
+          <Link to="/" className="text-xs text-ink-faint">← Storefront</Link>
+          <p className="mt-0.5 font-display text-sm font-semibold leading-none text-ink">Admin</p>
         </div>
-        <button
-          onClick={() => setDrawerOpen(true)}
-          className="flex flex-col gap-1.5 p-2 rounded hover:bg-gray-100"
-          aria-label="Open menu"
-        >
-          <span className="w-5 h-px bg-gray-700 block" />
-          <span className="w-5 h-px bg-gray-700 block" />
-          <span className="w-5 h-px bg-gray-700 block" />
-        </button>
+        <IconButton variant="ghost" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </IconButton>
       </div>
 
       {/* Mobile drawer overlay */}
       {drawerOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/40 z-40"
+          className="fixed inset-0 z-40 animate-fade-in bg-ink/40 md:hidden"
           onClick={() => setDrawerOpen(false)}
         />
       )}
 
       {/* Mobile drawer panel */}
-      <div className={`md:hidden fixed left-0 top-0 h-full w-72 bg-white z-50 transform transition-transform duration-300 flex flex-col shadow-xl ${drawerOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+      <div
+        className={`fixed left-0 top-0 z-50 flex h-full w-72 transform flex-col bg-surface shadow-lift transition-transform duration-base ease-out-soft md:hidden ${
+          drawerOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex items-center justify-between border-b border-line p-4">
           <div>
-            <Link to="/" className="text-xs text-gray-400">← Storefront</Link>
-            <p className="font-semibold text-gray-800 text-sm">Admin Panel</p>
+            <Link to="/" className="text-xs text-ink-faint">← Storefront</Link>
+            <p className="font-display text-sm font-semibold text-ink">Admin Panel</p>
           </div>
-          <button onClick={() => setDrawerOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl p-1">×</button>
+          <IconButton variant="ghost" size="sm" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+              <path d="M18 6L6 18M6 6l12 12" />
+            </svg>
+          </IconButton>
         </div>
         <SidebarNav onNavigate={() => setDrawerOpen(false)} />
-        <div className="p-3 border-t border-gray-100">
-          <p className="text-xs font-medium text-gray-700 truncate">{adminName}</p>
-          <p className="text-xs text-gray-400 capitalize mb-2">{adminRole.replace(/_/g, ' ')}</p>
-          <button
-            onClick={() => { adminLogout(); navigate('/admin/login') }}
-            className="w-full text-left text-xs text-red-500 hover:text-red-700 transition-colors"
-          >
-            Sign out
-          </button>
-        </div>
+        <AccountFooter adminName={adminName} adminRole={adminRole} onSignOut={signOut} />
       </div>
 
       {/* Main content */}
-      <main className="flex-1 p-4 sm:p-6 overflow-auto min-h-screen">
+      <main className="min-h-screen flex-1 overflow-auto p-4 sm:p-6">
         <Outlet />
       </main>
       <ToastContainer />

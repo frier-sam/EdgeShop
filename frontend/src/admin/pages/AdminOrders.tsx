@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminFetch } from '../lib/adminFetch'
 import { SkeletonTable } from '../../components/Skeleton'
+import Field from '../../components/Field'
 
 interface Order {
   id: string
@@ -18,15 +19,41 @@ interface Order {
 const ORDER_STATUSES = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled']
 const PAYMENT_STATUSES = ['pending', 'paid', 'refunded']
 
-const statusColors: Record<string, string> = {
-  placed: 'bg-blue-50 text-blue-700',
-  confirmed: 'bg-indigo-50 text-indigo-700',
-  shipped: 'bg-yellow-50 text-yellow-700',
-  delivered: 'bg-green-50 text-green-700',
-  cancelled: 'bg-red-50 text-red-700',
-  pending: 'bg-gray-100 text-gray-600',
-  paid: 'bg-green-50 text-green-700',
-  refunded: 'bg-orange-50 text-orange-700',
+// Same palette Badge draws from (POD-UI.md §2.1 status tokens), applied to
+// an editable <select> instead of a static pill so the colour still reads
+// at a glance while the value stays changeable inline.
+const statusClasses: Record<string, string> = {
+  placed: 'bg-accent-soft text-accent-dark',
+  confirmed: 'bg-accent-soft text-accent-dark',
+  shipped: 'bg-warning/10 text-warning',
+  delivered: 'bg-success/10 text-success',
+  cancelled: 'bg-danger/10 text-danger',
+  pending: 'bg-surface-2 text-ink-soft',
+  paid: 'bg-success/10 text-success',
+  refunded: 'bg-warning/10 text-warning',
+}
+
+function StatusSelect({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: string
+  options: string[]
+  onChange: (v: string) => void
+  label: string
+}) {
+  return (
+    <select
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={`h-8 cursor-pointer rounded-btn border-0 px-2 text-xs font-semibold capitalize transition-colors duration-fast focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 ${statusClasses[value] ?? 'bg-surface-2 text-ink-soft'}`}
+    >
+      {options.map((s) => <option key={s} value={s}>{s}</option>)}
+    </select>
+  )
 }
 
 export default function AdminOrders() {
@@ -59,95 +86,130 @@ export default function AdminOrders() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-6">Orders</h1>
+      <h1 className="mb-6 font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">Orders</h1>
 
-      <div className="flex gap-3 mb-4">
-        <input
+      <div className="mb-4 flex flex-wrap gap-3">
+        <Field
+          label="Search"
+          containerClassName="min-w-40 flex-1"
           type="search"
-          placeholder="Search by name, email, or order ID..."
+          placeholder="Search by name, email, or order ID…"
           value={q}
           onChange={e => setQ(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-2 text-sm flex-1 focus:outline-none focus:border-gray-500"
         />
-        <select
+        <Field
+          label="Status"
+          as="select"
+          containerClassName="w-40"
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-gray-500"
-        >
-          <option value="">All statuses</option>
-          <option value="placed">Placed</option>
-          <option value="confirmed">Confirmed</option>
-          <option value="shipped">Shipped</option>
-          <option value="delivered">Delivered</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+          options={[
+            { value: '', label: 'All statuses' },
+            ...ORDER_STATUSES.map((s) => ({ value: s, label: s[0].toUpperCase() + s.slice(1) })),
+          ]}
+        />
       </div>
 
       {isLoading ? (
         <SkeletonTable rows={8} cols={7} />
       ) : orders.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
+        <div className="rounded-card border border-line bg-surface py-16 text-center text-ink-faint">
           <p>No orders yet</p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Order ID</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Amount</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Payment</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Pay Status</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Order Status</th>
-                <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">Date</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {orders.map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 font-mono text-xs text-gray-600">{order.id.slice(0, 16)}…</td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-gray-900 text-xs">{order.customer_name}</p>
-                    <p className="text-gray-400 text-xs">{order.customer_email}</p>
-                  </td>
-                  <td className="px-4 py-3 text-gray-700 hidden sm:table-cell">₹{order.total_amount.toFixed(2)}</td>
-                  <td className="px-4 py-3 hidden md:table-cell">
-                    <span className="capitalize text-gray-500 text-xs">{order.payment_method}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={order.payment_status}
-                      onChange={(e) => statusMutation.mutate({ id: order.id, updates: { payment_status: e.target.value } })}
-                      className={`text-xs px-2 py-1 rounded font-medium border-0 cursor-pointer ${statusColors[order.payment_status] ?? 'bg-gray-100 text-gray-600'}`}
-                    >
-                      {PAYMENT_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={order.order_status}
-                      onChange={(e) => statusMutation.mutate({ id: order.id, updates: { order_status: e.target.value } })}
-                      className={`text-xs px-2 py-1 rounded font-medium border-0 cursor-pointer ${statusColors[order.order_status] ?? 'bg-gray-100 text-gray-600'}`}
-                    >
-                      {ORDER_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs hidden lg:table-cell">{formatDate(order.created_at)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Link
-                      to={`/admin/orders/${order.id}`}
-                      className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                    >
-                      View
-                    </Link>
-                  </td>
+        <>
+          {/* Mobile: card list */}
+          <div className="space-y-3 md:hidden">
+            {orders.map((order) => (
+              <div key={order.id} className="rounded-card border border-line bg-surface p-4 shadow-card">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-ink">{order.customer_name}</p>
+                    <p className="truncate text-xs text-ink-faint">{order.customer_email}</p>
+                  </div>
+                  <p className="shrink-0 font-semibold text-ink">₹{order.total_amount.toFixed(2)}</p>
+                </div>
+                <p className="mt-1 font-mono text-xs text-ink-faint">{order.id.slice(0, 20)}…</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <StatusSelect
+                    label="Order status"
+                    value={order.order_status}
+                    options={ORDER_STATUSES}
+                    onChange={(v) => statusMutation.mutate({ id: order.id, updates: { order_status: v } })}
+                  />
+                  <StatusSelect
+                    label="Payment status"
+                    value={order.payment_status}
+                    options={PAYMENT_STATUSES}
+                    onChange={(v) => statusMutation.mutate({ id: order.id, updates: { payment_status: v } })}
+                  />
+                  <span className="text-xs text-ink-faint">{formatDate(order.created_at)}</span>
+                </div>
+                <Link
+                  to={`/admin/orders/${order.id}`}
+                  className="mt-3 block text-center text-sm font-medium text-accent transition-colors duration-fast hover:text-accent-dark"
+                >
+                  View order →
+                </Link>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table */}
+          <div className="hidden overflow-x-auto rounded-card border border-line bg-surface md:block">
+            <table className="w-full text-sm">
+              <thead className="border-b border-line bg-surface-2">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Order ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Customer</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Payment</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Pay status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Order status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-ink-soft">Date</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-line">
+                {orders.map((order) => (
+                  <tr key={order.id} className="transition-colors duration-fast hover:bg-surface-2">
+                    <td className="px-4 py-3 font-mono text-xs text-ink-soft">{order.id.slice(0, 16)}…</td>
+                    <td className="px-4 py-3">
+                      <p className="text-xs font-medium text-ink">{order.customer_name}</p>
+                      <p className="text-xs text-ink-faint">{order.customer_email}</p>
+                    </td>
+                    <td className="px-4 py-3 text-ink-soft">₹{order.total_amount.toFixed(2)}</td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs capitalize text-ink-soft">{order.payment_method}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusSelect
+                        label="Payment status"
+                        value={order.payment_status}
+                        options={PAYMENT_STATUSES}
+                        onChange={(v) => statusMutation.mutate({ id: order.id, updates: { payment_status: v } })}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusSelect
+                        label="Order status"
+                        value={order.order_status}
+                        options={ORDER_STATUSES}
+                        onChange={(v) => statusMutation.mutate({ id: order.id, updates: { order_status: v } })}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-xs text-ink-faint">{formatDate(order.created_at)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <Link to={`/admin/orders/${order.id}`} className="text-xs font-medium text-accent hover:text-accent-dark">
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   )

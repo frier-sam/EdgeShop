@@ -7,6 +7,8 @@ import OrderDesignPanel from '../OrderDesignPanel'
 import { collectRenderableSides, renderOrderSide } from '../print/orderPrintFiles'
 import { downloadAllPrintFiles } from '../print/downloadPrintFiles'
 import type { AdminOrderLineItem } from '../types'
+import Button from '../../components/Button'
+import Badge, { type BadgeVariant } from '../../components/ui/Badge'
 
 interface EmailLog {
   id: number
@@ -54,15 +56,28 @@ interface Order {
 
 const ORDER_STATUSES = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled']
 
-const statusColors: Record<string, string> = {
-  placed: 'bg-blue-50 text-blue-700',
-  confirmed: 'bg-indigo-50 text-indigo-700',
-  shipped: 'bg-yellow-50 text-yellow-700',
-  delivered: 'bg-green-50 text-green-700',
-  cancelled: 'bg-red-50 text-red-700',
-  pending: 'bg-gray-100 text-gray-600',
-  paid: 'bg-green-50 text-green-700',
-  refunded: 'bg-orange-50 text-orange-700',
+const statusVariant: Record<string, BadgeVariant> = {
+  placed: 'accent',
+  confirmed: 'accent',
+  shipped: 'warning',
+  delivered: 'success',
+  cancelled: 'danger',
+  pending: 'neutral',
+  paid: 'success',
+  refunded: 'warning',
+}
+
+const INPUT_CLASSES =
+  'w-full rounded-btn border border-line bg-surface px-2.5 py-1.5 text-sm text-ink transition-colors duration-fast ' +
+  'focus:outline-none focus:border-ink focus:ring-2 focus:ring-accent/30'
+
+const TIMELINE_DOT: Record<string, string> = {
+  neutral: 'bg-ink-faint',
+  info: 'bg-accent',
+  success: 'bg-success',
+  warning: 'bg-warning',
+  danger: 'bg-danger',
+  note: 'bg-accent-dark',
 }
 
 function formatDate(dt: string) {
@@ -76,12 +91,27 @@ function formatDate(dt: string) {
 }
 
 function StatusBadge({ label }: { label: string }) {
-  const colorClass = statusColors[label] ?? 'bg-gray-100 text-gray-600'
   return (
-    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium capitalize ${colorClass}`}>
+    <Badge variant={statusVariant[label] ?? 'neutral'} className="capitalize">
       {label}
-    </span>
+    </Badge>
   )
+}
+
+function EditToggle({ editing, onEdit }: { editing: boolean; onEdit: () => void }) {
+  if (editing) return null
+  return (
+    <button
+      onClick={onEdit}
+      className="text-xs font-medium text-accent underline-offset-2 transition-colors duration-fast hover:text-accent-dark hover:underline"
+    >
+      Edit
+    </button>
+  )
+}
+
+function TimelineDot({ tone }: { tone: keyof typeof TIMELINE_DOT }) {
+  return <div className={`absolute -left-3.5 mt-0.5 h-3 w-3 rounded-full border-2 border-surface ${TIMELINE_DOT[tone]}`} />
 }
 
 export default function AdminOrderDetail() {
@@ -210,15 +240,15 @@ export default function AdminOrderDetail() {
 
   if (isLoading) {
     return (
-      <div className="text-sm text-gray-400 py-10 text-center">Loading order...</div>
+      <div className="py-10 text-center text-sm text-ink-faint">Loading order…</div>
     )
   }
 
   if (isError || !order) {
     return (
-      <div className="text-sm text-red-500 py-10 text-center">
+      <div className="py-10 text-center text-sm text-danger">
         Order not found.{' '}
-        <Link to="/admin/orders" className="underline text-gray-600">
+        <Link to="/admin/orders" className="text-ink-soft underline">
           Back to orders
         </Link>
       </div>
@@ -229,144 +259,130 @@ export default function AdminOrderDetail() {
   const renderableSideCount = collectRenderableSides(items).length
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="mx-auto max-w-5xl">
       {/* Back + header */}
       <div className="mb-6">
         <Link
           to="/admin/orders"
-          className="inline-flex items-center text-sm text-gray-500 hover:text-gray-800 mb-3"
+          className="mb-3 inline-flex items-center text-sm text-ink-soft transition-colors duration-fast hover:text-ink"
         >
           &larr; Back to Orders
         </Link>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-semibold text-gray-900 font-mono">
+          <h1 className="font-mono font-display text-lg font-bold text-ink sm:text-xl">
             {order.id}
           </h1>
           <StatusBadge label={order.order_status} />
           <StatusBadge label={order.payment_status} />
-          <span className="text-sm text-gray-400 ml-auto">{formatDate(order.created_at)}</span>
+          <span className="ml-auto text-sm text-ink-faint">{formatDate(order.created_at)}</span>
         </div>
       </div>
 
       {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Left column */}
         <div className="space-y-4">
           {/* Customer info */}
-          <section className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-700">Customer</h2>
-              {!editingCustomer && (
-                <button
-                  onClick={() => setEditingCustomer(true)}
-                  className="text-xs text-gray-500 hover:text-gray-800 underline"
-                >
-                  Edit
-                </button>
-              )}
+          <section className="rounded-card border border-line bg-surface p-4 shadow-card">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-ink">Customer</h2>
+              <EditToggle editing={editingCustomer} onEdit={() => setEditingCustomer(true)} />
             </div>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Name</label>
+                <label className="mb-1 block text-xs text-ink-faint">Name</label>
                 {editingCustomer ? (
                   <input
                     value={customerName}
                     onChange={e => setCustomerName(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                    className={INPUT_CLASSES}
                   />
                 ) : (
-                  <p className="text-sm text-gray-800">{order.customer_name}</p>
+                  <p className="text-sm text-ink">{order.customer_name}</p>
                 )}
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Email</label>
-                <p className="text-sm text-gray-800">{order.customer_email}</p>
+                <label className="mb-1 block text-xs text-ink-faint">Email</label>
+                <p className="text-sm text-ink">{order.customer_email}</p>
               </div>
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Phone</label>
-                <p className="text-sm text-gray-800">{order.customer_phone ?? '—'}</p>
+                <label className="mb-1 block text-xs text-ink-faint">Phone</label>
+                <p className="text-sm text-ink">{order.customer_phone ?? '—'}</p>
               </div>
             </div>
             {editingCustomer && (
               <div className="mt-4 flex justify-end">
-                <button
+                <Button
+                  size="sm"
+                  loading={updateMutation.isPending}
                   onClick={() => {
                     updateMutation.mutate(
                       { customer_name: customerName },
                       { onSuccess: () => setEditingCustomer(false) }
                     )
                   }}
-                  disabled={updateMutation.isPending}
-                  className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {updateMutation.isPending ? 'Saving…' : 'Save'}
-                </button>
+                  Save
+                </Button>
               </div>
             )}
           </section>
 
           {/* Shipping address */}
-          <section className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-700">Shipping Address</h2>
-              {!editingShipping && (
-                <button
-                  onClick={() => setEditingShipping(true)}
-                  className="text-xs text-gray-500 hover:text-gray-800 underline"
-                >
-                  Edit
-                </button>
-              )}
+          <section className="rounded-card border border-line bg-surface p-4 shadow-card">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-ink">Shipping Address</h2>
+              <EditToggle editing={editingShipping} onEdit={() => setEditingShipping(true)} />
             </div>
             {editingShipping ? (
               <div className="space-y-2">
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Address Line</label>
+                  <label className="mb-1 block text-xs text-ink-faint">Address Line</label>
                   <input
                     value={shippingAddress}
                     onChange={e => setShippingAddress(e.target.value)}
-                    className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                    className={INPUT_CLASSES}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">City</label>
+                    <label className="mb-1 block text-xs text-ink-faint">City</label>
                     <input
                       value={shippingCity}
                       onChange={e => setShippingCity(e.target.value)}
-                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                      className={INPUT_CLASSES}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">State</label>
+                    <label className="mb-1 block text-xs text-ink-faint">State</label>
                     <input
                       value={shippingState}
                       onChange={e => setShippingState(e.target.value)}
-                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                      className={INPUT_CLASSES}
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Pincode</label>
+                    <label className="mb-1 block text-xs text-ink-faint">Pincode</label>
                     <input
                       value={shippingPincode}
                       onChange={e => setShippingPincode(e.target.value)}
-                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                      className={INPUT_CLASSES}
                     />
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Country</label>
+                    <label className="mb-1 block text-xs text-ink-faint">Country</label>
                     <input
                       value={shippingCountry}
                       onChange={e => setShippingCountry(e.target.value)}
-                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-800 focus:outline-none focus:border-gray-500"
+                      className={INPUT_CLASSES}
                     />
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-gray-800 space-y-0.5">
+              <div className="space-y-0.5 text-sm text-ink">
                 <p>{order.shipping_address}</p>
                 <p>
                   {[order.shipping_city, order.shipping_state, order.shipping_pincode]
@@ -378,7 +394,9 @@ export default function AdminOrderDetail() {
             )}
             {editingShipping && (
               <div className="mt-4 flex justify-end">
-                <button
+                <Button
+                  size="sm"
+                  loading={updateMutation.isPending}
                   onClick={() => {
                     updateMutation.mutate(
                       {
@@ -391,41 +409,32 @@ export default function AdminOrderDetail() {
                       { onSuccess: () => setEditingShipping(false) }
                     )
                   }}
-                  disabled={updateMutation.isPending}
-                  className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {updateMutation.isPending ? 'Saving…' : 'Save'}
-                </button>
+                  Save
+                </Button>
               </div>
             )}
           </section>
 
           {/* Payment info */}
-          <section className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-gray-700">Payment</h2>
-              {!editingPayment && (
-                <button
-                  onClick={() => setEditingPayment(true)}
-                  className="text-xs text-gray-500 hover:text-gray-800 underline"
-                >
-                  Edit
-                </button>
-              )}
+          <section className="rounded-card border border-line bg-surface p-4 shadow-card">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-ink">Payment</h2>
+              <EditToggle editing={editingPayment} onEdit={() => setEditingPayment(true)} />
             </div>
             <dl className="space-y-2 text-sm">
-              <div className="flex gap-2 items-center">
-                <dt className="text-gray-400 w-32 shrink-0">Method</dt>
-                <dd className="text-gray-900 capitalize">{order.payment_method}</dd>
+              <div className="flex items-center gap-2">
+                <dt className="w-32 shrink-0 text-ink-faint">Method</dt>
+                <dd className="capitalize text-ink">{order.payment_method}</dd>
               </div>
-              <div className="flex gap-2 items-center">
-                <dt className="text-gray-400 w-32 shrink-0">Status</dt>
+              <div className="flex items-center gap-2">
+                <dt className="w-32 shrink-0 text-ink-faint">Status</dt>
                 <dd>
                   {editingPayment ? (
                     <select
                       value={paymentStatus}
                       onChange={e => setPaymentStatus(e.target.value)}
-                      className="text-sm border border-gray-300 rounded px-2 py-1 text-gray-700 focus:outline-none focus:border-gray-500"
+                      className={`${INPUT_CLASSES} w-auto cursor-pointer`}
                     >
                       <option value="pending">Pending</option>
                       <option value="paid">Paid</option>
@@ -438,40 +447,40 @@ export default function AdminOrderDetail() {
               </div>
               {order.razorpay_order_id && (
                 <div className="flex gap-2">
-                  <dt className="text-gray-400 w-32 shrink-0">Razorpay Order</dt>
-                  <dd className="text-gray-700 font-mono text-xs break-all">{order.razorpay_order_id}</dd>
+                  <dt className="w-32 shrink-0 text-ink-faint">Razorpay Order</dt>
+                  <dd className="break-all font-mono text-xs text-ink-soft">{order.razorpay_order_id}</dd>
                 </div>
               )}
               {order.razorpay_payment_id && (
                 <div className="flex gap-2">
-                  <dt className="text-gray-400 w-32 shrink-0">Razorpay Payment</dt>
-                  <dd className="text-gray-700 font-mono text-xs break-all">{order.razorpay_payment_id}</dd>
+                  <dt className="w-32 shrink-0 text-ink-faint">Razorpay Payment</dt>
+                  <dd className="break-all font-mono text-xs text-ink-soft">{order.razorpay_payment_id}</dd>
                 </div>
               )}
             </dl>
             {editingPayment && (
               <div className="mt-4 flex justify-end">
-                <button
+                <Button
+                  size="sm"
+                  loading={updateMutation.isPending}
                   onClick={() => {
                     updateMutation.mutate(
                       { payment_status: paymentStatus },
                       { onSuccess: () => setEditingPayment(false) }
                     )
                   }}
-                  disabled={updateMutation.isPending}
-                  className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {updateMutation.isPending ? 'Saving…' : 'Save'}
-                </button>
+                  Save
+                </Button>
               </div>
             )}
           </section>
 
           {/* Notes */}
           {order.customer_notes && (
-            <section className="bg-white rounded-lg border border-gray-200 p-4">
-              <h2 className="text-sm font-semibold text-gray-700 mb-2">Customer Notes</h2>
-              <p className="text-sm text-gray-600 whitespace-pre-line">{order.customer_notes}</p>
+            <section className="rounded-card border border-line bg-surface p-4 shadow-card">
+              <h2 className="mb-2 text-sm font-semibold text-ink">Customer Notes</h2>
+              <p className="whitespace-pre-line text-sm text-ink-soft">{order.customer_notes}</p>
             </section>
           )}
         </div>
@@ -480,26 +489,26 @@ export default function AdminOrderDetail() {
         <div className="space-y-4">
           {/* Order totals — POD.md §7.1/§6.1: subtotal/print_total/shipping_amount
               are stored directly on the order row, not re-derived from items. */}
-          <section className="bg-white rounded-lg border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Order Total</h2>
+          <section className="rounded-card border border-line bg-surface p-4 shadow-card">
+            <h2 className="mb-3 text-sm font-semibold text-ink">Order Total</h2>
             <div className="space-y-1 text-sm">
-              <div className="flex justify-between text-gray-500">
+              <div className="flex justify-between text-ink-soft">
                 <span>Subtotal</span>
                 <span>&#8377;{order.subtotal.toFixed(2)}</span>
               </div>
               {order.print_total > 0 && (
-                <div className="flex justify-between text-gray-500">
+                <div className="flex justify-between text-ink-soft">
                   <span>Print fees (included above)</span>
                   <span>&#8377;{order.print_total.toFixed(2)}</span>
                 </div>
               )}
               {order.shipping_amount > 0 && (
-                <div className="flex justify-between text-gray-500">
+                <div className="flex justify-between text-ink-soft">
                   <span>Shipping</span>
                   <span>&#8377;{order.shipping_amount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between font-semibold text-gray-900 pt-1 border-t border-gray-100">
+              <div className="flex justify-between border-t border-line pt-1 font-semibold text-ink">
                 <span>Total</span>
                 <span>&#8377;{order.total_amount.toFixed(2)}</span>
               </div>
@@ -511,25 +520,21 @@ export default function AdminOrderDetail() {
       {/* Design files — POD.md §4.2/§8.3: per-line size/qty/price, per-side
           flattened preview + print dimensions/effective-DPI readout, and a
           Download print file button per side, plus a whole-order zip. */}
-      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-          <h2 className="text-sm font-semibold text-gray-700">Items &amp; Design Files</h2>
+      <section className="mb-6 overflow-hidden rounded-card border border-line bg-surface shadow-card">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
+          <h2 className="text-sm font-semibold text-ink">Items &amp; Design Files</h2>
           {renderableSideCount > 0 && (
-            <button
-              onClick={handleDownloadAll}
-              disabled={downloadingAll}
-              className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {downloadingAll ? 'Rendering…' : `Download all print files (${renderableSideCount})`}
-            </button>
+            <Button size="sm" loading={downloadingAll} onClick={handleDownloadAll}>
+              Download all print files ({renderableSideCount})
+            </Button>
           )}
         </div>
         {downloadAllError && (
-          <p className="text-xs text-red-500 px-4 pt-3">{downloadAllError}</p>
+          <p className="px-4 pt-3 text-xs text-danger">{downloadAllError}</p>
         )}
-        <div className="divide-y divide-gray-100">
+        <div className="divide-y divide-line">
           {items.length === 0 && (
-            <p className="px-4 py-6 text-sm text-gray-400 text-center">No items on this order.</p>
+            <p className="px-4 py-6 text-center text-sm text-ink-faint">No items on this order.</p>
           )}
           {items.map((item, idx) => (
             <OrderDesignPanel key={idx} orderId={order.id} lineIndex={idx} item={item} printDpi={settings.printDpi} />
@@ -538,8 +543,8 @@ export default function AdminOrderDetail() {
       </section>
 
       {/* Timeline + Private Notes */}
-      <section className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Timeline</h2>
+      <section className="mb-6 rounded-card border border-line bg-surface p-4 shadow-card">
+        <h2 className="mb-4 text-sm font-semibold text-ink">Timeline</h2>
 
         {/* Append note */}
         <div className="mb-5">
@@ -548,62 +553,64 @@ export default function AdminOrderDetail() {
             onChange={e => setNoteText(e.target.value)}
             rows={2}
             placeholder="Add a private note (only visible to admins)…"
-            className="w-full text-sm border border-gray-300 rounded px-3 py-2 text-gray-700 resize-none focus:outline-none focus:border-gray-500"
+            className={`${INPUT_CLASSES} resize-none`}
           />
-          <button
+          <Button
+            size="sm"
+            className="mt-1.5"
+            disabled={!noteText.trim()}
+            loading={noteMutation.isPending}
             onClick={() => {
               if (noteText.trim()) noteMutation.mutate(noteText.trim())
             }}
-            disabled={noteMutation.isPending || !noteText.trim()}
-            className="mt-1.5 px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {noteMutation.isPending ? 'Saving…' : 'Add note'}
-          </button>
+            Add note
+          </Button>
         </div>
 
         {/* Timeline events */}
-        <div className="relative pl-5 space-y-4">
-          <div className="absolute left-1.5 top-2 bottom-2 w-px bg-gray-200" />
+        <div className="relative space-y-4 pl-5">
+          <div className="absolute bottom-2 left-1.5 top-2 w-px bg-line" />
 
           {/* Order placed — always first */}
           <div className="relative">
-            <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-gray-400 border-2 border-white" />
-            <p className="text-xs font-medium text-gray-700">Order placed</p>
-            <p className="text-xs text-gray-400">{formatDate(order.created_at)}</p>
+            <TimelineDot tone="neutral" />
+            <p className="text-xs font-medium text-ink">Order placed</p>
+            <p className="text-xs text-ink-faint">{formatDate(order.created_at)}</p>
           </div>
 
           {/* Legacy: payment received (no event = webhook payment, no timestamp) */}
           {order.payment_status === 'paid' && !(order.events ?? []).some(e => e.event_type === 'payment_change') && (
             <div className="relative">
-              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-white" />
-              <p className="text-xs font-medium text-gray-700">Payment received</p>
-              <p className="text-xs text-gray-400 capitalize">{order.payment_method}</p>
+              <TimelineDot tone="success" />
+              <p className="text-xs font-medium text-ink">Payment received</p>
+              <p className="text-xs capitalize text-ink-faint">{order.payment_method}</p>
             </div>
           )}
 
           {/* Legacy: tracking set (no event = set before events table existed) */}
           {order.tracking_number && !(order.events ?? []).some(e => e.event_type === 'tracking_set') && (
             <div className="relative">
-              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-yellow-400 border-2 border-white" />
-              <p className="text-xs font-medium text-gray-700">Shipped</p>
-              <p className="text-xs text-gray-400">Tracking: {order.tracking_number}</p>
+              <TimelineDot tone="warning" />
+              <p className="text-xs font-medium text-ink">Shipped</p>
+              <p className="text-xs text-ink-faint">Tracking: {order.tracking_number}</p>
             </div>
           )}
 
           {/* Legacy: refunded (no event) */}
           {order.payment_status === 'refunded' && !(order.events ?? []).some(e => e.event_type === 'refund') && (
             <div className="relative">
-              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-orange-400 border-2 border-white" />
-              <p className="text-xs font-medium text-gray-700">Refunded</p>
+              <TimelineDot tone="warning" />
+              <p className="text-xs font-medium text-ink">Refunded</p>
             </div>
           )}
 
           {/* Legacy: internal_notes text (old orders before events table) */}
           {order.internal_notes && (order.events ?? []).length === 0 && (
             <div className="relative">
-              <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-white" />
-              <p className="text-xs font-medium text-gray-700">Private note</p>
-              <p className="text-xs text-gray-500 whitespace-pre-line mt-0.5">{order.internal_notes}</p>
+              <TimelineDot tone="note" />
+              <p className="text-xs font-medium text-ink">Private note</p>
+              <p className="mt-0.5 whitespace-pre-line text-xs text-ink-soft">{order.internal_notes}</p>
             </div>
           )}
 
@@ -614,38 +621,38 @@ export default function AdminOrderDetail() {
 
             if (event.event_type === 'status_change') return (
               <div key={event.id} className="relative">
-                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-indigo-400 border-2 border-white" />
-                <p className="text-xs font-medium text-gray-700 capitalize">Status → {data.to}</p>
-                <p className="text-xs text-gray-400">{formatDate(event.created_at)}</p>
+                <TimelineDot tone="info" />
+                <p className="text-xs font-medium capitalize text-ink">Status → {data.to}</p>
+                <p className="text-xs text-ink-faint">{formatDate(event.created_at)}</p>
               </div>
             )
             if (event.event_type === 'tracking_set') return (
               <div key={event.id} className="relative">
-                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-yellow-400 border-2 border-white" />
-                <p className="text-xs font-medium text-gray-700">Shipped</p>
-                <p className="text-xs text-gray-400">Tracking: {data.tracking_number} · {formatDate(event.created_at)}</p>
+                <TimelineDot tone="warning" />
+                <p className="text-xs font-medium text-ink">Shipped</p>
+                <p className="text-xs text-ink-faint">Tracking: {data.tracking_number} · {formatDate(event.created_at)}</p>
               </div>
             )
             if (event.event_type === 'payment_change') return (
               <div key={event.id} className="relative">
-                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-green-400 border-2 border-white" />
-                <p className="text-xs font-medium text-gray-700 capitalize">Payment {data.to}</p>
-                <p className="text-xs text-gray-400">{formatDate(event.created_at)}</p>
+                <TimelineDot tone="success" />
+                <p className="text-xs font-medium capitalize text-ink">Payment {data.to}</p>
+                <p className="text-xs text-ink-faint">{formatDate(event.created_at)}</p>
               </div>
             )
             if (event.event_type === 'refund') return (
               <div key={event.id} className="relative">
-                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-orange-400 border-2 border-white" />
-                <p className="text-xs font-medium text-gray-700">Refunded</p>
-                <p className="text-xs text-gray-400">{formatDate(event.created_at)}</p>
+                <TimelineDot tone="warning" />
+                <p className="text-xs font-medium text-ink">Refunded</p>
+                <p className="text-xs text-ink-faint">{formatDate(event.created_at)}</p>
               </div>
             )
             if (event.event_type === 'note') return (
               <div key={event.id} className="relative">
-                <div className="absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full bg-purple-400 border-2 border-white" />
-                <p className="text-xs font-medium text-gray-700">Private note</p>
-                <p className="text-xs text-gray-500 whitespace-pre-line mt-0.5">{data.text}</p>
-                <p className="text-xs text-gray-400">{formatDate(event.created_at)}</p>
+                <TimelineDot tone="note" />
+                <p className="text-xs font-medium text-ink">Private note</p>
+                <p className="mt-0.5 whitespace-pre-line text-xs text-ink-soft">{data.text}</p>
+                <p className="text-xs text-ink-faint">{formatDate(event.created_at)}</p>
               </div>
             )
             return null
@@ -654,12 +661,12 @@ export default function AdminOrderDetail() {
           {/* Email events */}
           {(order.emails ?? []).map(email => (
             <div key={email.id} className="relative">
-              <div className={`absolute -left-3.5 mt-0.5 w-3 h-3 rounded-full border-2 border-white ${email.status === 'failed' ? 'bg-red-400' : 'bg-blue-400'}`} />
-              <p className="text-xs font-medium text-gray-700 capitalize">
+              <TimelineDot tone={email.status === 'failed' ? 'danger' : 'info'} />
+              <p className="text-xs font-medium capitalize text-ink">
                 {email.type.replace(/_/g, ' ')}
-                {email.status === 'failed' && <span className="ml-1 text-red-500">(failed)</span>}
+                {email.status === 'failed' && <span className="ml-1 text-danger">(failed)</span>}
               </p>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-ink-faint">
                 To: {email.recipient} · {new Date(email.sent_at * 1000).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
@@ -668,31 +675,24 @@ export default function AdminOrderDetail() {
       </section>
 
       {/* Admin actions */}
-      <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-5">
+      <section className="space-y-5 rounded-card border border-line bg-surface p-4 shadow-card">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700">Admin Actions</h2>
-          {!editingAdminActions && (
-            <button
-              onClick={() => setEditingAdminActions(true)}
-              className="text-xs text-gray-500 hover:text-gray-800 underline"
-            >
-              Edit
-            </button>
-          )}
+          <h2 className="text-sm font-semibold text-ink">Admin Actions</h2>
+          <EditToggle editing={editingAdminActions} onEdit={() => setEditingAdminActions(true)} />
         </div>
 
         {updateMutation.isError && (
-          <p className="text-xs text-red-500">Update failed. Please try again.</p>
+          <p className="text-xs text-danger">Update failed. Please try again.</p>
         )}
 
         <div className="space-y-3">
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-600 w-32 shrink-0">Order Status</label>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="w-32 shrink-0 text-sm text-ink-soft">Order Status</label>
             {editingAdminActions ? (
               <select
                 value={orderStatus}
                 onChange={(e) => setOrderStatus(e.target.value)}
-                className="text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-700"
+                className={`${INPUT_CLASSES} w-auto cursor-pointer`}
               >
                 {ORDER_STATUSES.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -702,25 +702,27 @@ export default function AdminOrderDetail() {
               <StatusBadge label={order.order_status} />
             )}
           </div>
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-600 w-32 shrink-0">Tracking Number</label>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="w-32 shrink-0 text-sm text-ink-soft">Tracking Number</label>
             {editingAdminActions ? (
               <input
                 type="text"
                 value={trackingNumber}
                 onChange={(e) => setTrackingNumber(e.target.value)}
                 placeholder="e.g. 1Z999AA10123456784"
-                className="text-sm border border-gray-300 rounded px-2 py-1.5 text-gray-700 w-64"
+                className={`${INPUT_CLASSES} w-64`}
               />
             ) : (
-              <span className="text-sm text-gray-800">{order.tracking_number ?? '—'}</span>
+              <span className="text-sm text-ink">{order.tracking_number ?? '—'}</span>
             )}
           </div>
         </div>
 
         {editingAdminActions && (
           <div className="flex justify-end">
-            <button
+            <Button
+              size="sm"
+              loading={updateMutation.isPending}
               onClick={() => {
                 updateMutation.mutate(
                   {
@@ -730,31 +732,30 @@ export default function AdminOrderDetail() {
                   { onSuccess: () => setEditingAdminActions(false) }
                 )
               }}
-              disabled={updateMutation.isPending}
-              className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {updateMutation.isPending ? 'Saving…' : 'Save'}
-            </button>
+              Save
+            </Button>
           </div>
         )}
 
         {/* Refund — destructive action, stays separate */}
         {order.payment_status !== 'refunded' && (
-          <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-gray-100">
-            <label className="text-sm text-gray-600 w-32 shrink-0">Refund</label>
-            <button
+          <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
+            <label className="w-32 shrink-0 text-sm text-ink-soft">Refund</label>
+            <Button
+              variant="danger"
+              size="sm"
+              loading={refundMutation.isPending}
               onClick={() => {
                 if (window.confirm('Mark this order as refunded? This cannot be undone.')) {
                   refundMutation.mutate({ notes: '' })
                 }
               }}
-              disabled={refundMutation.isPending}
-              className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {refundMutation.isPending ? 'Refunding...' : 'Mark as Refunded'}
-            </button>
+              Mark as Refunded
+            </Button>
             {refundMutation.isError && (
-              <p className="text-xs text-red-500">Refund failed. Please try again.</p>
+              <p className="text-xs text-danger">Refund failed. Please try again.</p>
             )}
           </div>
         )}
