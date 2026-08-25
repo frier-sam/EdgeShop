@@ -1,44 +1,115 @@
 @import "tailwindcss";
 
+/* The demo page (§A7) is a verification aid, never imported by production
+   code, so it is already absent from the JS bundle. Tailwind v4 scans the
+   whole project for class *candidates* independent of the JS module graph
+   though, so without this exclusion its utility classes would still be
+   compiled into the shipped CSS. `@source not` (Tailwind v4) removes it
+   from that scan entirely. */
+@source not "./components/ui/__demo__";
+
 /*
- * EdgeShop POD design system — single source of truth for color and type
- * (POD.md §5.1 / CLAUDE.md rule 6 is retired on this branch, see POD.md §0).
+ * EdgeShop POD design system — single source of truth for color, type,
+ * radius, elevation and motion (POD-UI.md §2.1 — AUTHORITATIVE SPEC).
  *
- * Tailwind v4 is CSS-first: every `--color-*` / `--font-*` token declared
- * inside `@theme` automatically becomes a matching utility class
- * (bg-ink, text-accent, font-display, …). Components consume the palette
- * through ordinary Tailwind classes / arbitrary values instead of inline
- * styles, so there is exactly one place the look of the store is defined.
+ * Tailwind v4 is CSS-first: every `--color-*` / `--font-*` / `--radius-*` /
+ * `--shadow-*` / `--ease-*` / `--animate-*` token declared inside `@theme`
+ * automatically becomes a matching utility class (bg-ink, text-accent-soft,
+ * rounded-card, shadow-lift, font-display, ease-spring, animate-fade-up, …).
+ * Components consume the palette through ordinary Tailwind classes /
+ * arbitrary values instead of inline styles, so there is exactly one place
+ * the look of the store is defined.
  *
- * Direction: a neutral, high-contrast base — near-black ink on warm
- * off-white paper — with ONE accent (a burnt-orange "print ink" tone)
- * reserved for primary actions (Add to cart, Customize, Place order).
+ * IMPORTANT — verified empirically (see A1 verification): Tailwind v4 has
+ * no `--duration-*` theme namespace, so `--dur-fast` / `--dur-base` /
+ * `--dur-slow` do NOT auto-generate a bare `dur-fast` or `duration-fast`
+ * utility the way radius/shadow/ease/animate tokens do. They are exposed
+ * two ways instead: (1) as plain CSS custom properties, usable anywhere
+ * via `var(--dur-fast)` or Tailwind arbitrary values like
+ * `duration-[var(--dur-fast)]`; and (2) as first-class utilities
+ * (`duration-fast` / `duration-base` / `duration-slow`, participating in
+ * variants like `hover:` and breakpoints) via the `@utility` at-rule below
+ * — the standard Tailwind v4 mechanism for custom utilities.
+ *
+ * Direction (POD-UI.md §2 "Bold editorial, design-tool confidence"): a
+ * cool, high-separation neutral base with ONE accent — indigo — reserved
+ * for primary actions and active states (Add to cart, Customize, Place
+ * order). No second accent.
  */
 @theme {
-  /* Neutral base */
-  --color-ink: #1a1512;
-  --color-ink-soft: #6b6156;
-  --color-paper: #faf6f0;
-  --color-surface: #ffffff;
-  --color-line: #e8e0d3;
+  /* Neutrals — cool, high separation */
+  --color-paper: #F7F7F9; /* page ground */
+  --color-surface: #FFFFFF; /* cards, sheets, inputs */
+  --color-surface-2: #F1F1F4; /* subtle fills, skeletons */
+  --color-ink: #101014; /* primary text */
+  --color-ink-soft: #6A6A77; /* secondary text */
+  --color-ink-faint: #9B9BA6; /* tertiary, placeholders */
+  --color-line: #E4E4EA; /* borders, dividers */
 
-  /* The one accent — used sparingly for primary actions and emphasis */
-  --color-accent: #c2410c;
-  --color-accent-dark: #9a3412;
-  --color-accent-soft: #ffedd5;
+  /* The one accent */
+  --color-accent: #4F46E5;
+  --color-accent-dark: #4338CA; /* hover/press */
+  --color-accent-soft: #EEF2FF; /* tint backgrounds, active chips */
+  --color-on-accent: #FFFFFF;
 
   /* Status */
-  --color-success: #166534;
-  --color-danger: #b91c1c;
+  --color-success: #15803D;
+  --color-warning: #B45309;
+  --color-danger: #DC2626;
 
-  /* Type scale — a confident grotesk for headings, a neutral workhorse
-     sans for body copy and UI. Self-hosting (POD.md §5.5) only matters
-     for the customizer's print-fidelity guarantee in Phase 6; the
-     storefront shell loads these from Google Fonts, see index.html. */
+  /* Type */
   --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 
+  /* Radius */
+  --radius-btn: 0.625rem;
+  --radius-card: 1rem;
+  --radius-sheet: 1.5rem;
+
+  /* Elevation — soft, neutral, never black */
+  --shadow-card: 0 1px 2px rgb(16 16 20 / 0.04), 0 4px 16px rgb(16 16 20 / 0.06);
+  --shadow-lift: 0 2px 4px rgb(16 16 20 / 0.06), 0 12px 32px rgb(16 16 20 / 0.10);
+  --shadow-sheet: 0 -4px 24px rgb(16 16 20 / 0.12);
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 150ms;
+  --dur-base: 240ms;
+  --dur-slow: 360ms;
+
+  /* Keyframe-driven animation utilities (§A3). Each is also usable directly
+     via `animation: <name> ...` for cases (e.g. staggered entrances) that
+     need a per-element `animation-delay` the bare utility can't parameterize. */
   --animate-fade-in: fade-in 0.25s ease-out;
+  --animate-fade-up: fade-up var(--dur-slow) var(--ease-out-soft) both;
+  --animate-scale-in: scale-in var(--dur-base) var(--ease-spring) both;
+  --animate-slide-up-sheet: slide-up-sheet var(--dur-slow) var(--ease-out-soft) both;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+  --animate-badge-pop: badge-pop var(--dur-base) var(--ease-spring);
+}
+
+/* `--dur-*` has no Tailwind theme namespace (verified — see comment above),
+   so bare `duration-fast` style utilities are hand-declared here via the
+   `@utility` at-rule. Unlike a plain CSS class, this participates in
+   variants exactly like a built-in utility: `hover:duration-fast`,
+   `md:duration-base`, etc. all work. */
+@utility duration-fast {
+  transition-duration: var(--dur-fast);
+}
+@utility duration-base {
+  transition-duration: var(--dur-base);
+}
+@utility duration-slow {
+  transition-duration: var(--dur-slow);
+}
+
+/* Stagger pattern (§A3): set `--stagger-index: N` (e.g. inline style or an
+   arbitrary Tailwind class) on siblings in a grid/list, then apply this
+   utility alongside `animate-fade-up` so entrances cascade ~40ms apart.
+   Workstream B's grid entrances consume this. */
+@utility stagger-delay {
+  animation-delay: calc(var(--stagger-index, 0) * 40ms);
 }
 
 @keyframes fade-in {
@@ -49,6 +120,73 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slide-up-sheet {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@keyframes badge-pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* Non-negotiable (POD-UI.md §A2): every animation and transition degrades
+   to effectively-instant when the user has asked the system for reduced
+   motion. This must win regardless of declaration order elsewhere, so it
+   stays last and uses `!important`. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

@@ -24,11 +24,17 @@ type FieldSelectProps = FieldBaseProps & {
   placeholder?: string
 } & Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className'>
 
+// Kept as a discriminated union on `as` — this is the pre-existing API
+// shape (POD-UI.md §A5: "preserve the API"). Only additions here are the
+// accessibility wiring (aria-invalid/aria-describedby) and the design
+// system's tokens/radius; no prop was renamed or removed.
 export type FieldProps = FieldInputProps | FieldTextareaProps | FieldSelectProps
 
+// 44px min height (h-11) on the touch floor; accent focus ring; danger
+// border + ring when `error` is set.
 const CONTROL_CLASSES =
-  'w-full rounded-lg border bg-surface px-3.5 text-sm text-ink placeholder:text-ink-soft/50 ' +
-  'transition-colors focus:outline-none focus:ring-2 focus:ring-accent/30'
+  'w-full rounded-btn border bg-surface px-3.5 text-sm text-ink placeholder:text-ink-faint ' +
+  'transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-accent/30'
 
 function fieldId(props: FieldProps): string {
   if ('id' in props && props.id) return props.id
@@ -40,6 +46,9 @@ function fieldId(props: FieldProps): string {
 export default function Field(props: FieldProps) {
   const { label, error, hint, containerClassName = '' } = props
   const id = fieldId(props)
+  const errorId = `${id}-error`
+  const hintId = `${id}-hint`
+  const describedBy = error ? errorId : hint ? hintId : undefined
   const borderClasses = error ? 'border-danger focus:border-danger' : 'border-line focus:border-ink'
 
   let control: React.ReactNode
@@ -49,6 +58,8 @@ export default function Field(props: FieldProps) {
       <div className="relative">
         <select
           id={id}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
           className={`${CONTROL_CLASSES} ${borderClasses} h-11 appearance-none pr-9`}
           {...selectProps}
         >
@@ -78,24 +89,46 @@ export default function Field(props: FieldProps) {
   } else if (props.as === 'textarea') {
     const { label: _label, error: _error, hint: _hint, containerClassName: _c, as: _as, ...textareaProps } = props
     control = (
-      <textarea id={id} className={`${CONTROL_CLASSES} ${borderClasses} min-h-24 py-2.5`} {...textareaProps} />
+      <textarea
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className={`${CONTROL_CLASSES} ${borderClasses} min-h-24 py-2.5`}
+        {...textareaProps}
+      />
     )
   } else {
     const { label: _label, error: _error, hint: _hint, containerClassName: _c, as: _as, ...inputProps } = props
-    control = <input id={id} className={`${CONTROL_CLASSES} ${borderClasses} h-11`} {...inputProps} />
+    control = (
+      <input
+        id={id}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className={`${CONTROL_CLASSES} ${borderClasses} h-11`}
+        {...inputProps}
+      />
+    )
   }
 
   return (
     <div className={containerClassName}>
       <label htmlFor={id} className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-soft">
         {label}
-        {'required' in props && props.required && <span className="ml-0.5 text-danger">*</span>}
+        {'required' in props && props.required && (
+          <span className="ml-0.5 text-danger" aria-hidden="true">
+            *
+          </span>
+        )}
       </label>
       {control}
       {error ? (
-        <p className="mt-1.5 text-xs text-danger">{error}</p>
+        <p id={errorId} className="mt-1.5 text-xs text-danger" role="alert">
+          {error}
+        </p>
       ) : hint ? (
-        <p className="mt-1.5 text-xs text-ink-soft">{hint}</p>
+        <p id={hintId} className="mt-1.5 text-xs text-ink-soft">
+          {hint}
+        </p>
       ) : null}
     </div>
   )
