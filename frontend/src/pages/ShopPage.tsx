@@ -2,9 +2,14 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { useTheme } from '../themes/ThemeProvider'
+import { useSettings } from '../lib/useSettings'
+import { NAV_ITEMS, FOOTER_LINKS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
+import Header from '../components/Header'
+import Footer from '../components/Footer'
+import ProductGrid from '../components/ProductGrid'
+import CartDrawer from '../components/CartDrawer'
 
 interface Product {
   id: number
@@ -28,7 +33,7 @@ interface ProductsData {
 type SortKey = 'newest' | 'price_asc' | 'price_desc'
 
 export default function ShopPage() {
-  const { theme, isLoading: themeLoading, navItems, footerData, settings } = useTheme()
+  const { store_name: storeName, currency: storeCurrency } = useSettings()
   const cartOpen = useCartStore((s) => s.isCartOpen)
   const openCart = useCartStore((s) => s.openCart)
   const closeCart = useCartStore((s) => s.closeCart)
@@ -48,8 +53,7 @@ export default function ShopPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('')
   const [sort, setSort] = useState<SortKey>('newest')
 
-  const storeName = settings.store_name ?? 'EdgeShop'
-  const currency = settings.currency === 'INR' ? '₹' : (settings.currency ?? '₹')
+  const currency = currencySymbol(storeCurrency)
 
   // Fetch all products for category chips (limit=48, page=1, no category filter)
   const { data: allProductsData } = useQuery<ProductsData>({
@@ -90,23 +94,13 @@ export default function ShopPage() {
     setPage(1)
   }
 
-  if (themeLoading || !theme) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-gray-400">Loading...</p>
-      </div>
-    )
-  }
-
-  const { Header, Footer, ProductGrid, CartDrawer } = theme.components
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
       <Header
         storeName={storeName}
         cartCount={totalItems()}
         onCartOpen={openCart}
-        navItems={navItems}
+        navItems={NAV_ITEMS}
       />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -221,7 +215,7 @@ export default function ShopPage() {
         )}
       </main>
 
-      <Footer storeName={storeName} footerData={footerData} />
+      <Footer storeName={storeName} links={FOOTER_LINKS} />
       <CartDrawer
         isOpen={cartOpen}
         items={items}

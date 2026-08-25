@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTheme } from '../../themes/ThemeProvider'
+import { useSettings } from '../../lib/useSettings'
+import { NAV_ITEMS } from '../../lib/storeConfig'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
+import Header from '../../components/Header'
 
 interface Profile {
   id: number
@@ -22,14 +24,9 @@ interface Address {
   country: string
 }
 
-interface Settings {
-  store_name?: string
-  [key: string]: string | undefined
-}
-
 export default function AccountProfilePage() {
   const navigate = useNavigate()
-  const { theme, isLoading: themeLoading, navItems } = useTheme()
+  const { store_name: storeName } = useSettings()
   const totalItems = useCartStore((s) => s.totalItems)
   const token = useAuthStore((s) => s.token)
   const setCustomerName = useAuthStore((s) => s.setCustomerName)
@@ -47,12 +44,6 @@ export default function AccountProfilePage() {
   }
 
   const authHeaders = { Authorization: `Bearer ${token}` }
-
-  const { data: settings } = useQuery<Settings>({
-    queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then((r) => r.json()),
-    staleTime: 5 * 60 * 1000,
-  })
 
   const { data: profile, isLoading: profileLoading } = useQuery<Profile>({
     queryKey: ['account-profile', token],
@@ -95,7 +86,6 @@ export default function AccountProfilePage() {
     onError: () => setSaveError('Failed to save changes. Please try again.'),
   })
 
-  const storeName = settings?.store_name ?? 'EdgeShop'
   const addresses = addressData?.addresses ?? []
 
   const handleEdit = () => {
@@ -121,23 +111,13 @@ export default function AccountProfilePage() {
     navigate('/')
   }
 
-  if (themeLoading || !theme) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-gray-400">Loading...</p>
-      </div>
-    )
-  }
-
-  const { Header } = theme.components
-
   return (
     <div className="min-h-screen">
       <Header
         storeName={storeName}
         cartCount={totalItems()}
         onCartOpen={() => {}}
-        navItems={navItems}
+        navItems={NAV_ITEMS}
       />
       <main className="max-w-3xl mx-auto px-4 py-12">
         {/* Top bar */}

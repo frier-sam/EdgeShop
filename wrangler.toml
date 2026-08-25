@@ -15,6 +15,3 @@ database_id = "6290afd0-0301-4220-8212-e920ce046fa3"
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "edgeshop-images"
-
-[triggers]
-crons = ["0 * * * *"]

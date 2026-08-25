@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom'
-import { useTheme } from '../themes/ThemeProvider'
+import { useSettings } from '../lib/useSettings'
+import { NAV_ITEMS } from '../lib/storeConfig'
+import Header from '../components/Header'
+import Footer from '../components/Footer'
 
 export default function NotFoundPage() {
-  const { theme, navItems, settings } = useTheme()
-  const storeName = settings.store_name ?? 'EdgeShop'
-  const Header = theme?.components?.Header
-  const Footer = theme?.components?.Footer
+  const { store_name: storeName } = useSettings()
 
   return (
     <>
@@ -22,14 +22,12 @@ export default function NotFoundPage() {
       `}</style>
 
       <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
-        {Header && (
-          <Header
-            storeName={storeName}
-            cartCount={0}
-            onCartOpen={() => {}}
-            navItems={navItems}
-          />
-        )}
+        <Header
+          storeName={storeName}
+          cartCount={0}
+          onCartOpen={() => {}}
+          navItems={NAV_ITEMS}
+        />
 
         <main className="relative flex flex-col items-center justify-center min-h-[70vh] text-center px-4 overflow-hidden">
 
@@ -37,7 +35,6 @@ export default function NotFoundPage() {
           <span
             className="pointer-events-none select-none absolute text-[120px] sm:text-[180px] font-semibold leading-none"
             style={{
-              fontFamily: "'Playfair Display', serif",
               color: 'var(--color-accent)',
               opacity: 0.15,
               zIndex: 0,
@@ -51,12 +48,9 @@ export default function NotFoundPage() {
           <div className="relative not-found-content" style={{ zIndex: 1 }}>
             <h1
               className="text-3xl sm:text-4xl font-semibold mb-4"
-              style={{
-                fontFamily: "'Playfair Display', serif",
-                color: 'var(--color-primary)',
-              }}
+              style={{ color: 'var(--color-primary)' }}
             >
-              Oops, lost in the collection
+              Page not found
             </h1>
 
             <p
@@ -74,8 +68,6 @@ export default function NotFoundPage() {
                 style={{
                   backgroundColor: 'var(--color-primary)',
                   color: 'var(--color-bg)',
-                  fontFamily: "'Playfair Display', serif",
-                  letterSpacing: '0.12em',
                 }}
               >
                 ← Go Home
@@ -86,48 +78,16 @@ export default function NotFoundPage() {
                 style={{
                   border: '1.5px solid var(--color-accent)',
                   color: 'var(--color-accent)',
-                  fontFamily: "'Playfair Display', serif",
-                  letterSpacing: '0.12em',
                 }}
               >
                 Browse Products
               </Link>
-              <Link
-                to="/contact"
-                className="inline-block px-7 py-3 text-xs tracking-widest uppercase transition-opacity hover:opacity-60"
-                style={{
-                  color: 'var(--color-primary)',
-                  fontFamily: "'Playfair Display', serif",
-                  letterSpacing: '0.12em',
-                }}
-              >
-                Contact Us
-              </Link>
-            </div>
-
-            {/* Decorative divider */}
-            <div className="flex items-center justify-center gap-3 mx-auto max-w-xs">
-              <div
-                className="flex-1 h-px"
-                style={{ backgroundColor: 'color-mix(in srgb, var(--color-accent) 35%, transparent)' }}
-              />
-              <span
-                className="text-xs"
-                style={{ color: 'var(--color-accent)', opacity: 0.6 }}
-                aria-hidden="true"
-              >
-                ✦
-              </span>
-              <div
-                className="flex-1 h-px"
-                style={{ backgroundColor: 'color-mix(in srgb, var(--color-accent) 35%, transparent)' }}
-              />
             </div>
           </div>
 
         </main>
 
-        {Footer && <Footer storeName={storeName} />}
+        <Footer storeName={storeName} />
       </div>
     </>
   )

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useTheme } from '../../themes/ThemeProvider'
+import { useSettings } from '../../lib/useSettings'
+import { NAV_ITEMS, currencySymbol } from '../../lib/storeConfig'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
+import Header from '../../components/Header'
 
 interface OrderItem {
   product_id: string
@@ -23,17 +25,9 @@ interface Order {
   tracking_number: string | null
 }
 
-interface Settings {
-  store_name?: string
-  currency?: string
-  [key: string]: string | undefined
-}
-
-const CURRENCY_SYMBOLS: Record<string, string> = { INR: '₹', USD: '$', EUR: '€', GBP: '£' }
-
 export default function AccountOrdersPage() {
   const navigate = useNavigate()
-  const { theme, isLoading: themeLoading, navItems } = useTheme()
+  const { store_name: storeName, currency: storeCurrency } = useSettings()
   const totalItems = useCartStore((s) => s.totalItems)
   const token = useAuthStore((s) => s.token)
   const customerName = useAuthStore((s) => s.customerName)
@@ -47,12 +41,6 @@ export default function AccountOrdersPage() {
     }
   }, [token, navigate])
 
-  const { data: settings } = useQuery<Settings>({
-    queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then((r) => r.json()),
-    staleTime: 5 * 60 * 1000,
-  })
-
   const { data, isLoading: ordersLoading, error } = useQuery<{ orders: Order[] }>({
     queryKey: ['account-orders', token],
     queryFn: () =>
@@ -65,8 +53,7 @@ export default function AccountOrdersPage() {
     enabled: !!token,
   })
 
-  const storeName = settings?.store_name ?? 'EdgeShop'
-  const currency = CURRENCY_SYMBOLS[settings?.currency ?? 'INR'] ?? (settings?.currency ?? '₹')
+  const currency = currencySymbol(storeCurrency)
   const orders = data?.orders ?? []
 
   const handleLogout = () => {
@@ -87,19 +74,9 @@ export default function AccountOrdersPage() {
     }
   }
 
-  if (themeLoading || !theme) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-gray-400">Loading...</p>
-      </div>
-    )
-  }
-
   if (!token) {
     return null
   }
-
-  const { Header } = theme.components
 
   return (
     <div className="min-h-screen">
@@ -107,7 +84,7 @@ export default function AccountOrdersPage() {
         storeName={storeName}
         cartCount={totalItems()}
         onCartOpen={() => {}}
-        navItems={navItems}
+        navItems={NAV_ITEMS}
       />
       <main className="max-w-3xl mx-auto px-4 py-12">
         <div className="flex items-center justify-between mb-8">

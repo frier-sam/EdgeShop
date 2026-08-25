@@ -3,7 +3,6 @@ import type { Env } from '../index'
 import { hashPassword, verifyPassword, createJWT, getOrCreateJwtSecret } from '../lib/auth'
 import { passwordResetHtml } from '../lib/emailTemplates'
 import { sendEmail } from '../lib/email'
-import { allPermissions } from '../lib/permissions'
 
 const auth = new Hono<{ Bindings: Env }>()
 
@@ -44,7 +43,9 @@ auth.post('/register', async (c) => {
     .bind(result.meta.last_row_id).first<{ cnt: number }>()
   const isFirst = (countBefore?.cnt ?? 0) === 0
   const role = isFirst ? 'super_admin' : 'customer'
-  const permissions = isFirst ? allPermissions() : {}
+  // Granular per-staff permissions were removed with the staff admin page;
+  // role alone now gates admin access (see requireAdmin middleware).
+  const permissions = {}
 
   if (isFirst) {
     await c.env.DB.prepare("UPDATE customers SET role = 'super_admin' WHERE id = ?")
@@ -86,8 +87,6 @@ auth.post('/login', async (c) => {
 
   let permissions: Record<string, boolean> = {}
   try { permissions = JSON.parse(customer.permissions_json || '{}') } catch {}
-  // super_admin always has all permissions
-  if (customer.role === 'super_admin') permissions = allPermissions()
 
   const secret = await getOrCreateJwtSecret(c.env.DB)
   const token = await createJWT({

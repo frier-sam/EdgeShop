@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+/*
+ * Static replacement for the CSS custom properties that ThemeProvider used
+ * to inject at runtime from a D1-backed theme. POD has one fixed, neutral
+ * look — these are the same values the old "jewellery" theme defaulted to,
+ * kept here so pages that still reference var(--color-*) inline styles
+ * (pending their Phase 5 rewrite) keep rendering correctly.
+ */
+:root {
+  --color-primary: #1A1A1A;
+  --color-accent: #6B7280;
+  --color-bg: #FAFAF8;
+  --color-text: #1A1A1A;
+  --color-surface: #F3F0EB;
+  --color-border: #E8E2D9;
+  --color-muted: #7A7167;
+  --font-heading: system-ui, sans-serif;
+  --font-body: system-ui, sans-serif;
+}
+
 html {
   scroll-behavior: smooth;
 }

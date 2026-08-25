@@ -1,20 +1,16 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { useTheme } from '../../themes/ThemeProvider'
+import { useSettings } from '../../lib/useSettings'
+import { NAV_ITEMS } from '../../lib/storeConfig'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
-
-interface Settings {
-  store_name?: string
-  [key: string]: string | undefined
-}
+import Header from '../../components/Header'
 
 export default function LoginPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const resetSuccess = searchParams.get('reset') === '1'
-  const { theme, isLoading: themeLoading, navItems } = useTheme()
+  const { store_name: storeName } = useSettings()
   const totalItems = useCartStore((s) => s.totalItems)
   const setAuth = useAuthStore((s) => s.setAuth)
 
@@ -22,14 +18,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  const { data: settings } = useQuery<Settings>({
-    queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then((r) => r.json()),
-    staleTime: 5 * 60 * 1000,
-  })
-
-  const storeName = settings?.store_name ?? 'EdgeShop'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -57,23 +45,13 @@ export default function LoginPage() {
     }
   }
 
-  if (themeLoading || !theme) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-gray-400">Loading...</p>
-      </div>
-    )
-  }
-
-  const { Header } = theme.components
-
   return (
     <div className="min-h-screen">
       <Header
         storeName={storeName}
         cartCount={totalItems()}
         onCartOpen={() => {}}
-        navItems={navItems}
+        navItems={NAV_ITEMS}
       />
       <main className="max-w-md mx-auto px-4 py-16">
         <h1 className="text-2xl font-semibold text-gray-900 mb-6">Sign In</h1>

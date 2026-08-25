@@ -1,10 +1,31 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useTheme } from '../themes/ThemeProvider'
+import { useSettings } from '../lib/useSettings'
+import { NAV_ITEMS, FOOTER_LINKS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
-import { jewelleryConfig } from '../themes/jewellery/config'
+import Header from '../components/Header'
+import Footer from '../components/Footer'
+import CartDrawer from '../components/CartDrawer'
+import ProductCard from '../components/ProductCard'
+
+interface ProductTab {
+  key: 'description' | 'static'
+  label: string
+  content?: string
+}
+
+// Generic, neutral tab copy — replaces the jewellery-specific config that
+// lived at themes/jewellery/config.ts. Phase 5 rewrites ProductPage properly.
+const productTabs: ProductTab[] = [
+  { key: 'description', label: 'Description' },
+  {
+    key: 'static',
+    label: 'Shipping & Returns',
+    content: 'Standard shipping within 5–7 business days.\n\nReturns accepted within 7 days of delivery. Item must be unused, in original packaging.\nTo initiate a return, contact us with your order number.',
+  },
+]
 
 interface ProductVariant {
   id: number
@@ -40,12 +61,6 @@ interface Review {
   rating: number
   body: string
   created_at: string
-}
-
-interface Settings {
-  store_name?: string
-  currency?: string
-  [key: string]: string | undefined
 }
 
 interface RecentlyViewedItem {
@@ -86,7 +101,7 @@ function buildOptionGroups(variants: ProductVariant[]): Map<string, string[]> {
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { theme, isLoading: themeLoading, navItems, footerData } = useTheme()
+  const { store_name: storeName, currency: storeCurrency, settings } = useSettings()
   const [qty, setQty] = useState(1)
   const [added, setAdded] = useState(false)
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({})
@@ -115,12 +130,6 @@ export default function ProductPage() {
     updateQuantityRaw(productId, qty)
   }
   const queryClient = useQueryClient()
-
-  const { data: settings } = useQuery<Settings>({
-    queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then((r) => r.json()),
-    staleTime: 5 * 60 * 1000,
-  })
 
   const { data: product, isLoading, error } = useQuery<Product>({
     queryKey: ['product', id],
@@ -156,7 +165,7 @@ export default function ProductPage() {
     ? reviewsList.reduce((sum, r) => sum + r.rating, 0) / reviewsList.length
     : 0
 
-  const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
+  const currency = currencySymbol(storeCurrency)
 
   // Initialize default selected options when product loads
   useEffect(() => {
@@ -305,20 +314,16 @@ export default function ProductPage() {
     </div>
   )
 
-  if (themeLoading || !theme) return <div className="min-h-screen flex items-center justify-center"><p className="text-sm text-gray-400">Loading...</p></div>
-
-  const { Header, Footer, CartDrawer, ProductCard } = theme.components
-
   // Recently viewed items to display: exclude current product, max 4
   const recentlyViewedDisplay = recentlyViewed.filter(item => item.id !== product.id).slice(0, 4)
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--color-bg)' }}>
       <Header
-        storeName={settings?.store_name ?? 'EdgeShop'}
+        storeName={storeName}
         cartCount={totalItems()}
         onCartOpen={openCart}
-        navItems={navItems}
+        navItems={NAV_ITEMS}
       />
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
         {/* Breadcrumb */}
@@ -440,7 +445,7 @@ export default function ProductPage() {
             <div className="mb-6">
               {/* Tab bar */}
               <div className="flex border-b mb-4" style={{ borderColor: 'var(--color-accent)', borderBottomWidth: '1px' }}>
-                {jewelleryConfig.productTabs.map((tab, index) => (
+                {productTabs.map((tab, index) => (
                   <button
                     key={tab.label}
                     onClick={() => setActiveTabIndex(index)}
@@ -462,7 +467,7 @@ export default function ProductPage() {
 
               {/* Tab content */}
               {(() => {
-                const tab = jewelleryConfig.productTabs[activeTabIndex]
+                const tab = productTabs[activeTabIndex]
                 if (tab.key === 'description') {
                   return product.description ? (
                     <p className="text-sm leading-relaxed opacity-70" style={{ color: 'var(--color-primary)' }}>
@@ -849,7 +854,7 @@ export default function ProductPage() {
           </div>
         )}
       </div>
-      <Footer storeName={settings?.store_name ?? 'EdgeShop'} footerData={footerData} />
+      <Footer storeName={storeName} links={FOOTER_LINKS} />
       <CartDrawer
         isOpen={cartOpen}
         items={items}

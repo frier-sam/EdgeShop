@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { useTheme } from '../themes/ThemeProvider'
+import { useSettings } from '../lib/useSettings'
+import { NAV_ITEMS, FOOTER_LINKS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
 import { SkeletonCards } from '../components/Skeleton'
-import USPStrip from '../themes/jewellery/USPStrip'
-import FeaturedBanner from '../themes/jewellery/FeaturedBanner'
-import CategoryRow from '../themes/jewellery/CategoryRow'
-import Testimonials from '../themes/jewellery/Testimonials'
+import Header from '../components/Header'
+import Footer from '../components/Footer'
+import ProductGrid from '../components/ProductGrid'
+import CartDrawer from '../components/CartDrawer'
 
 interface Product {
   id: number
@@ -20,13 +21,6 @@ interface Product {
   images?: string[]
   stock_count: number
   category: string
-}
-
-interface Settings {
-  store_name?: string
-  active_theme?: string
-  currency?: string
-  [key: string]: string | undefined
 }
 
 interface ProductsData {
@@ -44,7 +38,7 @@ function setMetaProperty(property: string, content: string) {
 }
 
 export default function HomePage() {
-  const { theme, isLoading: themeLoading, navItems, footerData, homepageData } = useTheme()
+  const { store_name: storeName, currency: storeCurrency } = useSettings()
   const cartOpen = useCartStore((s) => s.isCartOpen)
   const openCart = useCartStore((s) => s.openCart)
   const closeCart = useCartStore((s) => s.closeCart)
@@ -66,24 +60,17 @@ export default function HomePage() {
     updateQuantityRaw(productId, qty)
   }
 
-  const { data: settings } = useQuery<Settings>({
-    queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then((r) => r.json()),
-    staleTime: 5 * 60 * 1000,
-  })
-
   const { data: productsData, isLoading: productsLoading } = useQuery<ProductsData>({
     queryKey: ['products', page],
     queryFn: () => fetch(`/api/products?page=${page}&limit=12`).then((r) => r.json()),
     staleTime: 60 * 1000,
   })
 
-  const storeName = settings?.store_name ?? 'EdgeShop'
-  const currency = settings?.currency === 'INR' ? '₹' : (settings?.currency ?? '₹')
+  const currency = currencySymbol(storeCurrency)
   const products = productsData?.products ?? []
 
   useEffect(() => {
-    const name = settings?.store_name ?? 'EdgeShop'
+    const name = storeName
     const desc = `Shop ${name} — discover our handpicked collection.`
     document.title = name
     const meta = document.querySelector('meta[name="description"]')
@@ -99,33 +86,28 @@ export default function HomePage() {
       setMetaProperty('og:description', '')
       setMetaProperty('og:url', '')
     }
-  }, [settings?.store_name])
-
-  if (themeLoading || !theme) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-sm text-gray-400">Loading...</p>
-      </div>
-    )
-  }
-
-  const { Header, Footer, Hero, ProductGrid, CartDrawer } = theme.components
+  }, [storeName])
 
   return (
     <div className="min-h-screen pb-16 md:pb-0">
-      <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={navItems} />
+      <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={NAV_ITEMS} />
       <main>
-        <Hero storeName={storeName} tagline={homepageData.heroTagline ?? 'Discover our collection'} heroImage={homepageData.heroImage} />
-        <USPStrip enabled={homepageData.uspEnabled ?? true} />
-        <FeaturedBanner
-          enabled={homepageData.bannerEnabled ?? true}
-          title={homepageData.bannerTitle}
-          subtitle={homepageData.bannerSubtitle}
-          image={homepageData.bannerImage}
-          href={homepageData.bannerHref}
-          ctaLabel={homepageData.bannerCtaLabel}
-        />
-        <CategoryRow enabled={homepageData.collectionsEnabled ?? true} items={homepageData.collectionItems} />
+        {/* Hero */}
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-24 text-center">
+          <h1 className="text-3xl sm:text-4xl font-semibold text-gray-900 mb-4">
+            {storeName}
+          </h1>
+          <p className="text-sm sm:text-base text-gray-500 max-w-xl mx-auto mb-8">
+            Discover our collection — thoughtfully made, delivered to your door.
+          </p>
+          <button
+            onClick={() => navigate('/shop')}
+            className="inline-block px-8 py-3 text-sm font-medium tracking-wide uppercase bg-gray-900 text-white rounded hover:opacity-90 transition-opacity"
+          >
+            Shop Now
+          </button>
+        </section>
+
         {productsLoading ? (
           <div className="max-w-6xl mx-auto px-4 py-8">
             <SkeletonCards count={8} />
@@ -160,13 +142,8 @@ export default function HomePage() {
             </button>
           </div>
         )}
-        <Testimonials
-          enabled={homepageData.testimonialsEnabled ?? true}
-          heading={homepageData.testimonialHeading}
-          items={homepageData.testimonials}
-        />
       </main>
-      <Footer storeName={storeName} footerData={footerData} />
+      <Footer storeName={storeName} links={FOOTER_LINKS} />
       <CartDrawer isOpen={cartOpen} items={items} currency={currency} onClose={closeCart} onUpdateQuantity={updateQuantity} onCheckout={() => { closeCart(); navigate('/checkout') }} />
     </div>
   )
