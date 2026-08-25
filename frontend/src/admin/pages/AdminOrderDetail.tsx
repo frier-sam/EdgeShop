@@ -1,15 +1,12 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
-
-interface OrderItem {
-  product_id: number
-  name: string
-  price: number
-  quantity: number
-  image_url?: string
-}
+import { useEditorSettings } from '../../editor/useEditorSettings'
+import OrderDesignPanel from '../OrderDesignPanel'
+import { collectRenderableSides, renderOrderSide } from '../print/orderPrintFiles'
+import { downloadAllPrintFiles } from '../print/downloadPrintFiles'
+import type { AdminOrderLineItem } from '../types'
 
 interface EmailLog {
   id: number
@@ -32,11 +29,11 @@ interface Order {
   customer_name: string
   customer_email: string
   customer_phone?: string
-  items_json: string
+  items: AdminOrderLineItem[]
+  subtotal: number
+  print_total: number
+  shipping_amount: number
   total_amount: number
-  discount_code?: string
-  discount_amount?: number
-  shipping_amount?: number
   order_status: string
   payment_status: string
   payment_method: string
@@ -100,6 +97,31 @@ export default function AdminOrderDetail() {
       }),
     enabled: !!id,
   })
+
+  const { settings } = useEditorSettings()
+
+  const [downloadingAll, setDownloadingAll] = useState(false)
+  const [downloadAllError, setDownloadAllError] = useState<string | null>(null)
+
+  async function handleDownloadAll() {
+    if (!order) return
+    const renderable = collectRenderableSides(order.items ?? [])
+    if (renderable.length === 0) return
+    setDownloadAllError(null)
+    setDownloadingAll(true)
+    try {
+      const files = []
+      for (const r of renderable) {
+        const result = await renderOrderSide(order.id, r, settings.printDpi)
+        files.push({ filename: result.filename, blob: result.blob })
+      }
+      await downloadAllPrintFiles(order.id, files)
+    } catch {
+      setDownloadAllError('Could not render all print files. Please try again.')
+    } finally {
+      setDownloadingAll(false)
+    }
+  }
 
   const [orderStatus, setOrderStatus] = useState('')
   const [paymentStatus, setPaymentStatus] = useState('')
@@ -186,14 +208,6 @@ export default function AdminOrderDetail() {
     },
   })
 
-  const items: OrderItem[] = useMemo(() => {
-    try {
-      return JSON.parse(order?.items_json ?? '[]')
-    } catch {
-      return []
-    }
-  }, [order?.items_json])
-
   if (isLoading) {
     return (
       <div className="text-sm text-gray-400 py-10 text-center">Loading order...</div>
@@ -211,9 +225,8 @@ export default function AdminOrderDetail() {
     )
   }
 
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0)
-  const shippingAmount = order.shipping_amount ?? 0
-  const discountAmount = order.discount_amount ?? 0
+  const items = order.items ?? []
+  const renderableSideCount = collectRenderableSides(items).length
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -465,65 +478,25 @@ export default function AdminOrderDetail() {
 
         {/* Right column */}
         <div className="space-y-4">
-          {/* Line items */}
-          <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <h2 className="text-sm font-semibold text-gray-700 px-4 py-3 border-b border-gray-100">
-              Items
-            </h2>
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left px-4 py-2 text-xs text-gray-500 font-medium">Product</th>
-                  <th className="text-right px-4 py-2 text-xs text-gray-500 font-medium">Price</th>
-                  <th className="text-right px-4 py-2 text-xs text-gray-500 font-medium">Qty</th>
-                  <th className="text-right px-4 py-2 text-xs text-gray-500 font-medium">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {items.map((item, idx) => (
-                  <tr key={idx}>
-                    <td className="px-4 py-2">
-                      <div className="flex items-center gap-2">
-                        {item.image_url && (
-                          <img
-                            src={item.image_url}
-                            alt={item.name}
-                            className="w-8 h-8 object-cover rounded border border-gray-100 shrink-0"
-                          />
-                        )}
-                        <span className="text-gray-800">{item.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-2 text-right text-gray-600">
-                      &#8377;{item.price.toFixed(2)}
-                    </td>
-                    <td className="px-4 py-2 text-right text-gray-600">{item.quantity}</td>
-                    <td className="px-4 py-2 text-right font-medium text-gray-800">
-                      &#8377;{(item.price * item.quantity).toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            {/* Totals */}
-            <div className="border-t border-gray-200 px-4 py-3 space-y-1 text-sm">
+          {/* Order totals — POD.md §7.1/§6.1: subtotal/print_total/shipping_amount
+              are stored directly on the order row, not re-derived from items. */}
+          <section className="bg-white rounded-lg border border-gray-200 p-4">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Order Total</h2>
+            <div className="space-y-1 text-sm">
               <div className="flex justify-between text-gray-500">
                 <span>Subtotal</span>
-                <span>&#8377;{subtotal.toFixed(2)}</span>
+                <span>&#8377;{order.subtotal.toFixed(2)}</span>
               </div>
-              {shippingAmount > 0 && (
+              {order.print_total > 0 && (
                 <div className="flex justify-between text-gray-500">
-                  <span>Shipping</span>
-                  <span>&#8377;{shippingAmount.toFixed(2)}</span>
+                  <span>Print fees (included above)</span>
+                  <span>&#8377;{order.print_total.toFixed(2)}</span>
                 </div>
               )}
-              {discountAmount > 0 && (
-                <div className="flex justify-between text-green-600">
-                  <span>
-                    Discount{order.discount_code ? ` (${order.discount_code})` : ''}
-                  </span>
-                  <span>-&#8377;{discountAmount.toFixed(2)}</span>
+              {order.shipping_amount > 0 && (
+                <div className="flex justify-between text-gray-500">
+                  <span>Shipping</span>
+                  <span>&#8377;{order.shipping_amount.toFixed(2)}</span>
                 </div>
               )}
               <div className="flex justify-between font-semibold text-gray-900 pt-1 border-t border-gray-100">
@@ -534,6 +507,35 @@ export default function AdminOrderDetail() {
           </section>
         </div>
       </div>
+
+      {/* Design files — POD.md §4.2/§8.3: per-line size/qty/price, per-side
+          flattened preview + print dimensions/effective-DPI readout, and a
+          Download print file button per side, plus a whole-order zip. */}
+      <section className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-6">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-700">Items &amp; Design Files</h2>
+          {renderableSideCount > 0 && (
+            <button
+              onClick={handleDownloadAll}
+              disabled={downloadingAll}
+              className="px-3 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {downloadingAll ? 'Rendering…' : `Download all print files (${renderableSideCount})`}
+            </button>
+          )}
+        </div>
+        {downloadAllError && (
+          <p className="text-xs text-red-500 px-4 pt-3">{downloadAllError}</p>
+        )}
+        <div className="divide-y divide-gray-100">
+          {items.length === 0 && (
+            <p className="px-4 py-6 text-sm text-gray-400 text-center">No items on this order.</p>
+          )}
+          {items.map((item, idx) => (
+            <OrderDesignPanel key={idx} orderId={order.id} lineIndex={idx} item={item} printDpi={settings.printDpi} />
+          ))}
+        </div>
+      </section>
 
       {/* Timeline + Private Notes */}
       <section className="bg-white rounded-lg border border-gray-200 p-4 mb-6">

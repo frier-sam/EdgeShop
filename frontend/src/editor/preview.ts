@@ -13,7 +13,7 @@
 import type { FabricModule } from './fabric/loadFabric'
 import { computeReferenceGeometry, PREVIEW_REFERENCE_WIDTH } from './geometry'
 import { ensureFontsReady } from './fonts'
-import type { StoredSideSnapshot } from './designSchema'
+import { extractSnapshotFontFamilies, type StoredSideSnapshot } from './designSchema'
 import type { NormalizedRect } from './geometry'
 
 function loadImage(url: string): Promise<HTMLImageElement> {
@@ -24,16 +24,6 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error(`Failed to load mockup image: ${url}`))
     img.src = url
   })
-}
-
-function extractFontFamilies(snapshot: StoredSideSnapshot | undefined): string[] {
-  if (!snapshot?.objects) return []
-  const families = new Set<string>()
-  for (const obj of snapshot.objects) {
-    const family = (obj as { fontFamily?: unknown }).fontFamily
-    if (typeof family === 'string') families.add(family)
-  }
-  return Array.from(families)
 }
 
 export interface RenderSidePreviewArgs {
@@ -63,7 +53,7 @@ export async function renderSidePreview({
   safePercent,
   snapshot,
 }: RenderSidePreviewArgs): Promise<Blob> {
-  await ensureFontsReady(extractFontFamilies(snapshot))
+  await ensureFontsReady(extractSnapshotFontFamilies(snapshot))
 
   const geo = computeReferenceGeometry(mockupNaturalW, mockupNaturalH, printRect, bleedPercent, safePercent)
   const outW = PREVIEW_REFERENCE_WIDTH

@@ -12,6 +12,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.56.0",
     "fabric": "6.9.1",
+    "fflate": "^0.8.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.0",

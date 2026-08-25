@@ -37,6 +37,23 @@ export function sidesUsedFrom(design: DesignJson, candidateSides: EditorSideName
   return candidateSides.filter((side) => sideHasArt(design, side))
 }
 
+/**
+ * Every font family actually used by a side's canonical snapshot — shared
+ * by the add-to-cart preview compositor (preview.ts) and the admin's
+ * PrintFileRenderer (frontend/src/admin/print/), both of which must gate
+ * on `document.fonts` before drawing (POD.md §5.5) or risk silently
+ * shipping different artwork than what the snapshot actually contains.
+ */
+export function extractSnapshotFontFamilies(snapshot: StoredSideSnapshot | undefined): string[] {
+  if (!snapshot?.objects) return []
+  const families = new Set<string>()
+  for (const obj of snapshot.objects) {
+    const family = (obj as { fontFamily?: unknown }).fontFamily
+    if (typeof family === 'string') families.add(family)
+  }
+  return Array.from(families)
+}
+
 export interface CanonicalDpiIssue {
   side: EditorSideName
   dpi: number
