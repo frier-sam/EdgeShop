@@ -4,7 +4,9 @@ import type { Env } from '../index'
 
 const settings = new Hono<{ Bindings: Env }>()
 
-const SENSITIVE_KEYS = new Set(['razorpay_key_secret', 'email_api_key', 'jwt_secret', 'shiprocket_password', 'shiprocket_token'])
+// Keys that must never be exposed on the public (unauthenticated) GET /.
+// Every secret in the POD key set belongs here.
+const SENSITIVE_KEYS = new Set(['razorpay_key_secret', 'email_api_key', 'jwt_secret'])
 
 settings.get('/', async (c) => {
   const rows = await c.env.DB.prepare('SELECT key, value FROM settings').all()
@@ -17,8 +19,8 @@ settings.get('/', async (c) => {
   return c.json(result)
 })
 
-// TODO: This endpoint returns sensitive keys (razorpay_key_secret, email_api_key, jwt_secret).
-// It MUST be protected by Cloudflare Access or admin auth middleware (V2-18) before production use.
+// Admin-only: returns every key, including secrets. Used by the admin
+// settings screen so staff can see/edit razorpay_key_secret, email_api_key, etc.
 settings.get('/admin', requireAdmin, async (c) => {
   const rows = await c.env.DB.prepare('SELECT key, value FROM settings').all()
   const result: Record<string, string> = {}
@@ -28,40 +30,49 @@ settings.get('/admin', requireAdmin, async (c) => {
   return c.json(result)
 })
 
-settings.put('/', async (c) => {
-  const body = await c.req.json<Record<string, string>>()
-  const allowed = [
-    // v1 keys
-    'store_name', 'active_theme', 'cod_enabled',
-    'razorpay_key_id', 'razorpay_key_secret', 'currency',
-    // v2 email keys
-    'email_provider', 'email_api_key', 'email_from_name',
-    'email_from_address', 'merchant_email',
-    // v2 navigation + announcement bar
-    'navigation_json',
-    'announcement_bar_text', 'announcement_bar_enabled', 'announcement_bar_color',
-    // v2 theme customizer
-    'theme_overrides_json',
-    // v2 footer + review settings
-    'footer_json',
-    // homepage sections
-    'homepage_json',
-    'reviews_visibility',
-    // v2 email notification
-    'admin_email_notifications',
-    // store locale
-    'default_country_code',
-    // ShipRocket integration
-    'shiprocket_email', 'shiprocket_password', 'shiprocket_pickup_location',
-    'shiprocket_enabled',
-  ]
-  const stmts = Object.entries(body)
-    .filter(([key]) => allowed.includes(key))
-    .map(([key, value]) =>
-      c.env.DB.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
-        .bind(key, value)
-    )
-  if (stmts.length === 0) return c.json({ error: 'No valid keys' }, 400)
+// Plain string keys — no numeric validation, just an allow-list membership check.
+const STRING_KEYS = [
+  'store_name', 'currency', 'cod_enabled',
+  'razorpay_key_id', 'razorpay_key_secret',
+  'email_provider', 'email_api_key', 'email_from_name',
+  'email_from_address', 'merchant_email',
+  'default_country_code',
+]
+
+// Numeric keys (POD.md §6.3) — each validated to be finite, >= min, and <= max when set.
+const NUMERIC_KEYS: Record<string, { min: number; max?: number }> = {
+  flat_shipping_amount: { min: 0 },
+  free_shipping_over: { min: 0 },
+  default_print_fee: { min: 0 },
+  print_dpi: { min: 0 },
+  print_bleed_percent: { min: 0, max: 25 },
+  print_safe_percent: { min: 0, max: 25 },
+  max_art_upload_mb: { min: 0 },
+}
+
+const ALLOWED_KEYS = new Set<string>([...STRING_KEYS, ...Object.keys(NUMERIC_KEYS)])
+
+settings.put('/', requireAdmin, async (c) => {
+  const body = await c.req.json<Record<string, unknown>>()
+
+  for (const [key, bounds] of Object.entries(NUMERIC_KEYS)) {
+    if (!(key in body)) continue
+    const raw = body[key]
+    const n = typeof raw === 'string' ? Number(raw.trim()) : Number(raw)
+    const outOfRange = !Number.isFinite(n) || n < bounds.min || (bounds.max != null && n > bounds.max)
+    if (raw === '' || outOfRange) {
+      const range = bounds.max != null ? `a number between ${bounds.min} and ${bounds.max}` : `a number >= ${bounds.min}`
+      return c.json({ error: `${key} must be ${range}`, field: key }, 400)
+    }
+  }
+
+  const entries = Object.entries(body).filter(([key]) => ALLOWED_KEYS.has(key))
+  if (entries.length === 0) return c.json({ error: 'No valid keys' }, 400)
+
+  const stmts = entries.map(([key, value]) =>
+    c.env.DB.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)')
+      .bind(key, String(value))
+  )
   await c.env.DB.batch(stmts)
   return c.json({ ok: true })
 })
