@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom'
+import Badge from './ui/Badge'
+import IconButton from './ui/IconButton'
 
 interface ProductCardProps {
   id: number
@@ -9,6 +11,15 @@ interface ProductCardProps {
   currency: string
   is_customizable?: number | boolean
   onAddToCart: () => void
+}
+
+function PlusIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <line x1="12" y1="5" x2="12" y2="19" />
+      <line x1="5" y1="12" x2="19" y2="12" />
+    </svg>
+  )
 }
 
 export default function ProductCard({
@@ -31,17 +42,17 @@ export default function ProductCard({
 
   return (
     <div className="group">
-      <Link to={`/product/${id}`} className="relative block aspect-square overflow-hidden rounded-2xl bg-surface ring-1 ring-line">
+      <Link to={`/product/${id}`} className="relative block aspect-square overflow-hidden rounded-card bg-surface ring-1 ring-line">
         <div className="absolute left-2.5 top-2.5 z-10 flex gap-1.5">
           {customizable && (
-            <span className="rounded-full bg-ink/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-paper">
+            <Badge variant="accent" size="sm" className="uppercase">
               Customizable
-            </span>
+            </Badge>
           )}
           {onSale && (
-            <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+            <Badge className="bg-accent text-on-accent uppercase" size="sm">
               Sale
-            </span>
+            </Badge>
           )}
         </div>
 
@@ -49,26 +60,30 @@ export default function ProductCard({
           <img
             src={image_url}
             alt={name}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            className="h-full w-full object-cover transition-transform duration-slow ease-out-soft group-hover:scale-105"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-xs text-ink-soft">No image</div>
         )}
 
-        <div className="absolute inset-x-0 bottom-0 translate-y-2 p-3 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100">
-          {customizable ? (
-            <span className="block w-full rounded-full bg-paper py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-ink shadow-sm">
-              Customize
-            </span>
-          ) : (
-            <button
+        {/* Quick add — always visible (not hover-only) so it's reachable on
+            touch devices, which have no hover state. A real 44px target,
+            distinct from the "Customize" flow (which needs a size chosen
+            on the product page first, so it isn't offered as a one-tap
+            action here). */}
+        {!customizable && (
+          <span className="absolute bottom-2.5 right-2.5 z-10">
+            <IconButton
+              variant="secondary"
+              size="md"
+              aria-label={`Add ${name} to cart`}
               onClick={handleAddToCart}
-              className="block w-full rounded-full bg-paper py-2.5 text-center text-xs font-semibold uppercase tracking-wide text-ink shadow-sm transition-colors hover:bg-ink hover:text-paper"
+              className="bg-surface/95 shadow-card backdrop-blur-sm"
             >
-              Quick add
-            </button>
-          )}
-        </div>
+              <PlusIcon />
+            </IconButton>
+          </span>
+        )}
       </Link>
 
       <Link to={`/product/${id}`} className="mt-3 block">

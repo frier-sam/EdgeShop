@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useSettings } from '../lib/useSettings'
 import { NAV_ITEMS, FOOTER_LINKS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
@@ -10,12 +10,17 @@ import Footer from '../components/Footer'
 import ProductGrid from '../components/ProductGrid'
 import CartDrawer from '../components/CartDrawer'
 import Button from '../components/Button'
+import { SkeletonCards } from '../components/Skeleton'
 import type { ProductSummary } from '../lib/types'
 
 interface ProductsData {
   products: ProductSummary[]
   total: number
 }
+
+// Capped at 6 (POD-UI.md §B2) — the staggered fade-up entrance stays snappy
+// instead of cascading through a long grid.
+const FEATURED_LIMIT = 6
 
 const STEPS = [
   {
@@ -47,12 +52,12 @@ export default function HomePage() {
 
   const { data: productsData, isLoading } = useQuery<ProductsData>({
     queryKey: ['products', 'featured'],
-    queryFn: () => fetch('/api/products?page=1&limit=8').then((r) => r.json()),
+    queryFn: () => fetch(`/api/products?page=1&limit=${FEATURED_LIMIT}`).then((r) => r.json()),
     staleTime: 60 * 1000,
   })
 
   const currency = currencySymbol(storeCurrency)
-  const products = productsData?.products ?? []
+  const products = (productsData?.products ?? []).slice(0, FEATURED_LIMIT)
 
   useEffect(() => {
     document.title = storeName
@@ -81,32 +86,39 @@ export default function HomePage() {
       <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={NAV_ITEMS} />
 
       <main>
-        {/* Hero */}
-        <section className="mx-auto max-w-4xl px-4 py-20 text-center sm:px-6 sm:py-28">
-          <span className="mb-5 inline-block rounded-full bg-accent-soft px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-accent-dark">
-            Print on demand
-          </span>
-          <h1 className="font-display text-4xl font-semibold leading-tight tracking-tight text-ink sm:text-6xl">
-            {storeName}
-          </h1>
-          <p className="mx-auto mt-5 max-w-lg text-base text-ink-soft sm:text-lg">
-            Design it yourself, we print it and ship it — no minimums, made one at a time.
-          </p>
-          <div className="mt-9">
-            <Button variant="accent" size="lg" onClick={() => navigate('/shop')}>
-              Shop the collection
-            </Button>
+        {/* Hero — full-bleed, oversized display type (POD-UI.md §2.1: 2.5rem
+            mobile / 4.5rem desktop). */}
+        <section className="relative overflow-hidden bg-surface px-4 py-12 text-center sm:px-8 md:py-20">
+          <div className="mx-auto max-w-4xl animate-fade-up">
+            <span className="mb-5 inline-block rounded-full bg-accent-soft px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-accent-dark">
+              Print on demand
+            </span>
+            <h1 className="font-display text-[2.5rem] font-bold leading-[1.05] tracking-[-0.03em] text-ink md:text-[4.5rem]">
+              {storeName}
+            </h1>
+            <p className="mx-auto mt-5 max-w-lg text-[0.9375rem] text-ink-soft md:text-base">
+              Design it yourself, we print it and ship it — no minimums, made one at a time.
+            </p>
+            <div className="mt-9">
+              <Button variant="primary" size="lg" onClick={() => navigate('/shop')}>
+                Shop the collection
+              </Button>
+            </div>
           </div>
         </section>
 
         {/* How it works */}
-        <section className="border-y border-line bg-surface">
-          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
-            <h2 className="mb-10 text-center font-display text-2xl font-semibold text-ink">How it works</h2>
+        <section className="border-y border-line bg-paper">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-8 md:py-20">
+            <h2 className="mb-10 text-center font-display text-[1.25rem] font-semibold text-ink md:text-[1.75rem]">How it works</h2>
             <div className="grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8">
               {STEPS.map((step, i) => (
-                <div key={step.title} className="text-center">
-                  <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-accent text-sm font-semibold text-white">
+                <div
+                  key={step.title}
+                  className="stagger-delay animate-fade-up text-center"
+                  style={{ '--stagger-index': i } as React.CSSProperties}
+                >
+                  <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-accent font-display text-sm font-semibold text-on-accent">
                     {i + 1}
                   </div>
                   <h3 className="mb-1.5 text-sm font-semibold text-ink">{step.title}</h3>
@@ -118,16 +130,16 @@ export default function HomePage() {
         </section>
 
         {/* Featured products */}
-        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <section className="mx-auto max-w-6xl px-4 py-12 sm:px-8 md:py-20">
           <div className="mb-8 flex items-end justify-between">
-            <h2 className="font-display text-2xl font-semibold text-ink">Featured products</h2>
-            <Button variant="ghost" size="sm" to="/shop">
+            <h2 className="font-display text-[1.25rem] font-semibold text-ink md:text-[1.75rem]">Featured products</h2>
+            <Button as={Link} to="/shop" variant="ghost" size="sm">
               View all →
             </Button>
           </div>
 
           {isLoading ? (
-            <p className="py-16 text-center text-sm text-ink-soft">Loading products…</p>
+            <SkeletonCards count={FEATURED_LIMIT} />
           ) : (
             <ProductGrid
               products={products.map((p) => ({
@@ -140,6 +152,7 @@ export default function HomePage() {
               }))}
               currency={currency}
               onAddToCart={handleAddToCart}
+              stagger
             />
           )}
         </section>

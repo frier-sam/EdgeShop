@@ -5,6 +5,8 @@ import { NAV_ITEMS } from '../../lib/storeConfig'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
 import Header from '../../components/Header'
+import Field from '../../components/Field'
+import Button from '../../components/Button'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -29,7 +31,7 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       })
-      const data = await res.json() as { token?: string; customer_id?: number; name?: string; error?: string }
+      const data = (await res.json()) as { token?: string; customer_id?: number; name?: string; error?: string }
       if (!res.ok) {
         setError(data.error ?? 'Login failed. Please try again.')
         return
@@ -47,67 +49,46 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen">
-      <Header
-        storeName={storeName}
-        cartCount={totalItems()}
-        onCartOpen={() => {}}
-        navItems={NAV_ITEMS}
-      />
-      <main className="max-w-md mx-auto px-4 py-16">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Sign In</h1>
+      <Header storeName={storeName} cartCount={totalItems()} onCartOpen={() => {}} navItems={NAV_ITEMS} />
+      <main className="mx-auto max-w-sm px-4 py-16 sm:py-20">
+        <h1 className="mb-2 font-display text-[1.75rem] font-bold tracking-[-0.02em] text-ink">Sign In</h1>
+        <p className="mb-8 text-sm text-ink-soft">Welcome back — sign in to view your orders.</p>
+
         {resetSuccess && (
-          <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+          <div className="mb-6 rounded-btn border border-success/30 bg-success/10 p-3 text-sm text-success">
             Password updated successfully. Please log in.
           </div>
         )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
+          <Field label="Email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              id="password"
+            <Field
+              label="Password"
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               required
               autoComplete="current-password"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
-            <div className="text-right mt-1">
-              <Link to="/account/forgot-password" className="text-xs text-gray-500 hover:text-gray-700 hover:underline">
+            <div className="mt-1.5 text-right">
+              <Link to="/account/forgot-password" className="text-xs text-ink-soft hover:text-ink hover:underline">
                 Forgot password?
               </Link>
             </div>
           </div>
           {error && (
-            <p className="text-sm text-red-600">{error}</p>
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
           )}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-          >
-            {submitting ? 'Signing in...' : 'Sign In'}
-          </button>
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={submitting}>
+            Sign In
+          </Button>
         </form>
-        <p className="mt-4 text-sm text-gray-500 text-center">
+        <p className="mt-6 text-center text-sm text-ink-soft">
           Don't have an account?{' '}
-          <Link to="/account/register" className="text-gray-900 underline hover:text-gray-700">
+          <Link to="/account/register" className="font-medium text-ink underline underline-offset-2 hover:text-accent">
             Create one
           </Link>
         </p>

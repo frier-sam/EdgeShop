@@ -12,17 +12,13 @@ export default function Toaster() {
         <div
           key={toast.id}
           onClick={() => removeToast(toast.id)}
-          className="pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-full shadow-lg text-sm font-medium cursor-pointer select-none animate-fade-in"
-          style={{
-            backgroundColor: toast.type === 'error' ? '#dc2626' : toast.type === 'info' ? '#374151' : '#1a1a1a',
-            color: '#fff',
-            minWidth: '180px',
-            justifyContent: 'center',
-          }}
+          className={`pointer-events-auto flex min-w-[180px] items-center justify-center gap-2.5 rounded-full px-4 py-3 text-sm font-medium text-white shadow-lift cursor-pointer select-none animate-fade-in ${
+            toast.type === 'error' ? 'bg-danger' : toast.type === 'info' ? 'bg-ink-soft' : 'bg-ink'
+          }`}
         >
-          {toast.type === 'success' && <span>✓</span>}
-          {toast.type === 'info' && <span>✕</span>}
-          {toast.type === 'error' && <span>!</span>}
+          {toast.type === 'success' && <span aria-hidden="true">✓</span>}
+          {toast.type === 'info' && <span aria-hidden="true">✕</span>}
+          {toast.type === 'error' && <span aria-hidden="true">!</span>}
           {toast.message}
         </div>
       ))}

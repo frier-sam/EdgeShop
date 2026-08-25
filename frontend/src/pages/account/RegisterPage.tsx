@@ -5,6 +5,8 @@ import { NAV_ITEMS } from '../../lib/storeConfig'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
 import Header from '../../components/Header'
+import Field from '../../components/Field'
+import Button from '../../components/Button'
 
 export default function RegisterPage() {
   const navigate = useNavigate()
@@ -28,7 +30,7 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name }),
       })
-      const data = await res.json() as { token?: string; customer_id?: number; name?: string; error?: string }
+      const data = (await res.json()) as { token?: string; customer_id?: number; name?: string; error?: string }
       if (!res.ok) {
         setError(data.error ?? 'Registration failed. Please try again.')
         return
@@ -46,72 +48,36 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen">
-      <Header
-        storeName={storeName}
-        cartCount={totalItems()}
-        onCartOpen={() => {}}
-        navItems={NAV_ITEMS}
-      />
-      <main className="max-w-md mx-auto px-4 py-16">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-6">Create Account</h1>
+      <Header storeName={storeName} cartCount={totalItems()} onCartOpen={() => {}} navItems={NAV_ITEMS} />
+      <main className="mx-auto max-w-sm px-4 py-16 sm:py-20">
+        <h1 className="mb-2 font-display text-[1.75rem] font-bold tracking-[-0.02em] text-ink">Create Account</h1>
+        <p className="mb-8 text-sm text-ink-soft">Track your orders and check out faster next time.</p>
+
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Name
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-            />
-          </div>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-            />
-          </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              minLength={8}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-            />
-            <p className="text-xs text-gray-400 mt-1">At least 8 characters</p>
-          </div>
+          <Field label="Name" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} />
+          <Field label="Email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Field
+            label="Password"
+            type="password"
+            required
+            autoComplete="new-password"
+            minLength={8}
+            hint="At least 8 characters"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
           {error && (
-            <p className="text-sm text-red-600">{error}</p>
+            <p role="alert" className="text-sm text-danger">
+              {error}
+            </p>
           )}
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full py-3 bg-gray-900 text-white text-sm rounded hover:bg-gray-700 disabled:opacity-50 transition-colors"
-          >
-            {submitting ? 'Creating account...' : 'Create Account'}
-          </button>
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={submitting}>
+            Create Account
+          </Button>
         </form>
-        <p className="mt-4 text-sm text-gray-500 text-center">
+        <p className="mt-6 text-center text-sm text-ink-soft">
           Already have an account?{' '}
-          <Link to="/account/login" className="text-gray-900 underline hover:text-gray-700">
+          <Link to="/account/login" className="font-medium text-ink underline underline-offset-2 hover:text-accent">
             Sign in
           </Link>
         </p>

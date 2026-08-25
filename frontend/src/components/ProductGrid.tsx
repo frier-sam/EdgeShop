@@ -11,9 +11,11 @@ interface ProductGridProps {
   }>
   currency: string
   onAddToCart: (productId: number) => void
+  /** Staggered `fade-up` entrance, 40ms apart (POD-UI.md §B2 — HomePage's featured grid). */
+  stagger?: boolean
 }
 
-export default function ProductGrid({ products, currency, onAddToCart }: ProductGridProps) {
+export default function ProductGrid({ products, currency, onAddToCart, stagger = false }: ProductGridProps) {
   if (products.length === 0) {
     return (
       <div className="py-24 text-center">
@@ -23,9 +25,15 @@ export default function ProductGrid({ products, currency, onAddToCart }: Product
   }
 
   return (
-    <div className="grid grid-cols-2 gap-x-5 gap-y-10 sm:grid-cols-3 sm:gap-x-6 lg:grid-cols-4">
-      {products.map((p) => (
-        <ProductCard key={p.id} {...p} currency={currency} onAddToCart={() => onAddToCart(p.id)} />
+    <div className="grid grid-cols-2 gap-x-5 gap-y-10 md:grid-cols-3 md:gap-x-6 lg:grid-cols-4">
+      {products.map((p, i) => (
+        <div
+          key={p.id}
+          className={stagger ? 'stagger-delay animate-fade-up' : undefined}
+          style={stagger ? ({ '--stagger-index': i } as React.CSSProperties) : undefined}
+        >
+          <ProductCard {...p} currency={currency} onAddToCart={() => onAddToCart(p.id)} />
+        </div>
       ))}
     </div>
   )

@@ -37,6 +37,15 @@ interface PriceMismatchResponse {
   }
 }
 
+type FormFields =
+  | 'customer_name'
+  | 'customer_email'
+  | 'customer_phone'
+  | 'shipping_address'
+  | 'shipping_city'
+  | 'shipping_state'
+  | 'shipping_pincode'
+
 function setNoIndex() {
   let el = document.querySelector('meta[name="robots"]')
   if (!el) {
@@ -47,6 +56,8 @@ function setNoIndex() {
   el.setAttribute('content', 'noindex, nofollow')
   return () => el!.setAttribute('content', '')
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function CheckoutPage() {
   const navigate = useNavigate()
@@ -73,6 +84,7 @@ export default function CheckoutPage() {
     shipping_pincode: '',
     shipping_country: 'India',
   })
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<FormFields, string>>>({})
   const [paymentMethod, setPaymentMethod] = useState<'cod' | 'razorpay'>('cod')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -120,6 +132,26 @@ export default function CheckoutPage() {
     []
   )
 
+  function setField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((f) => ({ ...f, [key]: value }))
+    if (key in fieldErrors) setFieldErrors((prev) => ({ ...prev, [key]: undefined }))
+  }
+
+  function validate(): Partial<Record<FormFields, string>> {
+    const errors: Partial<Record<FormFields, string>> = {}
+    if (!form.customer_name.trim()) errors.customer_name = 'Enter your full name.'
+    if (!form.customer_email.trim()) errors.customer_email = 'Enter your email address.'
+    else if (!EMAIL_RE.test(form.customer_email.trim())) errors.customer_email = 'Enter a valid email address.'
+    const phoneDigits = form.customer_phone.replace(/\D/g, '')
+    if (!phoneDigits) errors.customer_phone = 'Enter your phone number.'
+    else if (phoneDigits.length < 6) errors.customer_phone = 'Enter a valid phone number.'
+    if (!form.shipping_address.trim()) errors.shipping_address = 'Enter your street address.'
+    if (!form.shipping_city.trim()) errors.shipping_city = 'Enter your city.'
+    if (!form.shipping_state.trim()) errors.shipping_state = 'Enter your state.'
+    if (!form.shipping_pincode.trim()) errors.shipping_pincode = 'Enter your pincode.'
+    return errors
+  }
+
   if (lines.length === 0) {
     return (
       <div className="flex min-h-screen items-center justify-center">
@@ -138,6 +170,14 @@ export default function CheckoutPage() {
     setError('')
     setStockErrors([])
     setPriceChanged(false)
+
+    const errors = validate()
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setError('Please fix the highlighted fields below.')
+      return
+    }
+
     setSubmitting(true)
 
     try {
@@ -194,9 +234,25 @@ export default function CheckoutPage() {
 
       const data = (await res.json()) as CheckoutResponse
 
+      // Snapshot design previews for the success page before the cart is
+      // cleared — the order confirmation has no dedicated "fetch this
+      // order's lines" endpoint, so this is passed through router state
+      // rather than re-fetched.
+      const orderPreview = {
+        orderId: data.order_id,
+        lines: lines.map((l) => ({
+          key: l.key,
+          name: l.name,
+          size: l.size,
+          quantity: l.quantity,
+          preview_url: l.preview_url,
+          design_id: l.design_id,
+        })),
+      }
+
       if (data.payment_method === 'cod') {
         clearCart()
-        navigate('/order-success')
+        navigate('/order-success', { state: orderPreview })
         return
       }
 
@@ -218,7 +274,7 @@ export default function CheckoutPage() {
         },
         onSuccess: () => {
           clearCart()
-          navigate('/order-success')
+          navigate('/order-success', { state: orderPreview })
         },
         onFailure: () => {
           setError('Payment was cancelled.')
@@ -233,24 +289,31 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-paper">
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-        <Link to="/shop" className="mb-6 inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink">
+      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-8 sm:py-10">
+        <Link to="/shop" className="mb-6 inline-flex items-center gap-1 text-sm text-ink-soft transition-colors duration-fast hover:text-ink">
           ← Back to shop
         </Link>
-        <h1 className="mb-6 font-display text-2xl font-semibold text-ink">Checkout</h1>
+        <h1 className="mb-6 font-display text-[1.75rem] font-bold tracking-[-0.02em] text-ink">Checkout</h1>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Order summary */}
-          <div className="rounded-xl border border-line bg-surface p-5">
+        <form onSubmit={handleSubmit} noValidate className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-start md:gap-8">
+          {/* Order summary — shows first on mobile (what am I buying?),
+              sticky in a right-hand rail on desktop. */}
+          <div className="order-1 rounded-card border border-line bg-surface p-5 md:order-2 md:sticky md:top-24">
             <h2 className="mb-4 font-display font-semibold text-ink">Order Summary</h2>
             <ul className="space-y-3">
               {lines.map((line) => (
-                <li key={line.key} className="flex justify-between text-sm text-ink-soft">
-                  <span>
-                    {line.name}
-                    {line.size ? ` (${line.size})` : ''} × {line.quantity}
-                  </span>
-                  <span>
+                <li key={line.key} className="flex gap-3 text-sm">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-btn bg-surface-2 ring-1 ring-line">
+                    {line.preview_url && <img src={line.preview_url} alt="" className="h-full w-full object-cover" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-ink">
+                      {line.name}
+                      {line.size ? ` (${line.size})` : ''}
+                    </p>
+                    <p className="text-xs text-ink-soft">Qty {line.quantity}</p>
+                  </div>
+                  <span className="shrink-0 text-ink-soft">
                     {currency}
                     {(line.unit_price * line.quantity).toFixed(2)}
                   </span>
@@ -258,10 +321,17 @@ export default function CheckoutPage() {
               ))}
             </ul>
             <div className="mt-4 flex justify-between border-t border-line pt-3 text-sm text-ink-soft">
+              <span>Subtotal</span>
+              <span>
+                {currency}
+                {cartSubtotal.toFixed(2)}
+              </span>
+            </div>
+            <div className="mt-2 flex justify-between text-sm text-ink-soft">
               <span>Shipping</span>
               <span>{shippingAmount === 0 ? 'Free' : `${currency}${shippingAmount.toFixed(2)}`}</span>
             </div>
-            <div className="mt-2 flex justify-between font-semibold text-ink">
+            <div className="mt-2 flex justify-between border-t border-line pt-3 font-semibold text-ink">
               <span>Total</span>
               <span>
                 {currency}
@@ -270,140 +340,166 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Shipping details */}
-          <div className="space-y-4 rounded-xl border border-line bg-surface p-5">
-            <h2 className="font-display font-semibold text-ink">Shipping Details</h2>
-            <Field
-              label="Full name"
-              required
-              value={form.customer_name}
-              onChange={(e) => setForm({ ...form, customer_name: e.target.value })}
-            />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="order-2 space-y-6 md:order-1 md:col-span-2">
+            {/* Contact */}
+            <div className="space-y-4 rounded-card border border-line bg-surface p-5">
+              <h2 className="font-display font-semibold text-ink">Contact</h2>
               <Field
-                label="Email"
-                type="email"
+                label="Full name"
                 required
-                value={form.customer_email}
-                onChange={(e) => setForm({ ...form, customer_email: e.target.value })}
+                value={form.customer_name}
+                onChange={(e) => setField('customer_name', e.target.value)}
+                error={fieldErrors.customer_name}
               />
-              <div>
-                <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-soft">
-                  Phone<span className="ml-0.5 text-danger">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    value={form.country_code}
-                    onChange={(e) => setForm({ ...form, country_code: e.target.value })}
-                    className="h-11 w-24 shrink-0 rounded-lg border border-line bg-surface px-2 text-sm text-ink focus:border-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
-                  >
-                    {countryOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <input
-                    required
-                    type="tel"
-                    value={form.customer_phone}
-                    onChange={(e) => setForm({ ...form, customer_phone: e.target.value })}
-                    placeholder="98765 43210"
-                    className="h-11 flex-1 rounded-lg border border-line bg-surface px-3.5 text-sm text-ink focus:border-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
-                  />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field
+                  label="Email"
+                  type="email"
+                  required
+                  value={form.customer_email}
+                  onChange={(e) => setField('customer_email', e.target.value)}
+                  error={fieldErrors.customer_email}
+                />
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-soft">
+                    Phone<span className="ml-0.5 text-danger">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={form.country_code}
+                      onChange={(e) => setField('country_code', e.target.value)}
+                      aria-label="Country code"
+                      className="h-11 w-24 shrink-0 rounded-btn border border-line bg-surface px-2 text-sm text-ink focus:border-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
+                    >
+                      {countryOptions.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      type="tel"
+                      value={form.customer_phone}
+                      onChange={(e) => setField('customer_phone', e.target.value)}
+                      placeholder="98765 43210"
+                      aria-invalid={fieldErrors.customer_phone ? true : undefined}
+                      className={`h-11 flex-1 rounded-btn border bg-surface px-3.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-accent/30 ${
+                        fieldErrors.customer_phone ? 'border-danger focus:border-danger' : 'border-line focus:border-ink'
+                      }`}
+                    />
+                  </div>
+                  {fieldErrors.customer_phone && <p className="mt-1.5 text-xs text-danger">{fieldErrors.customer_phone}</p>}
                 </div>
               </div>
             </div>
-            <Field
-              label="Address line"
-              required
-              placeholder="House / Flat no., Street, Locality"
-              value={form.shipping_address}
-              onChange={(e) => setForm({ ...form, shipping_address: e.target.value })}
-            />
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field
-                label="City"
-                required
-                value={form.shipping_city}
-                onChange={(e) => setForm({ ...form, shipping_city: e.target.value })}
-              />
-              <Field
-                label="State"
-                required
-                value={form.shipping_state}
-                onChange={(e) => setForm({ ...form, shipping_state: e.target.value })}
-              />
-            </div>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field
-                label="Pincode"
-                required
-                placeholder="e.g. 400001"
-                value={form.shipping_pincode}
-                onChange={(e) => setForm({ ...form, shipping_pincode: e.target.value })}
-              />
-              <Field
-                label="Country"
-                placeholder="India"
-                value={form.shipping_country}
-                onChange={(e) => setForm({ ...form, shipping_country: e.target.value })}
-              />
-            </div>
-          </div>
 
-          {/* Payment method */}
-          <div className="rounded-xl border border-line bg-surface p-5">
-            <h2 className="mb-4 font-display font-semibold text-ink">Payment Method</h2>
-            <div className="space-y-2">
-              {codEnabled && (
+            {/* Shipping */}
+            <div className="space-y-4 rounded-card border border-line bg-surface p-5">
+              <h2 className="font-display font-semibold text-ink">Shipping Details</h2>
+              <Field
+                label="Address line"
+                required
+                placeholder="House / Flat no., Street, Locality"
+                value={form.shipping_address}
+                onChange={(e) => setField('shipping_address', e.target.value)}
+                error={fieldErrors.shipping_address}
+              />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field
+                  label="City"
+                  required
+                  value={form.shipping_city}
+                  onChange={(e) => setField('shipping_city', e.target.value)}
+                  error={fieldErrors.shipping_city}
+                />
+                <Field
+                  label="State"
+                  required
+                  value={form.shipping_state}
+                  onChange={(e) => setField('shipping_state', e.target.value)}
+                  error={fieldErrors.shipping_state}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Field
+                  label="Pincode"
+                  required
+                  placeholder="e.g. 400001"
+                  value={form.shipping_pincode}
+                  onChange={(e) => setField('shipping_pincode', e.target.value)}
+                  error={fieldErrors.shipping_pincode}
+                />
+                <Field
+                  label="Country"
+                  placeholder="India"
+                  value={form.shipping_country}
+                  onChange={(e) => setField('shipping_country', e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Payment method */}
+            <div className="rounded-card border border-line bg-surface p-5">
+              <h2 className="mb-4 font-display font-semibold text-ink">Payment Method</h2>
+              <div className="space-y-2">
+                {codEnabled && (
+                  <label
+                    className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-btn border-2 p-3 transition-colors duration-fast ${
+                      paymentMethod === 'cod' ? 'border-ink' : 'border-line'
+                    }`}
+                  >
+                    <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="sr-only" />
+                    <span className="text-lg" aria-hidden="true">
+                      💵
+                    </span>
+                    <span className="text-sm font-medium text-ink">Cash on Delivery</span>
+                    <span className="ml-auto text-xs text-ink-soft">Pay on arrival</span>
+                  </label>
+                )}
                 <label
-                  className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${
-                    paymentMethod === 'cod' ? 'border-ink' : 'border-line'
+                  className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-btn border-2 p-3 transition-colors duration-fast ${
+                    paymentMethod === 'razorpay' ? 'border-ink' : 'border-line'
                   }`}
                 >
-                  <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} className="sr-only" />
-                  <span className="text-lg">💵</span>
-                  <span className="text-sm font-medium text-ink">Cash on Delivery</span>
-                  <span className="ml-auto text-xs text-ink-soft">Pay on arrival</span>
+                  <input type="radio" name="payment" value="razorpay" checked={paymentMethod === 'razorpay'} onChange={() => setPaymentMethod('razorpay')} className="sr-only" />
+                  <span className="text-lg" aria-hidden="true">
+                    💳
+                  </span>
+                  <span className="text-sm font-medium text-ink">Razorpay</span>
+                  <span className="ml-auto text-xs text-ink-soft">Cards, UPI, Netbanking</span>
                 </label>
-              )}
-              <label
-                className={`flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border-2 p-3 transition-colors ${
-                  paymentMethod === 'razorpay' ? 'border-ink' : 'border-line'
+              </div>
+            </div>
+
+            {stockErrors.length > 0 && (
+              <div className="rounded-btn border border-danger/30 bg-danger/5 px-4 py-3">
+                <p className="mb-1 text-sm font-medium text-danger">Cannot place order — stock issues:</p>
+                <ul className="list-inside list-disc space-y-0.5 text-sm text-danger">
+                  {stockErrors.map((msg, i) => (
+                    <li key={i}>{msg}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* price_mismatch banner — a security feature (POD.md §7.3/§7.4):
+                the server recomputes every price server-side and refuses to
+                silently charge a corrected total. Kept visually distinct
+                (amber, not the generic danger red) from an ordinary error. */}
+            {error && (
+              <p
+                role="alert"
+                className={`rounded-btn px-4 py-3 text-sm ${
+                  priceChanged ? 'border border-warning/40 bg-warning/10 text-warning' : 'bg-danger/5 text-danger'
                 }`}
               >
-                <input type="radio" name="payment" value="razorpay" checked={paymentMethod === 'razorpay'} onChange={() => setPaymentMethod('razorpay')} className="sr-only" />
-                <span className="text-lg">💳</span>
-                <span className="text-sm font-medium text-ink">Razorpay</span>
-                <span className="ml-auto text-xs text-ink-soft">Cards, UPI, Netbanking</span>
-              </label>
-            </div>
+                {error}
+              </p>
+            )}
+
+            <Button type="submit" variant="primary" size="lg" fullWidth loading={submitting}>
+              {priceChanged ? `Place Order at Updated Total — ${currency}${total.toFixed(2)}` : `Place Order — ${currency}${total.toFixed(2)}`}
+            </Button>
           </div>
-
-          {stockErrors.length > 0 && (
-            <div className="rounded-lg border border-danger/30 bg-danger/5 px-4 py-3">
-              <p className="mb-1 text-sm font-medium text-danger">Cannot place order — stock issues:</p>
-              <ul className="list-inside list-disc space-y-0.5 text-sm text-danger">
-                {stockErrors.map((msg, i) => (
-                  <li key={i}>{msg}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {error && (
-            <p className={`rounded-lg px-4 py-3 text-sm ${priceChanged ? 'border border-amber-300 bg-amber-50 text-amber-800' : 'bg-danger/5 text-danger'}`}>
-              {error}
-            </p>
-          )}
-
-          <Button type="submit" variant="accent" size="lg" fullWidth disabled={submitting}>
-            {submitting
-              ? 'Processing…'
-              : priceChanged
-                ? `Place Order at Updated Total — ${currency}${total.toFixed(2)}`
-                : `Place Order — ${currency}${total.toFixed(2)}`}
-          </Button>
         </form>
       </div>
     </div>

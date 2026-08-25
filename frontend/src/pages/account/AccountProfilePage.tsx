@@ -6,6 +6,9 @@ import { NAV_ITEMS } from '../../lib/storeConfig'
 import { useCartStore } from '../../store/cartStore'
 import { useAuthStore } from '../../store/authStore'
 import Header from '../../components/Header'
+import Field from '../../components/Field'
+import Button from '../../components/Button'
+import Skeleton from '../../components/ui/Skeleton'
 
 interface Profile {
   id: number
@@ -48,22 +51,20 @@ export default function AccountProfilePage() {
   const { data: profile, isLoading: profileLoading } = useQuery<Profile>({
     queryKey: ['account-profile', token],
     queryFn: () =>
-      fetch('/api/account/profile', { headers: authHeaders })
-        .then((r) => {
-          if (!r.ok) throw new Error('Failed to load profile')
-          return r.json()
-        }),
+      fetch('/api/account/profile', { headers: authHeaders }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load profile')
+        return r.json()
+      }),
     enabled: !!token,
   })
 
   const { data: addressData, isLoading: addressesLoading } = useQuery<{ addresses: Address[] }>({
     queryKey: ['account-addresses', token],
     queryFn: () =>
-      fetch('/api/account/addresses', { headers: authHeaders })
-        .then((r) => {
-          if (!r.ok) throw new Error('Failed to load addresses')
-          return r.json()
-        }),
+      fetch('/api/account/addresses', { headers: authHeaders }).then((r) => {
+        if (!r.ok) throw new Error('Failed to load addresses')
+        return r.json()
+      }),
     enabled: !!token,
   })
 
@@ -99,7 +100,10 @@ export default function AccountProfilePage() {
     const body: { name?: string; phone?: string } = {}
     if (editName.trim() !== profile?.name) body.name = editName.trim()
     if (editPhone.trim() !== profile?.phone) body.phone = editPhone.trim()
-    if (!Object.keys(body).length) { setEditing(false); return }
+    if (!Object.keys(body).length) {
+      setEditing(false)
+      return
+    }
     saveMutation.mutate(body)
   }
 
@@ -113,50 +117,38 @@ export default function AccountProfilePage() {
 
   return (
     <div className="min-h-screen">
-      <Header
-        storeName={storeName}
-        cartCount={totalItems()}
-        onCartOpen={() => {}}
-        navItems={NAV_ITEMS}
-      />
-      <main className="max-w-3xl mx-auto px-4 py-12">
-        {/* Top bar */}
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900">My Account</h1>
-          <button
-            onClick={handleLogout}
-            className="text-sm text-gray-500 border border-gray-300 rounded px-4 py-2 hover:bg-gray-50 transition-colors"
-          >
+      <Header storeName={storeName} cartCount={totalItems()} onCartOpen={() => {}} navItems={NAV_ITEMS} />
+      <main className="mx-auto max-w-3xl px-4 py-12 sm:px-8">
+        <div className="mb-8 flex items-center justify-between">
+          <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.02em] text-ink">My Account</h1>
+          <Button variant="secondary" size="sm" onClick={handleLogout}>
             Logout
-          </button>
+          </Button>
         </div>
 
         {/* Nav tabs */}
-        <div className="flex gap-6 border-b border-gray-200 mb-8">
-          <Link
-            to="/account/orders"
-            className="pb-3 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors"
-          >
+        <div className="mb-8 flex gap-6 border-b border-line">
+          <Link to="/account/orders" className="pb-3 text-sm font-medium text-ink-soft transition-colors duration-fast hover:text-ink">
             Orders
           </Link>
-          <span className="pb-3 text-sm font-medium border-b-2 border-gray-900 text-gray-900">
-            Profile
-          </span>
+          <span className="border-b-2 border-ink pb-3 text-sm font-medium text-ink">Profile</span>
         </div>
 
         {profileLoading ? (
-          <p className="text-sm text-gray-400">Loading profile...</p>
+          <div className="space-y-3 rounded-card border border-line bg-surface p-6">
+            <Skeleton shape="text" width={140} height={16} />
+            <Skeleton shape="text" width="60%" height={14} />
+            <Skeleton shape="text" width="50%" height={14} />
+            <Skeleton shape="text" width="40%" height={14} />
+          </div>
         ) : profile ? (
           <div className="space-y-8">
             {/* Profile card */}
-            <section className="border border-gray-200 rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-semibold text-gray-800">Personal details</h2>
+            <section className="rounded-card border border-line bg-surface p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-ink">Personal details</h2>
                 {!editing && (
-                  <button
-                    onClick={handleEdit}
-                    className="text-sm text-gray-500 hover:text-gray-800 transition-colors"
-                  >
+                  <button onClick={handleEdit} className="text-sm text-ink-soft transition-colors duration-fast hover:text-ink">
                     Edit
                   </button>
                 )}
@@ -164,59 +156,36 @@ export default function AccountProfilePage() {
 
               {editing ? (
                 <div className="space-y-4">
+                  <Field label="Name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  <Field label="Phone" type="tel" value={editPhone} onChange={(e) => setEditPhone(e.target.value)} />
                   <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Name</label>
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                    />
+                    <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-ink-soft">Email</label>
+                    <p className="text-sm text-ink-soft">{profile.email}</p>
+                    <p className="mt-0.5 text-xs text-ink-faint">Email cannot be changed</p>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Phone</label>
-                    <input
-                      type="tel"
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-gray-400"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Email</label>
-                    <p className="text-sm text-gray-500">{profile.email}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">Email cannot be changed</p>
-                  </div>
-                  {saveError && <p className="text-xs text-red-600">{saveError}</p>}
+                  {saveError && <p className="text-xs text-danger">{saveError}</p>}
                   <div className="flex gap-3 pt-1">
-                    <button
-                      onClick={handleSave}
-                      disabled={saveMutation.isPending}
-                      className="text-sm bg-gray-900 text-white rounded px-4 py-2 hover:bg-gray-700 disabled:opacity-50 transition-colors"
-                    >
-                      {saveMutation.isPending ? 'Saving…' : 'Save'}
-                    </button>
-                    <button
-                      onClick={() => setEditing(false)}
-                      className="text-sm text-gray-500 border border-gray-300 rounded px-4 py-2 hover:bg-gray-50 transition-colors"
-                    >
+                    <Button variant="primary" size="md" onClick={handleSave} loading={saveMutation.isPending}>
+                      Save
+                    </Button>
+                    <Button variant="secondary" size="md" onClick={() => setEditing(false)}>
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
                 <dl className="space-y-3">
                   <div className="flex gap-4">
-                    <dt className="w-20 text-xs text-gray-400 pt-0.5">Name</dt>
-                    <dd className="text-sm text-gray-800">{profile.name || '—'}</dd>
+                    <dt className="w-20 pt-0.5 text-xs text-ink-faint">Name</dt>
+                    <dd className="text-sm text-ink">{profile.name || '—'}</dd>
                   </div>
                   <div className="flex gap-4">
-                    <dt className="w-20 text-xs text-gray-400 pt-0.5">Email</dt>
-                    <dd className="text-sm text-gray-800">{profile.email}</dd>
+                    <dt className="w-20 pt-0.5 text-xs text-ink-faint">Email</dt>
+                    <dd className="text-sm text-ink">{profile.email}</dd>
                   </div>
                   <div className="flex gap-4">
-                    <dt className="w-20 text-xs text-gray-400 pt-0.5">Phone</dt>
-                    <dd className="text-sm text-gray-800">{profile.phone || '—'}</dd>
+                    <dt className="w-20 pt-0.5 text-xs text-ink-faint">Phone</dt>
+                    <dd className="text-sm text-ink">{profile.phone || '—'}</dd>
                   </div>
                 </dl>
               )}
@@ -224,23 +193,24 @@ export default function AccountProfilePage() {
 
             {/* Saved addresses */}
             <section>
-              <h2 className="text-base font-semibold text-gray-800 mb-4">Saved addresses</h2>
+              <h2 className="mb-4 text-base font-semibold text-ink">Saved addresses</h2>
               {addressesLoading ? (
-                <p className="text-sm text-gray-400">Loading addresses...</p>
+                <div className="space-y-3">
+                  <Skeleton shape="rect" height={72} />
+                  <Skeleton shape="rect" height={72} />
+                </div>
               ) : addresses.length === 0 ? (
-                <p className="text-sm text-gray-500">No saved addresses yet. They are saved automatically when you place an order.</p>
+                <p className="text-sm text-ink-soft">No saved addresses yet. They are saved automatically when you place an order.</p>
               ) : (
                 <div className="space-y-3">
                   {addresses.map((addr) => (
-                    <div key={addr.id} className="border border-gray-200 rounded-lg p-4">
-                      <p className="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">{addr.label}</p>
-                      <p className="text-sm text-gray-800">{addr.address_line}</p>
+                    <div key={addr.id} className="rounded-card border border-line bg-surface p-4">
+                      <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-faint">{addr.label}</p>
+                      <p className="text-sm text-ink">{addr.address_line}</p>
                       {(addr.city || addr.state || addr.pincode) && (
-                        <p className="text-sm text-gray-600 mt-0.5">
-                          {[addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')}
-                        </p>
+                        <p className="mt-0.5 text-sm text-ink-soft">{[addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')}</p>
                       )}
-                      {addr.country && <p className="text-sm text-gray-500">{addr.country}</p>}
+                      {addr.country && <p className="text-sm text-ink-soft">{addr.country}</p>}
                     </div>
                   ))}
                 </div>
@@ -248,7 +218,7 @@ export default function AccountProfilePage() {
             </section>
           </div>
         ) : (
-          <p className="text-sm text-red-600">Failed to load profile.</p>
+          <p className="text-sm text-danger">Failed to load profile.</p>
         )}
       </main>
     </div>

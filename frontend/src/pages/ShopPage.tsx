@@ -9,6 +9,7 @@ import Header from '../components/Header'
 import Footer from '../components/Footer'
 import ProductGrid from '../components/ProductGrid'
 import CartDrawer from '../components/CartDrawer'
+import { SkeletonCards } from '../components/Skeleton'
 import type { ProductSummary } from '../lib/types'
 
 interface ProductsData {
@@ -88,17 +89,17 @@ export default function ShopPage() {
     <div className="min-h-screen pb-16 md:pb-0">
       <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={NAV_ITEMS} />
 
-      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
-        <h1 className="font-display text-2xl font-semibold text-ink sm:text-3xl">
+      <main className="mx-auto max-w-6xl px-4 py-10 sm:px-8">
+        <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.02em] text-ink md:text-[2.5rem]">
           All Products
-          {productsData && <span className="ml-3 text-sm font-normal text-ink-soft">({productsData.total})</span>}
+          {productsData && <span className="ml-3 text-sm font-normal tracking-normal text-ink-soft">({productsData.total})</span>}
         </h1>
 
         {categories.length > 0 && (
-          <div className="mt-6 flex flex-wrap gap-2">
+          <div className="-mx-4 mt-6 flex snap-x snap-mandatory gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
             <button
               onClick={() => handleCategoryClick('')}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
+              className={`shrink-0 snap-start rounded-full border px-3.5 py-2 text-xs font-medium transition-colors duration-fast ${
                 selectedCategory === '' ? 'border-ink bg-ink text-paper' : 'border-line text-ink-soft hover:border-ink hover:text-ink'
               }`}
             >
@@ -108,7 +109,7 @@ export default function ShopPage() {
               <button
                 key={cat}
                 onClick={() => handleCategoryClick(cat)}
-                className={`rounded-full border px-3.5 py-1.5 text-xs font-medium capitalize transition-colors ${
+                className={`shrink-0 snap-start rounded-full border px-3.5 py-2 text-xs font-medium capitalize transition-colors duration-fast ${
                   selectedCategory === cat ? 'border-ink bg-ink text-paper' : 'border-line text-ink-soft hover:border-ink hover:text-ink'
                 }`}
               >
@@ -120,7 +121,7 @@ export default function ShopPage() {
 
         <div className="mt-8">
           {isLoading ? (
-            <p className="py-16 text-center text-sm text-ink-soft">Loading products…</p>
+            <SkeletonCards count={8} />
           ) : products.length === 0 ? (
             <p className="py-16 text-center text-sm text-ink-soft">No products found.</p>
           ) : (
@@ -144,7 +145,7 @@ export default function ShopPage() {
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="rounded-full border border-line px-4 py-2 text-sm text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-11 rounded-full border border-line px-4 py-2 text-sm text-ink transition-colors duration-fast hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"
             >
               ← Prev
             </button>
@@ -154,7 +155,7 @@ export default function ShopPage() {
             <button
               onClick={() => setPage((p) => Math.min(productsData.pages, p + 1))}
               disabled={page === productsData.pages}
-              className="rounded-full border border-line px-4 py-2 text-sm text-ink transition-colors hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"
+              className="min-h-11 rounded-full border border-line px-4 py-2 text-sm text-ink transition-colors duration-fast hover:border-ink disabled:cursor-not-allowed disabled:opacity-40"
             >
               Next →
             </button>

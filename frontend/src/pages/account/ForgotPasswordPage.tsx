@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import Field from '../../components/Field'
+import Button from '../../components/Button'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -22,39 +24,28 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-paper px-4">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-2">Forgot password?</h1>
-        <p className="text-sm text-gray-500 mb-8">Enter your email and we'll send a reset link.</p>
+        <h1 className="mb-2 font-display text-[1.75rem] font-bold tracking-[-0.02em] text-ink">Forgot password?</h1>
+        <p className="mb-8 text-sm text-ink-soft">Enter your email and we'll send a reset link.</p>
 
         {submitted ? (
-          <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+          <div className="mb-6 rounded-btn border border-success/30 bg-success/10 p-4 text-sm text-success">
             If that email exists in our system, a reset link has been sent.
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm text-gray-700 mb-1">Email</label>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gray-900 text-white text-sm font-medium py-2.5 rounded-lg hover:bg-gray-700 disabled:opacity-50"
-            >
-              {loading ? 'Sending...' : 'Send Reset Link'}
-            </button>
+            <Field label="Email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Button type="submit" variant="primary" size="lg" fullWidth loading={loading}>
+              Send Reset Link
+            </Button>
           </form>
         )}
 
-        <p className="text-sm text-gray-500 mt-6 text-center">
-          <Link to="/account/login" className="text-gray-900 hover:underline">Back to login</Link>
+        <p className="mt-6 text-center text-sm text-ink-soft">
+          <Link to="/account/login" className="text-ink underline underline-offset-2 hover:text-accent">
+            Back to login
+          </Link>
         </p>
       </div>
     </div>

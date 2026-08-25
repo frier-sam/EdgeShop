@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import Button from '../components/Button'
 
 function setNoIndex() {
@@ -18,8 +19,32 @@ const STEPS = [
   { icon: '✓', title: 'Delivered', description: 'Enjoy your new print!' },
 ]
 
+interface OrderPreviewLine {
+  key: string
+  name: string
+  size: string | null
+  quantity: number
+  preview_url: string | null
+  design_id: string | null
+}
+
+interface OrderPreviewState {
+  orderId?: string
+  lines?: OrderPreviewLine[]
+}
+
 export default function OrderSuccessPage() {
   useEffect(() => setNoIndex(), [])
+
+  // Passed from CheckoutPage right before the cart is cleared (POD-UI.md
+  // §B7) — there's no dedicated "fetch this order" endpoint for a fresh
+  // guest checkout, so the line snapshot travels through router state
+  // instead of a refetch. Falls back to just the celebratory copy if the
+  // page was reached directly (refresh, bookmarked link, etc.).
+  const location = useLocation()
+  const state = (location.state ?? {}) as OrderPreviewState
+  const orderLines = state.lines ?? []
+  const previewLines = orderLines.filter((l) => l.preview_url)
 
   return (
     <>
@@ -31,8 +56,16 @@ export default function OrderSuccessPage() {
         .svg-check  { stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw-check 0.6s ease forwards; animation-delay: 0.9s; }
         .fade-up-heading { opacity: 0; animation: fade-up 0.6s ease forwards; animation-delay: 1.2s; }
         .fade-up-sub      { opacity: 0; animation: fade-up 0.6s ease forwards; animation-delay: 1.4s; }
-        .fade-up-steps    { opacity: 0; animation: fade-up 0.6s ease forwards; animation-delay: 1.5s; }
-        .fade-up-ctas     { opacity: 0; animation: fade-up 0.6s ease forwards; animation-delay: 1.7s; }
+        .fade-up-previews { opacity: 0; animation: fade-up 0.6s ease forwards; animation-delay: 1.55s; }
+        .fade-up-steps    { opacity: 0; animation: fade-up 0.6s ease forwards; animation-delay: 1.65s; }
+        .fade-up-ctas     { opacity: 0; animation: fade-up 0.6s ease forwards; animation-delay: 1.8s; }
+        @media (prefers-reduced-motion: reduce) {
+          .svg-circle, .svg-check, .fade-up-heading, .fade-up-sub, .fade-up-previews, .fade-up-steps, .fade-up-ctas {
+            animation-duration: 0.01ms !important;
+            animation-delay: 0ms !important;
+            opacity: 1 !important;
+          }
+        }
       `}</style>
 
       <div className="flex min-h-screen items-center justify-center bg-paper px-4 py-16">
@@ -44,10 +77,35 @@ export default function OrderSuccessPage() {
             </svg>
           </div>
 
-          <h1 className="fade-up-heading mb-3 font-display text-4xl font-semibold text-ink sm:text-5xl">Order Placed!</h1>
-          <p className="fade-up-sub mb-12 text-sm text-ink-soft sm:text-base">
-            Thank you for your purchase. We'll send a confirmation to your email shortly.
+          <h1 className="fade-up-heading mb-3 font-display text-[2.5rem] font-bold text-ink sm:text-[3rem]">Order Placed!</h1>
+          <p className="fade-up-sub mb-10 text-sm text-ink-soft sm:text-base">
+            {state.orderId ? (
+              <>
+                Order <span className="font-medium text-ink">#{state.orderId}</span> is confirmed. We'll send a confirmation to your email shortly.
+              </>
+            ) : (
+              "Thank you for your purchase. We'll send a confirmation to your email shortly."
+            )}
           </p>
+
+          {previewLines.length > 0 && (
+            <div className="fade-up-previews mb-10">
+              <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-soft">Your designs</p>
+              <div className="flex flex-wrap justify-center gap-3">
+                {previewLines.map((line) => (
+                  <div key={line.key} className="w-24 rounded-card border border-line bg-surface p-2 shadow-card sm:w-28">
+                    <div className="aspect-square overflow-hidden rounded-btn bg-surface-2">
+                      <img src={line.preview_url!} alt={line.name} className="h-full w-full object-cover" />
+                    </div>
+                    <p className="mt-1.5 truncate text-[11px] text-ink-soft">
+                      {line.name}
+                      {line.size ? ` (${line.size})` : ''}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="fade-up-steps mb-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
             {STEPS.map((step) => (
@@ -62,10 +120,10 @@ export default function OrderSuccessPage() {
           </div>
 
           <div className="fade-up-ctas flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Button variant="accent" size="lg" to="/shop">
+            <Button as={Link} to="/shop" variant="primary" size="lg">
               Continue Shopping
             </Button>
-            <Button variant="outline" size="lg" to="/account/orders">
+            <Button as={Link} to="/account/orders" variant="secondary" size="lg">
               View My Orders
             </Button>
           </div>
