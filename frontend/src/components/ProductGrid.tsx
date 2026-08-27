@@ -7,6 +7,8 @@ interface ProductGridProps {
     price: number
     compare_price?: number | null
     image_url: string
+    /** See ProductCard's doc comment — optional, no current caller has data for it. */
+    back_image_url?: string | null
     is_customizable?: number | boolean
   }>
   currency: string
