@@ -9,7 +9,7 @@
 @source not "./components/ui/__demo__";
 
 /*
- * EdgeShop POD design system — single source of truth for color, type,
+ * ESPOD design system — single source of truth for color, type,
  * radius, elevation and motion (POD-UI.md §2.1 — AUTHORITATIVE SPEC).
  *
  * Tailwind v4 is CSS-first: every `--color-*` / `--font-*` / `--radius-*` /

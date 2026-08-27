@@ -93,7 +93,7 @@ export default function CheckoutPage() {
 
   const currency = currencySymbol(settings?.currency)
   const codEnabled = settings?.cod_enabled !== 'false'
-  const storeName = settings?.store_name ?? 'EdgeShop'
+  const storeName = settings?.store_name ?? 'ESPOD'
   const cartSubtotal = subtotal()
 
   // Flat shipping, free above a threshold — POD.md §6.3. There is no
