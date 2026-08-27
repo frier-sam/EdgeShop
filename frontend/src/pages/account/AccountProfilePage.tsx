@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { fetchJson } from '../../lib/api'
 import { useSettings } from '../../lib/useSettings'
 import { NAV_ITEMS } from '../../lib/storeConfig'
 import { useCartStore } from '../../store/cartStore'
@@ -50,21 +51,13 @@ export default function AccountProfilePage() {
 
   const { data: profile, isLoading: profileLoading } = useQuery<Profile>({
     queryKey: ['account-profile', token],
-    queryFn: () =>
-      fetch('/api/account/profile', { headers: authHeaders }).then((r) => {
-        if (!r.ok) throw new Error('Failed to load profile')
-        return r.json()
-      }),
+    queryFn: () => fetchJson<Profile>('/api/account/profile', { headers: authHeaders }),
     enabled: !!token,
   })
 
   const { data: addressData, isLoading: addressesLoading } = useQuery<{ addresses: Address[] }>({
     queryKey: ['account-addresses', token],
-    queryFn: () =>
-      fetch('/api/account/addresses', { headers: authHeaders }).then((r) => {
-        if (!r.ok) throw new Error('Failed to load addresses')
-        return r.json()
-      }),
+    queryFn: () => fetchJson<{ addresses: Address[] }>('/api/account/addresses', { headers: authHeaders }),
     enabled: !!token,
   })
 

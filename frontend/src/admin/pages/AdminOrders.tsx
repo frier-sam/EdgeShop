@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminFetch } from '../lib/adminFetch'
+import { fetchJsonWith } from '../../lib/api'
 import { SkeletonTable } from '../../components/Skeleton'
 import Field from '../../components/Field'
 
@@ -64,7 +65,7 @@ export default function AdminOrders() {
   const { data, isLoading } = useQuery<{ orders: Order[] }>({
     queryKey: ['admin-orders', q, statusFilter],
     queryFn: () =>
-      adminFetch('/api/admin/orders?' + new URLSearchParams({ ...(q && { q }), ...(statusFilter && { status: statusFilter }) })).then((r) => r.json()),
+      fetchJsonWith(adminFetch, '/api/admin/orders?' + new URLSearchParams({ ...(q && { q }), ...(statusFilter && { status: statusFilter }) })),
     refetchInterval: 30_000, // refresh every 30s
   })
 

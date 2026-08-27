@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { fetchJson } from '../lib/api'
 import { useSettings } from '../lib/useSettings'
 import { NAV_ITEMS, FOOTER_LINKS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
@@ -95,7 +96,7 @@ export default function ShopPage() {
   // Broad, unfiltered fetch just to derive the category chip list.
   const { data: allProductsData } = useQuery<ProductsData>({
     queryKey: ['products-all-categories'],
-    queryFn: () => fetch('/api/products?limit=48').then((r) => r.json()),
+    queryFn: () => fetchJson<ProductsData>('/api/products?limit=48'),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -104,7 +105,7 @@ export default function ShopPage() {
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), limit: '24' })
       if (selectedCategory) params.set('category', selectedCategory)
-      return fetch(`/api/products?${params}`).then((r) => r.json())
+      return fetchJson<ProductsData>(`/api/products?${params}`)
     },
     staleTime: 60 * 1000,
   })

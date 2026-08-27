@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { fetchJson } from './api'
 
 export interface StoreSettings {
   store_name: string
@@ -18,7 +19,7 @@ const DEFAULTS = {
 export function useSettings() {
   const { data, isLoading } = useQuery<Record<string, string>>({
     queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then((r) => r.json()),
+    queryFn: () => fetchJson<Record<string, string>>('/api/settings'),
     staleTime: 5 * 60 * 1000,
   })
 

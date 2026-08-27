@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { fetchJson } from '../../lib/api'
 import { useSettings } from '../../lib/useSettings'
 import { NAV_ITEMS, currencySymbol } from '../../lib/storeConfig'
 import { useCartStore } from '../../store/cartStore'
@@ -65,11 +66,8 @@ export default function AccountOrdersPage() {
   const { data, isLoading: ordersLoading, error } = useQuery<{ orders: Order[] }>({
     queryKey: ['account-orders', token],
     queryFn: () =>
-      fetch('/api/account/orders', {
+      fetchJson<{ orders: Order[] }>('/api/account/orders', {
         headers: { Authorization: `Bearer ${token}` },
-      }).then((r) => {
-        if (!r.ok) throw new Error('Failed to load orders')
-        return r.json()
       }),
     enabled: !!token,
   })

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
+import { fetchJsonWith } from '../../lib/api'
 import { SkeletonTable } from '../../components/Skeleton'
 import Button from '../../components/Button'
 import Field from '../../components/Field'
@@ -39,11 +40,11 @@ export default function AdminProducts() {
   const { data, isLoading } = useQuery<{ products: AdminProductRow[]; total: number; page: number; pages: number }>({
     queryKey: ['admin-products', q, statusFilter, page],
     queryFn: () =>
-      adminFetch('/api/admin/products?' + new URLSearchParams({
+      fetchJsonWith(adminFetch, '/api/admin/products?' + new URLSearchParams({
         ...(q && { q }),
         ...(statusFilter && { status: statusFilter }),
         page: String(page),
-      })).then((r) => r.json()),
+      })),
   })
 
   const deleteMutation = useMutation({

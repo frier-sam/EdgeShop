@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { fetchJson } from '../lib/api'
 import { useSettings } from '../lib/useSettings'
 import { NAV_ITEMS, FOOTER_LINKS, CATEGORIES, TRUST_ITEMS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
@@ -43,7 +44,7 @@ export default function HomePage() {
 
   const { data: productsData, isLoading } = useQuery<ProductsData>({
     queryKey: ['products', 'home', CATALOG_FETCH_LIMIT],
-    queryFn: () => fetch(`/api/products?page=1&limit=${CATALOG_FETCH_LIMIT}`).then((r) => r.json()),
+    queryFn: () => fetchJson<ProductsData>(`/api/products?page=1&limit=${CATALOG_FETCH_LIMIT}`),
     staleTime: 60 * 1000,
   })
 

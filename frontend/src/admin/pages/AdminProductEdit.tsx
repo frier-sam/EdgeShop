@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showToast } from '../Toast'
 import { adminFetch } from '../lib/adminFetch'
+import { fetchJson, fetchJsonWith } from '../../lib/api'
 import ProductSideCard from '../ProductSideCard'
 import ProductSizesEditor from '../ProductSizesEditor'
 import Field from '../../components/Field'
@@ -207,16 +208,12 @@ function EditProductForm({ id }: { id: string }) {
 
   const { data: product, isLoading, error } = useQuery<ProductDetail>({
     queryKey: ['product', id],
-    queryFn: () =>
-      adminFetch(`/api/admin/products/${id}`).then(async (r) => {
-        if (!r.ok) throw new Error('Not found')
-        return r.json() as Promise<ProductDetail>
-      }),
+    queryFn: () => fetchJsonWith<ProductDetail>(adminFetch, `/api/admin/products/${id}`),
   })
 
   const { data: settings } = useQuery<Record<string, string>>({
     queryKey: ['public-settings'],
-    queryFn: () => fetch('/api/settings').then((r) => r.json()),
+    queryFn: () => fetchJson<Record<string, string>>('/api/settings'),
     staleTime: 5 * 60 * 1000,
   })
   const defaultPrintFee = settings?.default_print_fee ? parseFloat(settings.default_print_fee) : DEFAULT_PRINT_FEE_FALLBACK

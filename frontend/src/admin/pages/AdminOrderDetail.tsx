@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
+import { fetchJsonWith } from '../../lib/api'
 import { useEditorSettings } from '../../editor/useEditorSettings'
 import OrderDesignPanel from '../OrderDesignPanel'
 import { collectRenderableSides, renderOrderSide } from '../print/orderPrintFiles'
@@ -120,11 +121,7 @@ export default function AdminOrderDetail() {
 
   const { data: order, isLoading, isError } = useQuery<Order>({
     queryKey: ['admin-order', id],
-    queryFn: () =>
-      adminFetch(`/api/admin/orders/${id}`).then((r) => {
-        if (!r.ok) throw new Error('Order not found')
-        return r.json()
-      }),
+    queryFn: () => fetchJsonWith<Order>(adminFetch, `/api/admin/orders/${id}`),
     enabled: !!id,
   })
 

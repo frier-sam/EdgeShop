@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminFetch } from '../lib/adminFetch'
+import { fetchJsonWith } from '../../lib/api'
 import { SkeletonStatCards, Skeleton } from '../../components/Skeleton'
 import Badge from '../../components/ui/Badge'
 
@@ -25,10 +26,7 @@ interface DashboardData {
 export default function AdminDashboard() {
   const { data, isLoading, isError } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
-    queryFn: () => adminFetch('/api/admin/dashboard').then(r => {
-      if (!r.ok) throw new Error('Failed to load dashboard')
-      return r.json()
-    }),
+    queryFn: () => fetchJsonWith<DashboardData>(adminFetch, '/api/admin/dashboard'),
     refetchInterval: 60_000, // auto-refresh every minute
   })
 

@@ -1,5 +1,6 @@
 import { forwardRef } from 'react'
 import type { ComponentPropsWithoutRef, ElementType, ReactNode, Ref } from 'react'
+import { cn } from '../lib/cn'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 export type ButtonSize = 'sm' | 'md' | 'lg'
@@ -117,15 +118,12 @@ function ButtonInner<C extends ElementType = 'button'>(
   const isNativeButton = Component === 'button'
   const isDisabled = Boolean(disabled) || loading
 
-  const classes = [
-    BASE,
-    VARIANT_CLASSES[variant],
-    SIZE_CLASSES[size],
-    fullWidth ? 'w-full' : '',
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ')
+  // `cn` (not plain `.join(' ')`) — BASE hard-codes `inline-flex`, and a
+  // caller passing a display utility like `hidden` or `md:flex` in
+  // `className` must win the cascade instead of silently losing to it.
+  // See lib/cn.ts for why string order in `class="..."` doesn't decide
+  // that on its own.
+  const classes = cn(BASE, VARIANT_CLASSES[variant], SIZE_CLASSES[size], fullWidth ? 'w-full' : '', className)
 
   const handleClick = (event: React.MouseEvent) => {
     if (isDisabled) {

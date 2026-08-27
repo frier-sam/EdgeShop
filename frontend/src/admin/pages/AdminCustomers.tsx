@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { adminFetch } from '../lib/adminFetch'
+import { fetchJsonWith } from '../../lib/api'
 import { SkeletonTable } from '../../components/Skeleton'
 import Field from '../../components/Field'
 import Button from '../../components/Button'
@@ -61,7 +62,7 @@ export default function AdminCustomers() {
 
   const { data: settingsData } = useQuery<Record<string, string>>({
     queryKey: ['settings'],
-    queryFn: () => adminFetch('/api/settings').then(r => r.json()),
+    queryFn: () => fetchJsonWith(adminFetch, '/api/settings'),
     staleTime: 5 * 60 * 1000,
   })
   const currency = CURRENCY_SYMBOLS[settingsData?.currency ?? 'INR'] ?? '₹'
@@ -71,15 +72,15 @@ export default function AdminCustomers() {
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page) })
       if (search) params.set('search', search)
-      return adminFetch(`/api/admin/customers?${params}`).then(r => r.json()) as Promise<{
+      return fetchJsonWith<{
         customers: Customer[]; total: number; pages: number; page: number
-      }>
+      }>(adminFetch, `/api/admin/customers?${params}`)
     },
   })
 
   const { data: detail } = useQuery<CustomerDetail>({
     queryKey: ['admin-customer', expandedId],
-    queryFn: () => adminFetch(`/api/admin/customers/${expandedId}`).then(r => r.json()),
+    queryFn: () => fetchJsonWith<CustomerDetail>(adminFetch, `/api/admin/customers/${expandedId}`),
     enabled: expandedId !== null,
   })
 

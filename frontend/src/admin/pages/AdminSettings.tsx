@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { showToast } from '../Toast'
 import { adminFetch } from '../lib/adminFetch'
+import { fetchJsonWith } from '../../lib/api'
 import { COUNTRY_CODES } from '../../utils/countryCodes'
 import { Skeleton } from '../../components/Skeleton'
 import ToggleField from '../../components/ToggleField'
@@ -82,7 +83,7 @@ export default function AdminSettings() {
 
   const { data: settings, isLoading } = useQuery<Settings>({
     queryKey: ['settings', 'admin'],
-    queryFn: () => adminFetch('/api/settings/admin').then((r) => r.json()),
+    queryFn: () => fetchJsonWith<Settings>(adminFetch, '/api/settings/admin'),
   })
 
   const [form, setForm] = useState<Settings>(DEFAULT_FORM)

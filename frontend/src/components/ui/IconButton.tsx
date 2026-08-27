@@ -2,6 +2,7 @@ import { forwardRef } from 'react'
 import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 import { BUTTON_VARIANT_CLASSES } from '../Button'
 import type { ButtonVariant } from '../Button'
+import { cn } from '../../lib/cn'
 
 export type IconButtonSize = 'sm' | 'md' | 'lg'
 
@@ -36,7 +37,10 @@ const IconButton = forwardRef(function IconButton(
     <button
       ref={ref}
       type={type}
-      className={[BASE, BUTTON_VARIANT_CLASSES[variant], SIZE_CLASSES[size], className].filter(Boolean).join(' ')}
+      // `cn`, not plain `.join(' ')` — BASE hard-codes `inline-flex`; see
+      // Button.tsx's identical comment and lib/cn.ts for why a caller's
+      // `hidden`/`md:flex` needs help winning the cascade.
+      className={cn(BASE, BUTTON_VARIANT_CLASSES[variant], SIZE_CLASSES[size], className)}
       {...rest}
     >
       {children}

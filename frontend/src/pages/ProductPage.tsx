@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { fetchJson } from '../lib/api'
 import { useSettings } from '../lib/useSettings'
 import { NAV_ITEMS, FOOTER_LINKS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
@@ -293,11 +294,7 @@ export default function ProductPage() {
 
   const { data: product, isLoading, error } = useQuery<ProductDetail>({
     queryKey: ['product', id],
-    queryFn: () =>
-      fetch(`/api/products/${id}`).then((r) => {
-        if (!r.ok) throw new Error('Not found')
-        return r.json()
-      }),
+    queryFn: () => fetchJson<ProductDetail>(`/api/products/${id}`),
     enabled: !!id,
   })
 

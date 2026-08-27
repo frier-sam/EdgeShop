@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
+import { fetchJson } from '../lib/api'
 import { useSettings } from '../lib/useSettings'
 import { CATEGORIES, currencySymbol } from '../lib/storeConfig'
 import type { ProductSummary } from '../lib/types'
@@ -243,7 +244,7 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
   // queries (different limit/pagination).
   const { data: searchData, isLoading: searchLoading } = useQuery<ProductsResponse>({
     queryKey: ['products', 'header-search'],
-    queryFn: () => fetch('/api/products?page=1&limit=100').then((r) => r.json()),
+    queryFn: () => fetchJson<ProductsResponse>('/api/products?page=1&limit=100'),
     enabled: searchOpen,
     staleTime: 5 * 60 * 1000,
   })

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchDesign } from '../editor/designApi'
+import { fetchJson } from '../lib/api'
 import type { ProductDetail } from '../lib/types'
 
 // POD.md §6.1 — Fabric (~90KB gz) must stay out of the main bundle. Both
@@ -44,11 +45,7 @@ export default function CustomizePage() {
     error,
   } = useQuery<ProductDetail>({
     queryKey: ['product', productId],
-    queryFn: () =>
-      fetch(`/api/products/${productId}`).then((r) => {
-        if (!r.ok) throw new Error('Not found')
-        return r.json()
-      }),
+    queryFn: () => fetchJson<ProductDetail>(`/api/products/${productId}`),
     enabled: !!productId,
   })
 

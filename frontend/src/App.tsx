@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { shouldRetryQuery } from './lib/api'
 import MobileBottomNav from './components/MobileBottomNav'
 import { useCartStore } from './store/cartStore'
 import HomePage from './pages/HomePage'
@@ -26,7 +27,16 @@ import ForgotPasswordPage from './pages/account/ForgotPasswordPage'
 import ResetPasswordPage from './pages/account/ResetPasswordPage'
 import Toaster from './components/Toaster'
 
-const queryClient = new QueryClient()
+// Global retry policy — see lib/api.ts for the reasoning. A 404 (or any
+// 4xx) is a permanent failure and must reach its error UI immediately; only
+// 5xx and network failures are worth a couple of retries.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: shouldRetryQuery,
+    },
+  },
+})
 
 function GlobalMobileNav() {
   const location = useLocation()

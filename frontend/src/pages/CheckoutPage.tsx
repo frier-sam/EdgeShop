@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { fetchJson } from '../lib/api'
 import { useCartStore, type ServerQuoteItem } from '../store/cartStore'
 import { useAuthStore } from '../store/authStore'
 import { loadRazorpay, openRazorpayModal } from '../utils/razorpay'
@@ -69,7 +70,7 @@ export default function CheckoutPage() {
 
   const { data: settings } = useQuery<Settings>({
     queryKey: ['settings'],
-    queryFn: () => fetch('/api/settings').then((r) => r.json()),
+    queryFn: () => fetchJson<Settings>('/api/settings'),
     staleTime: 5 * 60 * 1000,
   })
 
