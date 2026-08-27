@@ -16,30 +16,13 @@ export const FOOTER_LINKS: NavItem[] = [
   { label: 'My Orders', href: '/account/orders' },
 ]
 
-// ── Categories (POD-UI2.md §3/E6) ──────────────────────────────────
-// `slug` is passed straight through as `?category=<slug>` and the worker
-// does an exact `p.category = ?` match against the raw column (see
-// worker/src/routes/products.ts) — not a case-insensitive or slugified
-// comparison. So `slug` here must be byte-identical to a real
-// `products.category` value, not a URL-friendly derivation of the label.
-// Verified against the local D1 (products ids 3–6 at the time of writing):
-//   sqlite3 <d1-file> "SELECT DISTINCT category FROM products"
-// That query originally returned three different spellings for what is
-// functionally the same apparel bucket ('Tshirts', 'Apparel', 'T-Shirts')
-// plus 'Drinkware' — normalized down to 'T-Shirts' / 'Polos' / 'Mugs' as
-// part of this workstream (see DEPLOY.md's rename note) so every category
-// below reliably returns products instead of silently 404-ing a tile.
-export interface Category {
-  label: string
-  slug: string
-  image: string
-}
-
-export const CATEGORIES: Category[] = [
-  { label: 'T-Shirts', slug: 'T-Shirts', image: '/img/mockups/tee-front-black.webp' },
-  { label: 'Polos', slug: 'Polos', image: '/img/mockups/polo-white.webp' },
-  { label: 'Mugs', slug: 'Mugs', image: '/img/mockups/mug-white.webp' },
-]
+// ── Categories (POD-UI2.md §7.1) ────────────────────────────────────
+// The hardcoded `CATEGORIES` array that used to live here is gone —
+// categories are backend-driven now (`GET /api/categories`, derived from
+// `products` via GROUP BY, see worker/src/routes/categories.ts). Header.tsx
+// and home/ShopByCategory.tsx each fetch it directly with TanStack Query;
+// there's no local fallback/static list to keep in sync with the catalogue
+// any more.
 
 // ── Footer columns (POD-UI2.md §3/E4/E6) ───────────────────────────
 // `href: '#'` is a deliberate sentinel, not a dead link left by accident —

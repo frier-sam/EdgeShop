@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import settings from './routes/settings'
 import products from './routes/products'
+import categories from './routes/categories'
 import adminProducts from './routes/admin/products'
 import upload from './routes/admin/upload'
 import checkout from './routes/checkout'
@@ -65,6 +66,11 @@ app.get('/img/*', async (c) => {
 
 app.route('/api/settings', settings)
 app.route('/api/products', products)
+// POD-UI2.md §7.1 — public, derived from `products` via GROUP BY (no new
+// table). Mounted alongside /api/products, before the requireAdmin
+// wildcard below, since the storefront header/homepage need this
+// unauthenticated.
+app.route('/api/categories', categories)
 // POD.md §7.1 — public design + art-upload endpoints (/api/uploads/art,
 // /api/designs*). Deliberately mounted BEFORE the requireAdmin wildcard
 // below and outside /api/admin/*, since customers (including guests) use

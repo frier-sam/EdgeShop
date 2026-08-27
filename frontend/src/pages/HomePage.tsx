@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { fetchJson } from '../lib/api'
 import { useSettings } from '../lib/useSettings'
-import { NAV_ITEMS, FOOTER_LINKS, CATEGORIES, TRUST_ITEMS, currencySymbol } from '../lib/storeConfig'
+import { NAV_ITEMS, FOOTER_LINKS, TRUST_ITEMS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
 import Header from '../components/Header'
@@ -23,10 +23,12 @@ interface ProductsData {
   total: number
 }
 
-// One fetch feeds three sections — the hero composition (first 3 with a
-// photo), "Shop by category" (categories derived from this same page) and
-// featured products (capped at 8, see FeaturedProducts.FEATURED_LIMIT) —
-// instead of issuing three separate requests for the same catalog.
+// One fetch feeds two sections — the hero composition (first 3 with a
+// photo) and featured products (capped at 8, see
+// FeaturedProducts.FEATURED_LIMIT) — instead of issuing two separate
+// requests for the same catalog. "Shop by category" is unrelated: it's
+// backend-driven off GET /api/categories now (POD-UI2.md §7.1) and fetches
+// that itself.
 const CATALOG_FETCH_LIMIT = 12
 
 export default function HomePage() {
@@ -81,7 +83,7 @@ export default function HomePage() {
       <main>
         <Hero products={heroProducts} currency={currency} isLoading={isLoading} />
         <TrustStrip items={TRUST_ITEMS} />
-        <ShopByCategory categories={CATEGORIES} />
+        <ShopByCategory />
         <FeaturedProducts products={products} currency={currency} isLoading={isLoading} onAddToCart={handleAddToCart} />
         <HowItWorks />
         <SocialProof />

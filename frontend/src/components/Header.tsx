@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import { fetchJson } from '../lib/api'
 import { useSettings } from '../lib/useSettings'
-import { CATEGORIES, currencySymbol } from '../lib/storeConfig'
+import { currencySymbol } from '../lib/storeConfig'
 import type { ProductSummary } from '../lib/types'
 import IconButton from './ui/IconButton'
 import Badge from './ui/Badge'
@@ -25,6 +25,20 @@ interface HeaderProps {
 
 interface ProductsResponse {
   products: ProductSummary[]
+}
+
+// POD-UI2.md §7.1 — backend-driven categories. `name` is the raw
+// `products.category` value and doubles as the `?category=` filter value
+// (the worker matches it case-sensitively, see worker/src/routes/
+// products.ts), not a slugified/title-cased derivation of it.
+interface StorefrontCategory {
+  name: string
+  count: number
+  image: string | null
+}
+
+interface CategoriesResponse {
+  categories: StorefrontCategory[]
 }
 
 function CartIcon() {
@@ -70,6 +84,15 @@ function CloseIcon() {
     <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
       <line x1="1" y1="1" x2="11" y2="11" />
       <line x1="11" y1="1" x2="1" y2="11" />
+    </svg>
+  )
+}
+
+/** Functional affordance (not decorative) — the standard "this opens a menu" glyph, matching ShopPage.tsx's sort-select chevron. */
+function ChevronDownIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
+      <polyline points="6 9 12 15 18 9" />
     </svg>
   )
 }
@@ -207,6 +230,103 @@ function SearchPanel({
   )
 }
 
+/**
+ * Desktop "Categories" dropdown (POD-UI2.md §7.1) — replaces the old
+ * one-nav-link-per-category list with a single menu populated from
+ * `GET /api/categories`. Renders nothing while loading, on a fetch error,
+ * or when the catalogue has no active categories at all — never an empty
+ * menu shell.
+ *
+ * Keyboard/ARIA: `aria-haspopup="menu"` + `aria-expanded` on the trigger,
+ * `role="menu"`/`role="menuitem"` on the panel/items, Escape closes and
+ * returns focus to the trigger, Up/Down arrows move between items (with
+ * wraparound) and plain Tab order also works since every item is a real
+ * focusable link. A `pointerdown` listener outside the menu closes it.
+ */
+function CategoriesMenu({ categories }: { categories: StorefrontCategory[] }) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const itemRefs = useRef<(HTMLAnchorElement | null)[]>([])
+
+  useEffect(() => {
+    if (!open) return
+
+    function onPointerDown(e: PointerEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false)
+        triggerRef.current?.focus()
+        return
+      }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+      e.preventDefault()
+      const items = itemRefs.current.filter((el): el is HTMLAnchorElement => el !== null)
+      if (items.length === 0) return
+      const activeIndex = items.findIndex((el) => el === document.activeElement)
+      const delta = e.key === 'ArrowDown' ? 1 : -1
+      const nextIndex = activeIndex === -1 ? 0 : (activeIndex + delta + items.length) % items.length
+      items[nextIndex]?.focus()
+    }
+
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (open) requestAnimationFrame(() => itemRefs.current[0]?.focus())
+  }, [open])
+
+  if (categories.length === 0) return null
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1 whitespace-nowrap text-sm font-medium text-ink-soft transition-colors duration-fast hover:text-ink"
+      >
+        Categories
+        <ChevronDownIcon className={`transition-transform duration-fast ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          aria-label="Categories"
+          className="animate-fade-in absolute left-0 top-full z-50 mt-2 w-64 rounded-card border border-line bg-surface p-2 shadow-lift"
+        >
+          {categories.map((cat, i) => (
+            <Link
+              key={cat.name}
+              ref={(el) => {
+                itemRefs.current[i] = el
+              }}
+              role="menuitem"
+              to={`/shop?category=${encodeURIComponent(cat.name)}`}
+              onClick={() => setOpen(false)}
+              className="flex min-h-11 items-center justify-between gap-3 rounded-btn px-3 py-2 text-sm text-ink transition-colors duration-fast hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+            >
+              <span className="truncate font-medium">{cat.name}</span>
+              <span className="shrink-0 text-xs text-ink-faint">{cat.count}</span>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Header({ storeName, cartCount, onCartOpen, navItems }: HeaderProps) {
   const token = useAuthStore((s) => s.token)
   const { currency: storeCurrency } = useSettings()
@@ -250,6 +370,16 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
   })
   const searchProducts = searchData?.products ?? []
 
+  // POD-UI2.md §7.1 — one "Categories" menu, backend-driven, instead of a
+  // hand-maintained per-category nav link list. 5-minute staleTime matches
+  // useSettings — categories change about as rarely as store settings do.
+  const { data: categoriesData } = useQuery<CategoriesResponse>({
+    queryKey: ['categories'],
+    queryFn: () => fetchJson<CategoriesResponse>('/api/categories'),
+    staleTime: 5 * 60 * 1000,
+  })
+  const categories = categoriesData?.categories ?? []
+
   function openSearch() {
     setSearchOpen(true)
     // Autofocus once the panel/sheet has mounted.
@@ -269,12 +399,6 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
     return () => document.removeEventListener('keydown', onKey)
   }, [searchOpen])
 
-  const categoryLinks: NavItem[] = CATEGORIES.map((c) => ({
-    label: c.label,
-    href: `/shop?category=${encodeURIComponent(c.slug)}`,
-  }))
-  const combinedNav = [...navItems, ...categoryLinks]
-
   return (
     <>
       <AnnouncementBar />
@@ -289,7 +413,7 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
             simple 2-group flex row instead. */}
         <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-2 px-4 sm:hidden">
           <div className="flex min-w-0 items-center gap-0.5">
-            {combinedNav.length > 0 && (
+            {(navItems.length > 0 || categories.length > 0) && (
               <IconButton variant="ghost" aria-label="Open menu" onClick={() => setMobileOpen(true)}>
                 <MenuIcon />
               </IconButton>
@@ -309,7 +433,7 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
             itself rather than merely between two unequal-width groups. */}
         <div className="mx-auto hidden h-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-8 sm:grid">
           <nav className="flex min-w-0 items-center gap-6 justify-self-start">
-            {combinedNav.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
@@ -318,6 +442,7 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
                 {item.label}
               </Link>
             ))}
+            <CategoriesMenu categories={categories} />
           </nav>
 
           <Wordmark storeName={storeName} className="justify-self-center text-lg" />
@@ -362,7 +487,7 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
           </div>
           <nav className="flex-1 overflow-y-auto py-2">
             <p className="px-5 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">Shop</p>
-            {combinedNav.map((item) => (
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 to={item.href}
@@ -372,6 +497,22 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
                 {item.label}
               </Link>
             ))}
+            {categories.length > 0 && (
+              <>
+                <p className="px-5 pb-1 pt-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">Categories</p>
+                {categories.map((cat) => (
+                  <Link
+                    key={cat.name}
+                    to={`/shop?category=${encodeURIComponent(cat.name)}`}
+                    className="flex min-h-11 items-center justify-between px-5 py-3 text-sm font-medium text-ink transition-colors duration-fast hover:bg-surface-2"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    <span>{cat.name}</span>
+                    <span className="text-xs text-ink-faint">{cat.count}</span>
+                  </Link>
+                ))}
+              </>
+            )}
             <div className="mx-5 my-2 border-t border-line" />
             <Link
               to={token ? '/account/orders' : '/account/login'}
