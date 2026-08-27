@@ -113,3 +113,35 @@ All three run in parallel — the lanes are disjoint. Agents 2 and 3 consume `st
 | 2026-08-27 | Search and sort are client-side over the fetched page | No search endpoint exists; adding one is out of scope for a visual round, and a fake control that silently does nothing is worse than a documented local filter |
 | 2026-08-27 | Mockup generator rewritten rather than patched | The current tee output is malformed at the silhouette level; consistent grounds across all products matter more than fixing one polygon |
 | 2026-08-27 | Testimonials stay obviously illustrative | Inventing plausible named customers making specific claims about a real business would be fabricated social proof |
+
+---
+
+## 7. Round 2 — Real imagery, backend-driven categories
+
+Two corrections requested after review.
+
+### 7.1 Categories must come from the backend
+Today `Header.tsx:272` maps a **hardcoded** `CATEGORIES` array from `storeConfig.ts` into the top bar, printing each category name as its own nav link. Two problems: the top bar is the wrong place for an unbounded list, and the list is a fiction — it is maintained by hand and can drift from what the catalogue actually contains.
+
+- Add `GET /api/categories` returning the distinct `category` values across **active** products, each with a product count and a representative image. No new table — derive it from `products` with a `GROUP BY`.
+- The header carries a single **Categories** entry that opens a menu populated from that endpoint. Not one nav link per category.
+- Delete the hardcoded `CATEGORIES` export. The database is the only source of truth.
+- A category with zero active products must not appear.
+
+### 7.2 Real images, not icons
+Decorative inline SVG icons read as a dev placeholder on a store that sells printed products. Replace them with real imagery:
+
+- **How it works** — three real process images instead of icon circles: a blank product, the same product carrying a design, and a packed order.
+- **Shop by category** — the representative image from the new endpoint, so the tiles show real catalogue product photos.
+- **Trust strip** — remove the decorative icons. A photo for "Secure payment" would be contrived, so this becomes a clean typographic band instead. This is the one place where "use real images" is satisfied by using *no* image rather than a forced one.
+
+**Functional icons stay.** Search, cart, hamburger, close, social links and form affordances are interface controls, not illustration — a magnifier means "search" in a way no photograph does. Only decorative/illustrative icons are being replaced.
+
+### 7.3 Decisions
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-08-27 | Categories derived from `products` via GROUP BY, no new table | The catalogue already holds the truth; a second store would drift from it exactly the way the hardcoded array did |
+| 2026-08-27 | One "Categories" menu, not one nav link per category | The list is unbounded and grows with the catalogue; a top bar cannot absorb that |
+| 2026-08-27 | Trust strip loses its icons and gains no photos | A stock image for "Secure payment" is contrived; typography carries it better than a forced picture |
+| 2026-08-27 | Functional icons retained | Search/cart/menu glyphs are controls, not decoration; replacing them with photography would harm usability |
