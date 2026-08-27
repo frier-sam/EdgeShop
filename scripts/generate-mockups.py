@@ -33,6 +33,14 @@ than repetitive. Canvas size is fixed per run (1200x1200, square) so every
 product sits on the same footprint at the same margin, matching the
 `aspect-square` card treatment in ProductCard.tsx.
 
+Also produces three "how it works" process images (POD-UI2.md §7.2),
+replacing the decorative icon circles previously used in HowItWorks.tsx:
+process-pick-product (a blank garment), process-add-design (the same
+garment carrying a printed emblem in its chest print area), and
+process-print-ship (a packed shipping box with a matching folded garment
+peeking out). Same GROUND, same CANVAS footprint, same smooth_polygon
+rounding — so the section reads as one system with the product grid.
+
 This script only *produces files on disk* — it does not talk to R2 or D1.
 Wiring the results into the local dev catalogue (uploading to R2 under
 mockups/, updating product_sides.image_url) is a separate, explicit step
@@ -218,7 +226,57 @@ def _sleeve_anchors(side: int, shoulder_y: float, shoulder_hw: float, length: fl
     return pts
 
 
-def draw_tee(colorway: Colorway, view: str) -> Image.Image:
+def _draw_print_patch(scene: "Scene", shoulder_y: float) -> None:
+    """Draw a small two-colour printed emblem onto the chest print area.
+
+    Used by the "Add your design" process image (POD-UI2.md §7.2) — the
+    same tee silhouette as the "Pick a product" step, but now carrying a
+    visible print, so the step reads as customisation rather than just a
+    different product. The emblem itself (a circle + a rounded triangle,
+    both in flat white on an indigo patch matching index.css
+    `--color-accent`) is deliberately simple: it only needs to read as "a
+    design", not be a specific brand mark. Drawn last, on top of the
+    already-shaded garment, since a print sits flat on fabric rather than
+    picking up the garment's own directional shading.
+    """
+    accent = (79, 70, 229)  # index.css --color-accent #4F46E5
+    patch_w, patch_h = WORK * 0.15, WORK * 0.17
+    cx = CX
+    cy = shoulder_y + WORK * 0.135
+
+    patch_anchors = [
+        (cx - patch_w / 2, cy - patch_h / 2),
+        (cx + patch_w / 2, cy - patch_h / 2),
+        (cx + patch_w / 2, cy + patch_h / 2),
+        (cx - patch_w / 2, cy + patch_h / 2),
+    ]
+    patch_pts = smooth_polygon(patch_anchors, WORK * 0.018)
+
+    # Soft seating shadow so the patch reads as printed onto the fabric
+    # rather than pasted on top of it.
+    shadow_layer = Image.new("RGBA", (WORK, WORK), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow_layer).polygon(
+        [(x + WORK * 0.006, y + WORK * 0.008) for x, y in patch_pts], fill=(16, 16, 20, 50)
+    )
+    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=WORK * 0.008))
+    scene.canvas.alpha_composite(shadow_layer)
+
+    scene.draw.polygon(patch_pts, fill=accent)
+
+    # Emblem: a small circle ("sun") above a rounded triangle ("mountain").
+    sun_r = WORK * 0.02
+    sun_cx, sun_cy = cx, cy - patch_h * 0.18
+    scene.draw.ellipse([sun_cx - sun_r, sun_cy - sun_r, sun_cx + sun_r, sun_cy + sun_r], fill=(255, 255, 255))
+
+    tri_anchors = [
+        (cx - patch_w * 0.28, cy + patch_h * 0.22),
+        (cx, cy - patch_h * 0.06),
+        (cx + patch_w * 0.28, cy + patch_h * 0.22),
+    ]
+    scene.draw.polygon(smooth_polygon(tri_anchors, WORK * 0.012), fill=(255, 255, 255))
+
+
+def draw_tee(colorway: Colorway, view: str, print_design: bool = False) -> Image.Image:
     scene = Scene(colorway)
     shoulder_y = CY - WORK * 0.22
     hem_y = CY + WORK * 0.28
@@ -247,6 +305,9 @@ def draw_tee(colorway: Colorway, view: str) -> Image.Image:
     if view == "back":
         seam = ImageDraw.Draw(scene.canvas)
         seam.line([(CX, shoulder_y + WORK * 0.02), (CX, hem_y - WORK * 0.03)], fill=colorway.shadow + (70,), width=max(1, int(WORK * 0.003)))
+
+    if print_design:
+        _draw_print_patch(scene, shoulder_y)
 
     return scene.finish()
 
@@ -480,6 +541,143 @@ def draw_cap(colorway: Colorway) -> Image.Image:
     return scene.finish()
 
 
+def draw_process_ship(colorway: Colorway) -> Image.Image:
+    """"We print & ship" process image (POD-UI2.md §7.2): a packed shipping
+    box with a folded garment peeking out of the open top and a shipping
+    label on the front. Reuses `Scene`/`smooth_polygon` for every silhouette
+    (box body, flap band, folded-garment layers, label) so its corners are
+    softened the same way as every garment piece in this file — the one
+    exception being the box's straight edges themselves, which are
+    correctly straight (a shipping carton is not meant to look rounded like
+    a soap bar); only the polygon *corners* get the shared rounding.
+    `colorway` is the same one used for the "pick"/"design" steps so the
+    folded garment inside the box visually continues the same story.
+    """
+    scene = Scene(colorway)
+
+    box_hw = WORK * 0.19
+    box_top = CY - WORK * 0.04
+    box_bottom = CY + WORK * 0.30
+    flap_h = WORK * 0.055
+
+    cardboard = (196, 162, 116)
+    cardboard_flap = (172, 141, 98)
+    tape = (232, 219, 196)
+
+    scene.shadow_ellipse(CX, box_bottom + WORK * 0.02, box_hw * 1.1, WORK * 0.03)
+
+    # Folded garment, drawn first so the box's front face overlaps its
+    # lower portion — it reads as tucked just inside the open top, peeking
+    # out above the box, rather than floating in front of it. Each layer
+    # gets a small horizontal jitter and a generous corner radius (larger
+    # than the box's own WORK*0.01) so the stack reads as soft folded
+    # fabric rather than a rigid lid — a first pass with perfectly
+    # aligned, barely-rounded layers read as a flat grey slab sitting on
+    # the box rather than a garment, so this exists specifically to avoid
+    # that misread.
+    fold_w, fold_h = WORK * 0.23, WORK * 0.05
+    fold_cx = CX - box_hw * 0.18
+    fold_radius = WORK * 0.024
+    layers = 3
+    jitters = [0.0, WORK * 0.016, -WORK * 0.011]
+    top_fold_y = box_top - WORK * 0.02 - (layers - 1) * fold_h * 0.58
+    top_pts: list[Point] = []
+    for i in range(layers):
+        fy = box_top - WORK * 0.02 - i * fold_h * 0.58
+        dx = jitters[i]
+        anchors = [
+            (fold_cx + dx - fold_w / 2, fy),
+            (fold_cx + dx + fold_w / 2, fy),
+            (fold_cx + dx + fold_w / 2, fy + fold_h),
+            (fold_cx + dx - fold_w / 2, fy + fold_h),
+        ]
+        pts = smooth_polygon(anchors, fold_radius)
+        shade = 1 - i * 0.16
+        col = tuple(min(255, int(c * shade)) for c in colorway.base)
+        scene.draw.polygon(pts, fill=col)
+        if i == layers - 1:
+            top_pts = pts
+            # A couple of fold-crease lines across the topmost layer's
+            # own surface, so it reads as fabric rather than a flat card.
+            crease_col = tuple(max(0, int(c * 0.82)) for c in col)
+            for cy_frac in (0.38, 0.68):
+                cy = fy + fold_h * cy_frac
+                scene.draw.line(
+                    [(fold_cx + dx - fold_w * 0.42, cy), (fold_cx + dx + fold_w * 0.42, cy)],
+                    fill=crease_col,
+                    width=max(1, int(WORK * 0.0025)),
+                )
+    scene.draw.line(top_pts + [top_pts[0]], fill=colorway.outline, width=max(1, int(WORK * 0.0025)))
+
+    # Box body (front face) — a plain rectangle is the correct shape for a
+    # box; only the corners get the shared smooth_polygon rounding.
+    box_anchors = [
+        (CX - box_hw, box_top),
+        (CX + box_hw, box_top),
+        (CX + box_hw, box_bottom),
+        (CX - box_hw, box_bottom),
+    ]
+    scene.draw.polygon(smooth_polygon(box_anchors, WORK * 0.01), fill=cardboard)
+
+    # Flap seam band along the top edge (the folded-over top flaps, seen
+    # face-on) and the packing-tape cross.
+    flap_anchors = [
+        (CX - box_hw, box_top),
+        (CX + box_hw, box_top),
+        (CX + box_hw, box_top + flap_h),
+        (CX - box_hw, box_top + flap_h),
+    ]
+    scene.draw.polygon(smooth_polygon(flap_anchors, WORK * 0.008), fill=cardboard_flap)
+
+    tape_w = WORK * 0.022
+    scene.draw.rectangle([CX - tape_w / 2, box_top, CX + tape_w / 2, box_bottom], fill=tape)
+    scene.draw.rectangle(
+        [CX - box_hw, box_top + flap_h * 0.3, CX + box_hw, box_top + flap_h * 0.3 + tape_w], fill=tape
+    )
+
+    # Shipping label with a few text-line bars and a tiny barcode block.
+    label_w, label_h = WORK * 0.16, WORK * 0.11
+    label_cx = CX + box_hw * 0.42
+    label_cy = box_top + flap_h + WORK * 0.09
+    label_anchors = [
+        (label_cx - label_w / 2, label_cy - label_h / 2),
+        (label_cx + label_w / 2, label_cy - label_h / 2),
+        (label_cx + label_w / 2, label_cy + label_h / 2),
+        (label_cx - label_w / 2, label_cy + label_h / 2),
+    ]
+    scene.draw.polygon(smooth_polygon(label_anchors, WORK * 0.01), fill=(250, 250, 250))
+    for i in range(3):
+        ly = label_cy - label_h * 0.28 + i * label_h * 0.22
+        scene.draw.rectangle(
+            [label_cx - label_w * 0.34, ly, label_cx + label_w * (0.1 if i == 2 else 0.34), ly + WORK * 0.006],
+            fill=(160, 160, 168),
+        )
+    bx = label_cx - label_w * 0.34
+    by = label_cy + label_h * 0.14
+    for i in range(6):
+        bar_w = WORK * 0.004 if i % 2 == 0 else WORK * 0.007
+        scene.draw.rectangle([bx, by, bx + bar_w, by + WORK * 0.03], fill=(70, 70, 78))
+        bx += bar_w + WORK * 0.003
+
+    return scene.finish()
+
+
+# ── "How it works" process images (POD-UI2.md §7.2) ─────────────────
+# Three images sharing one garment colourway across steps 1 and 2 so the
+# three read as one continuous story: the same blank product, then that
+# product carrying a design, then a packed box with a matching folded
+# garment peeking out. All three sit on the identical GROUND / CANVAS
+# footprint as the product mockups above, so the "How it works" section
+# reads as part of the same visual system.
+PROCESS_COLORWAY = COLORWAYS["heather-grey"]
+
+PROCESS_IMAGES: dict[str, callable] = {
+    "process-pick-product": lambda: draw_tee(PROCESS_COLORWAY, "front"),
+    "process-add-design": lambda: draw_tee(PROCESS_COLORWAY, "front", print_design=True),
+    "process-print-ship": lambda: draw_process_ship(PROCESS_COLORWAY),
+}
+
+
 PRODUCTS: dict[str, tuple[callable, list[str]]] = {
     "tee-front": (lambda cw: draw_tee(cw, "front"), ["black", "white", "heather-grey"]),
     "tee-back": (lambda cw: draw_tee(cw, "back"), ["black", "white", "heather-grey"]),
@@ -512,6 +710,15 @@ def main() -> None:
                 img.convert("RGB").save(os.path.join(out_dir, f"{stem}.png"), "PNG")
             count += 1
             print(f"  wrote {stem}.webp")
+
+    for stem, fn in PROCESS_IMAGES.items():
+        img = fn()
+        webp_path = os.path.join(out_dir, f"{stem}.webp")
+        img.convert("RGB").save(webp_path, "WEBP", quality=90, method=6)
+        if args.png:
+            img.convert("RGB").save(os.path.join(out_dir, f"{stem}.png"), "PNG")
+        count += 1
+        print(f"  wrote {stem}.webp")
 
     print(f"\n{count} mockups written to {out_dir}")
 
