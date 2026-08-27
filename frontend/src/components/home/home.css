@@ -1,0 +1,31 @@
+/*
+ * Standalone stylesheet for the homepage only (components/home/**). Kept
+ * out of index.css deliberately — that file's `@theme` token block is
+ * frozen (POD-UI.md §2.1 is authoritative and owned by a different agent
+ * this round). Vite bundles this as an ordinary CSS module import from
+ * Hero.tsx, so it never touches the shared design-system file.
+ *
+ * `home-float` is the hero product composition's subtle idle motion (F1).
+ * It is symmetric around the resting position (0%/100% === no transform),
+ * so the composition is correctly laid out even before the animation
+ * starts, or if it never runs at all.
+ *
+ * No separate `prefers-reduced-motion` override is declared here — the
+ * global reduce block in index.css already neutralises every element's
+ * `animation-duration` / `animation-iteration-count` via a `*` selector
+ * with `!important`, which applies regardless of which stylesheet declared
+ * the animation. See POD-UI.md §A2.
+ */
+@keyframes home-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-home-float {
+  animation: home-float 5s ease-in-out infinite;
+}

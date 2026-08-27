@@ -1,16 +1,20 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useSettings } from '../lib/useSettings'
-import { NAV_ITEMS, FOOTER_LINKS, currencySymbol } from '../lib/storeConfig'
+import { NAV_ITEMS, FOOTER_LINKS, CATEGORIES, TRUST_ITEMS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
-import ProductGrid from '../components/ProductGrid'
 import CartDrawer from '../components/CartDrawer'
-import Button from '../components/Button'
-import { SkeletonCards } from '../components/Skeleton'
+import Hero from '../components/home/Hero'
+import TrustStrip from '../components/home/TrustStrip'
+import ShopByCategory from '../components/home/ShopByCategory'
+import FeaturedProducts from '../components/home/FeaturedProducts'
+import HowItWorks from '../components/home/HowItWorks'
+import SocialProof from '../components/home/SocialProof'
+import ClosingCta from '../components/home/ClosingCta'
 import type { ProductSummary } from '../lib/types'
 
 interface ProductsData {
@@ -18,24 +22,11 @@ interface ProductsData {
   total: number
 }
 
-// Capped at 6 (POD-UI.md §B2) — the staggered fade-up entrance stays snappy
-// instead of cascading through a long grid.
-const FEATURED_LIMIT = 6
-
-const STEPS = [
-  {
-    title: 'Pick a product',
-    description: 'Tees, hoodies, mugs and more — browse the catalog and choose your base.',
-  },
-  {
-    title: 'Add your design',
-    description: 'Upload art or add text on the print area, front and back.',
-  },
-  {
-    title: 'We print & ship',
-    description: 'Your design is printed to order and shipped straight to your door.',
-  },
-]
+// One fetch feeds three sections — the hero composition (first 3 with a
+// photo), "Shop by category" (categories derived from this same page) and
+// featured products (capped at 8, see FeaturedProducts.FEATURED_LIMIT) —
+// instead of issuing three separate requests for the same catalog.
+const CATALOG_FETCH_LIMIT = 12
 
 export default function HomePage() {
   const { store_name: storeName, currency: storeCurrency } = useSettings()
@@ -51,13 +42,14 @@ export default function HomePage() {
   const addToast = useToastStore((s) => s.addToast)
 
   const { data: productsData, isLoading } = useQuery<ProductsData>({
-    queryKey: ['products', 'featured'],
-    queryFn: () => fetch(`/api/products?page=1&limit=${FEATURED_LIMIT}`).then((r) => r.json()),
+    queryKey: ['products', 'home', CATALOG_FETCH_LIMIT],
+    queryFn: () => fetch(`/api/products?page=1&limit=${CATALOG_FETCH_LIMIT}`).then((r) => r.json()),
     staleTime: 60 * 1000,
   })
 
   const currency = currencySymbol(storeCurrency)
-  const products = (productsData?.products ?? []).slice(0, FEATURED_LIMIT)
+  const products = productsData?.products ?? []
+  const heroProducts = useMemo(() => products.filter((p) => p.front_image).slice(0, 3), [products])
 
   useEffect(() => {
     document.title = storeName
@@ -86,76 +78,13 @@ export default function HomePage() {
       <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={NAV_ITEMS} />
 
       <main>
-        {/* Hero — full-bleed, oversized display type (POD-UI.md §2.1: 2.5rem
-            mobile / 4.5rem desktop). */}
-        <section className="relative overflow-hidden bg-surface px-4 py-12 text-center sm:px-8 md:py-20">
-          <div className="mx-auto max-w-4xl animate-fade-up">
-            <span className="mb-5 inline-block rounded-full bg-accent-soft px-3.5 py-1.5 text-xs font-semibold uppercase tracking-wide text-accent-dark">
-              Print on demand
-            </span>
-            <h1 className="font-display text-[2.5rem] font-bold leading-[1.05] tracking-[-0.03em] text-ink md:text-[4.5rem]">
-              {storeName}
-            </h1>
-            <p className="mx-auto mt-5 max-w-lg text-[0.9375rem] text-ink-soft md:text-base">
-              Design it yourself, we print it and ship it — no minimums, made one at a time.
-            </p>
-            <div className="mt-9">
-              <Button variant="primary" size="lg" onClick={() => navigate('/shop')}>
-                Shop the collection
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {/* How it works */}
-        <section className="border-y border-line bg-paper">
-          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-8 md:py-20">
-            <h2 className="mb-10 text-center font-display text-[1.25rem] font-semibold text-ink md:text-[1.75rem]">How it works</h2>
-            <div className="grid grid-cols-1 gap-10 sm:grid-cols-3 sm:gap-8">
-              {STEPS.map((step, i) => (
-                <div
-                  key={step.title}
-                  className="stagger-delay animate-fade-up text-center"
-                  style={{ '--stagger-index': i } as React.CSSProperties}
-                >
-                  <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-accent font-display text-sm font-semibold text-on-accent">
-                    {i + 1}
-                  </div>
-                  <h3 className="mb-1.5 text-sm font-semibold text-ink">{step.title}</h3>
-                  <p className="text-sm leading-relaxed text-ink-soft">{step.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Featured products */}
-        <section className="mx-auto max-w-6xl px-4 py-12 sm:px-8 md:py-20">
-          <div className="mb-8 flex items-end justify-between">
-            <h2 className="font-display text-[1.25rem] font-semibold text-ink md:text-[1.75rem]">Featured products</h2>
-            <Button as={Link} to="/shop" variant="ghost" size="sm">
-              View all →
-            </Button>
-          </div>
-
-          {isLoading ? (
-            <SkeletonCards count={FEATURED_LIMIT} />
-          ) : (
-            <ProductGrid
-              products={products.map((p) => ({
-                id: p.id,
-                name: p.name,
-                price: p.base_price,
-                compare_price: p.compare_price,
-                image_url: p.front_image ?? '',
-                is_customizable: p.is_customizable,
-              }))}
-              currency={currency}
-              onAddToCart={handleAddToCart}
-              stagger
-            />
-          )}
-        </section>
+        <Hero products={heroProducts} currency={currency} isLoading={isLoading} />
+        <TrustStrip items={TRUST_ITEMS} />
+        <ShopByCategory categories={CATEGORIES} />
+        <FeaturedProducts products={products} currency={currency} isLoading={isLoading} onAddToCart={handleAddToCart} />
+        <HowItWorks />
+        <SocialProof />
+        <ClosingCta />
       </main>
 
       <Footer storeName={storeName} links={FOOTER_LINKS} />
