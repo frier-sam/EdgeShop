@@ -230,6 +230,19 @@ const MIGRATIONS: Migration[] = [
       [`INSERT OR IGNORE INTO settings (key, value) VALUES ('design_retention_days', '30')`],
     ],
   },
+  {
+    // POD-UI2.md §2 — brand rename, EdgeShop → ESPOD. Only touches rows
+    // still holding the literal old value, so it's a no-op (and safe to
+    // "apply" via bookkeeping only, as schema.sql's fresh-install seed
+    // does) on any database where an admin already renamed the store via
+    // Settings, or where a fresh install seeded 'ESPOD' directly.
+    name: '0015_espod_rename.sql',
+    phases: [
+      [
+        `UPDATE settings SET value = 'ESPOD' WHERE key IN ('store_name', 'email_from_name') AND value = 'EdgeShop'`,
+      ],
+    ],
+  },
 ]
 
 export async function runMigrations(db: D1Database): Promise<void> {

@@ -1,8 +1,8 @@
-Project: "EdgeShop POD" — Print-on-Demand Storefront on the Cloudflare Free Tier
+Project: "ESPOD" — Print-on-Demand Storefront on the Cloudflare Free Tier
 
 ## 1. Application Overview
 
-EdgeShop POD is a lean, single-purpose print-on-demand storefront: a shopper browses a product, customizes it with text, images and shapes directly on a mockup in the browser, previews exactly what will be printed, adds it to the cart, and checks out. The merchant manages products, print areas and orders from a small admin panel and downloads a print-ready file per order line when it's time to fulfil.
+ESPOD is a lean, single-purpose print-on-demand storefront: a shopper browses a product, customizes it with text, images and shapes directly on a mockup in the browser, previews exactly what will be printed, adds it to the cart, and checks out. The merchant manages products, print areas and orders from a small admin panel and downloads a print-ready file per order line when it's time to fulfil.
 
 Target: A single small merchant selling customizable apparel/merchandise (T-shirts, mugs, etc.) — not a multi-tenant or general-purpose e-commerce platform.
 
@@ -10,7 +10,7 @@ Primary Goal: Zero monthly hosting cost (Cloudflare Workers + D1 + R2, all withi
 
 Key Innovation ("Zero-CPU image logic"): every pixel operation — mockup resizing at upload time, the live customization canvas, the add-to-cart preview composite, and the 300 DPI print-file export — runs in a browser (the admin's or the customer's), never in the Worker. The Worker's job is auth, pricing, and streaming bytes to/from D1 and R2; it never touches image bytes beyond passthrough.
 
-Non-goals (deliberately removed from the older EdgeShop codebase this was converted from): themes/CMS, blog, product reviews, collections, discount codes, shipping zones, full-text search, colour/material variants, staff role management. See `POD.md` for the full deletion inventory and rationale.
+Non-goals (deliberately removed from the older EdgeShop codebase this was converted from — that pre-conversion codebase really was called EdgeShop; the brand was renamed to ESPOD afterwards, see POD-UI2.md §2): themes/CMS, blog, product reviews, collections, discount codes, shipping zones, full-text search, colour/material variants, staff role management. See `POD.md` for the full deletion inventory and rationale.
 
 ## 2. Technical Stack
 

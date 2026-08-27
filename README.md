@@ -1,8 +1,8 @@
-# EdgeShop POD
+# ESPOD
 
 A print-on-demand storefront that runs entirely on Cloudflare's free tier — one Worker, D1, R2, no separate servers. Customers design their own T-shirts/mugs/etc. directly on the product in the browser; the merchant gets a lean admin panel and a one-click print-ready file per order.
 
-> This is the print-on-demand conversion of the original EdgeShop e-commerce engine. See [`POD.md`](./POD.md) for the full conversion plan, architecture rationale and decisions log; see [`project.md`](./project.md) for the product overview.
+> ESPOD is the print-on-demand conversion of the original EdgeShop e-commerce engine — that pre-conversion codebase really was called EdgeShop; the brand was renamed EdgeShop → ESPOD afterwards (POD-UI2.md §2), so this one historical mention is accurate, not a leftover. See [`POD.md`](./POD.md) for the full conversion plan, architecture rationale and decisions log; see [`project.md`](./project.md) for the product overview.
 
 ---
 

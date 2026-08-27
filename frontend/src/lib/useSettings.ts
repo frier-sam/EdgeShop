@@ -7,7 +7,7 @@ export interface StoreSettings {
 }
 
 const DEFAULTS = {
-  store_name: 'EdgeShop',
+  store_name: 'ESPOD',
   currency: 'INR',
 }
 

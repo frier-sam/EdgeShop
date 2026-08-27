@@ -1,5 +1,5 @@
 -- ────────────────────────────────────────────────────────────
--- EdgeShop POD — demo catalog seed
+-- ESPOD — demo catalog seed
 -- ────────────────────────────────────────────────────────────
 -- Two demo products exercising both shapes: a sized, two-sided
 -- garment (Classic Tee) and a single-side, sizeless item

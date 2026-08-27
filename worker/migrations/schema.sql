@@ -1,5 +1,9 @@
 -- ────────────────────────────────────────────────────────────
--- EdgeShop POD — canonical fresh-install schema
+-- ESPOD — canonical fresh-install schema
+-- (brand renamed from EdgeShop to ESPOD — POD-UI2.md §2. Infra
+-- identifiers below, e.g. the D1 database name `edgeshop-db` and
+-- the R2 bucket `edgeshop-images`, intentionally keep the old
+-- name — see DEPLOY.md's "Naming note" for why.)
 -- ────────────────────────────────────────────────────────────
 -- This is the target schema for the print-on-demand build
 -- (see /POD.md §6.1). It is safe to paste directly into an
@@ -166,21 +170,22 @@ INSERT OR IGNORE INTO _migrations (name) VALUES
   ('0011_integrations.sql'),
   ('0012_rewrite_image_urls.sql'),
   ('0013_pod_reset.sql'),
-  ('0014_design_retention_setting.sql');
+  ('0014_design_retention_setting.sql'),
+  ('0015_espod_rename.sql');
 
 -- ────────────────────────────────────────────────────────────
 -- Seed default settings
 -- ────────────────────────────────────────────────────────────
 
 INSERT OR IGNORE INTO settings (key, value) VALUES
-  ('store_name',              'EdgeShop'),
+  ('store_name',              'ESPOD'),
   ('currency',                'INR'),
   ('cod_enabled',             'true'),
   ('razorpay_key_id',         ''),
   ('razorpay_key_secret',     ''),
   ('email_provider',          'resend'),
   ('email_api_key',           ''),
-  ('email_from_name',         'EdgeShop'),
+  ('email_from_name',         'ESPOD'),
   ('email_from_address',      ''),
   ('merchant_email',          ''),
   ('default_country_code',    '+91'),

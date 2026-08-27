@@ -200,7 +200,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       const res = await fetch(`${apiBase}/api/settings`, { signal: AbortSignal.timeout(3000) })
       if (res.ok) {
         const settings = await res.json() as Record<string, string>
-        const name = settings.store_name || 'EdgeShop'
+        const name = settings.store_name || 'ESPOD'
         const desc = `Shop ${name} — discover our handpicked collection.`
         return new Response(
           buildHtml({

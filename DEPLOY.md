@@ -1,6 +1,8 @@
 # Deployment Guide
 
-EdgeShop deploys as a **single Cloudflare Worker** that serves both the API and the React frontend. No separate Pages project needed.
+ESPOD deploys as a **single Cloudflare Worker** that serves both the API and the React frontend. No separate Pages project needed.
+
+> **Naming note.** The storefront's brand was renamed EdgeShop → ESPOD (POD-UI2.md §2), but several infrastructure identifiers below intentionally keep the old name: the D1 database `edgeshop-db`, the R2 bucket `edgeshop-images`, the Worker name in `wrangler.toml`, npm package names, and the GitHub repository path (`frier-sam/EdgeShop`, referenced further down this guide). Renaming any of those would break an existing deploy or point instructions at a repo that doesn't exist — they're left alone on purpose, not missed.
 
 ## Prerequisites
 

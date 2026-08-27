@@ -1,6 +1,8 @@
-# Deploying EdgeShop to Cloudflare
+# Deploying ESPOD to Cloudflare
 
-EdgeShop runs as a **single Cloudflare Worker** — it serves both the API and the React frontend from one deployment. No separate Pages project needed. No editing config files.
+ESPOD runs as a **single Cloudflare Worker** — it serves both the API and the React frontend from one deployment. No separate Pages project needed. No editing config files.
+
+> The D1 database (`edgeshop-db`), R2 bucket (`edgeshop-images`) and GitHub repo path (`frier-sam/EdgeShop`) below intentionally still say "EdgeShop" — see DEPLOY.md's naming note for why those infra identifiers weren't renamed along with the brand.
 
 ---
 
