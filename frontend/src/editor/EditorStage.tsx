@@ -8,12 +8,12 @@ import {
   restoreCanvas,
   clearCanvas,
   setCanvasDimensionsRaw,
-  getCanvasSize,
   getObjectCount,
   positionCanvasWrapper,
   setCanvasInteractive,
 } from './fabric/canvas'
 import { computeStageGeometry, type NormalizedRect, type StageGeometry } from './geometry'
+import { HANDLE_GUTTER_PX, gutteredCanvasSize, gutteredWrapperOrigin, gutterViewportTransform } from './canvasGutter'
 import type { EditorMode, EditorSideName } from './types'
 
 export interface SideSnapshot {
@@ -50,6 +50,18 @@ export interface EditorStageProps {
    * undefined) to never show the prompt.
    */
   objectCount?: number
+  /**
+   * Bug 3b (canvasGutter.ts) — fires with the PURE bleed-rect pixel size
+   * (never the gutter-inclusive `canvas.getWidth()/getHeight()`) every
+   * time geometry is (re)computed. CustomizerEditor threads this into
+   * `useEditorObjects` (new-object placement/sizing) and its own live DPI
+   * scan / add-to-cart canonicalization, all of which used to read
+   * `canvas.getWidth()/getHeight()` directly as a stand-in for "the bleed
+   * rect's size" — a stand-in the gutter breaks. See canvasGutter.ts's
+   * header for why this must not just be recomputed ad hoc from
+   * `canvas.getWidth()`.
+   */
+  onBleedSizeChange?: (width: number, height: number) => void
 }
 
 /**
@@ -74,6 +86,46 @@ export interface EditorStageProps {
  * internal cache and restores (or blanks) the incoming side, so front and
  * back never leak objects into each other (POD.md §6.7) while still
  * sharing one <canvas> element.
+ *
+ * Bug 3b — the canvas ELEMENT is actually sized to the bleed rect PLUS a
+ * fixed `HANDLE_GUTTER_PX` gutter on every side (canvasGutter.ts), not
+ * exactly the bleed rect as POD.md §5.2 originally specified. This is
+ * that section's own documented fallback: on a small print area, an
+ * object's resize/rotate handles can sit outside the bleed rect and are
+ * then clipped by the canvas element's own bounds — invisible and
+ * unusable. Growing the element gives handles room to render.
+ *
+ * This is safe for print fidelity because of what a Fabric
+ * `viewportTransform` actually is: a render/pointer-mapping camera, not a
+ * coordinate rewrite. `canvas.toObject()` (snapshotCanvas) never
+ * serializes it, and object `left`/`top` are never expressed relative to
+ * it — so `design_json`, `preview.ts` and `admin/print/renderPrintFile.ts`
+ * (which all only ever see JSON, never this live element) need no gutter
+ * awareness at all. Concretely, every geometry pass below:
+ *   1. Sets the canvas to the PURE bleed size (via the frozen
+ *      `setCanvasDimensionsRaw`/`resizeCanvasScaled` — same calls as
+ *      before, same object-rescale guarantee) so those two functions'
+ *      `canvas.getWidth()`-based ratio math is never polluted by a
+ *      gutter that was added on a previous pass.
+ *   2. THEN grows the element by the gutter via one more
+ *      `setCanvasDimensionsRaw` call — this only changes the backstore
+ *      size, never rescales objects, so it cannot shift anything.
+ *   3. Applies `setViewportTransform([1,0,0,1,G,G])` so rendering (and
+ *      pointer<->object coordinate mapping) shifts by the gutter, while
+ *      `positionCanvasWrapper` moves the wrapper outward by the same `G`
+ *      — the two cancel out, so the bleed rect still lands exactly where
+ *      `geometry.bleedRectPx` says it should, pixel for pixel.
+ * `canvas.getWidth()/getHeight()` therefore now report the gutter-
+ * inclusive size — every caller elsewhere that used to treat those as
+ * "the bleed size" (useEditorObjects.ts, CustomizerEditor.tsx) has been
+ * switched to `onBleedSizeChange`'s PURE value instead.
+ *
+ * The visual clip is restored with a DOM-only `gutter-scrim` overlay (a
+ * `box-shadow` band exactly `HANDLE_GUTTER_PX` wide, painted OUTSIDE the
+ * bleed rect, sitting ON TOP of the canvas in the stage) so art dragged
+ * into the gutter still reads as "will be trimmed" while handles — drawn
+ * by Fabric outside the scrim's stacking, and always `pointer-events:
+ * none` on the scrim itself — remain visible and grabbable through it.
  */
 export default function EditorStage({
   fabric,
@@ -92,12 +144,21 @@ export default function EditorStage({
   initialSnapshots,
   onSnapshotCached,
   objectCount,
+  onBleedSizeChange,
 }: EditorStageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasElRef = useRef<HTMLCanvasElement | null>(null)
   const [canvas, setCanvas] = useState<FabricCanvas | null>(null)
   const [containerSize, setContainerSize] = useState({ w: 0, h: 0 })
   const [geometry, setGeometry] = useState<StageGeometry | null>(null)
+  // Bug 3b — the PURE bleed-rect pixel size the live canvas's objects are
+  // CURRENTLY registered against (i.e. what `canvas.getWidth()/getHeight()`
+  // would report if there were no gutter). Tracked separately from the
+  // canvas's own (now gutter-inclusive) getWidth()/getHeight() so every
+  // geometry pass can un-grow the canvas back to this exact size before
+  // asking the frozen `resizeCanvasScaled` to rescale — see the
+  // component doc comment above.
+  const liveBleedPxRef = useRef({ w: 0, h: 0 })
 
   // Seeded once from `initialSnapshots` (re-editing an existing design —
   // POD.md §7.3). `useRef`'s initializer only runs on the first render, so
@@ -115,6 +176,8 @@ export default function EditorStage({
   onAfterSideSwapRef.current = onAfterSideSwap
   const onSnapshotCachedRef = useRef(onSnapshotCached)
   onSnapshotCachedRef.current = onSnapshotCached
+  const onBleedSizeChangeRef = useRef(onBleedSizeChange)
+  onBleedSizeChangeRef.current = onBleedSizeChange
 
   // Create the Fabric canvas exactly once, as soon as the module and the
   // <canvas> element both exist. Disposed on unmount only.
@@ -179,28 +242,55 @@ export default function EditorStage({
         // useEditorObjects' suspendHistory/resumeAndReseedHistory).
         onBeforeSideSwapRef.current?.()
         if (prevSideKey) {
-          const outgoing = { json: snapshotCanvas(canvas!), ...getCanvasSize(canvas!) }
+          // Bug 3b — cache the OUTGOING side at its PURE bleed size
+          // (liveBleedPxRef), never `getCanvasSize(canvas)` (which now
+          // includes the gutter) — see the component doc comment.
+          const outgoing = { json: snapshotCanvas(canvas!), width: liveBleedPxRef.current.w, height: liveBleedPxRef.current.h }
           snapshotsRef.current[prevSideKey] = outgoing
           onSnapshotCachedRef.current?.(prevSideKey, outgoing)
         }
         const stored = snapshotsRef.current[sideKey]
         if (stored) {
-          setCanvasDimensionsRaw(canvas!, stored.width, stored.height)
+          setCanvasDimensionsRaw(canvas!, stored.width, stored.height) // PURE bleed size, raw (no rescale)
           await restoreCanvas(canvas!, stored.json)
           if (cancelled) return
-          resizeCanvasScaled(canvas!, targetW, targetH)
+          resizeCanvasScaled(canvas!, targetW, targetH) // PURE ratio: targetW / stored.width, exact
         } else {
           clearCanvas(canvas!)
-          setCanvasDimensionsRaw(canvas!, targetW, targetH)
+          setCanvasDimensionsRaw(canvas!, targetW, targetH) // PURE bleed size, raw (nothing to rescale)
         }
         prevSideKeyRef.current = sideKey
         onAfterSideSwapRef.current?.()
       } else {
+        // Bug 3b — same-side resize (e.g. window resize, or the mobile
+        // properties Sheet opening/closing and shrinking/growing the
+        // stage). First collapse back to the PURE size the live objects
+        // are CURRENTLY registered against (undoing the previous pass's
+        // gutter grow below) so resizeCanvasScaled's internal
+        // `nextWidth / canvas.getWidth()` ratio is the exact pure-bleed
+        // ratio, not polluted by a gutter that doesn't scale with it.
+        setCanvasDimensionsRaw(canvas!, liveBleedPxRef.current.w, liveBleedPxRef.current.h)
         resizeCanvasScaled(canvas!, targetW, targetH)
       }
 
-      positionCanvasWrapper(canvas!, geo.bleedRectPx.x, geo.bleedRectPx.y)
+      // Bug 3b — grow the canvas ELEMENT by a fixed gutter so resize/
+      // rotate handles have room to render and be grabbed even when the
+      // print area is small (POD.md §5.2's documented fallback). This
+      // step only changes the backstore size — it never touches an
+      // object's left/top/scaleX/scaleY, so it cannot affect print
+      // registration. The viewport transform then shifts RENDERING
+      // (never the stored coordinates) by the same amount the wrapper is
+      // about to move outward by, so the visible bleed rect lands
+      // exactly where `geo.bleedRectPx` says it should either way.
+      const grown = gutteredCanvasSize(targetW, targetH)
+      setCanvasDimensionsRaw(canvas!, grown.width, grown.height)
+      canvas!.setViewportTransform(gutterViewportTransform())
+      liveBleedPxRef.current = { w: targetW, h: targetH }
+
+      const wrapperOrigin = gutteredWrapperOrigin(geo.bleedRectPx.x, geo.bleedRectPx.y)
+      positionCanvasWrapper(canvas!, wrapperOrigin.x, wrapperOrigin.y)
       setGeometry(geo)
+      onBleedSizeChangeRef.current?.(targetW, targetH)
       onObjectCountChangeRef.current?.(sideKey, getObjectCount(canvas!))
     }
 
@@ -267,6 +357,34 @@ export default function EditorStage({
       <div style={{ touchAction: 'none' }}>
         <canvas ref={canvasElRef} />
       </div>
+
+      {/* Bug 3b — restores the visual clip the gutter (canvasGutter.ts)
+          gave up: a `box-shadow` band exactly HANDLE_GUTTER_PX wide,
+          painted OUTSIDE the bleed rect's own box (never inside it, so
+          the artwork itself is never dimmed), sitting ON TOP of the
+          canvas in paint order (it's later in the DOM than the canvas
+          wrapper above) so art dragged into the gutter reads as "will be
+          trimmed" instead of looking fully kept. `pointer-events-none`
+          means handles drawn in that band stay grabbable through it.
+          Deliberately NOT gated by `guidesVisible`/edit-vs-preview like
+          the other guides below — in preview mode the canvas element is
+          still the gutter-inclusive size (only interactivity is
+          disabled), so without this the scrim fading out would let
+          off-print art show through unclipped exactly when a shopper is
+          reviewing what they're about to buy. */}
+      {guidesReady && geometry && (
+        <div
+          className="pointer-events-none absolute"
+          style={{
+            left: geometry.bleedRectPx.x,
+            top: geometry.bleedRectPx.y,
+            width: geometry.bleedRectPx.w,
+            height: geometry.bleedRectPx.h,
+            boxShadow: `0 0 0 ${HANDLE_GUTTER_PX}px rgba(16,16,20,0.4)`,
+          }}
+          data-testid="gutter-scrim"
+        />
+      )}
 
       {/* POD-UI.md §3 C7 — empty-state prompt. A DOM overlay, positioned by
           the same frozen geometry as the print guide, so it sits centred

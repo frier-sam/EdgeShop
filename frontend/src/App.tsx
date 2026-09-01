@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { shouldRetryQuery } from './lib/api'
 import MobileBottomNav from './components/MobileBottomNav'
+import ScrollToTop from './components/ScrollToTop'
 import { useCartStore } from './store/cartStore'
 import HomePage from './pages/HomePage'
 import ProductPage from './pages/ProductPage'
@@ -51,6 +52,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <Toaster />
       <BrowserRouter>
+        <ScrollToTop />
         <GlobalMobileNav />
         <Routes>
           <Route path="/" element={<HomePage />} />

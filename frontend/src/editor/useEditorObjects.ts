@@ -22,6 +22,7 @@ import {
   sendToBack as fabricSendToBack,
   centerInPrintArea,
 } from './fabric/selection'
+import { computeInsertFitScale } from './fitObject'
 import type { ShapeKind } from './types'
 
 const HISTORY_LIMIT = 30 // POD.md §6.3 — ring buffer of at most 30 states
@@ -31,6 +32,21 @@ export interface UseEditorObjectsArgs {
   canvas: FabricCanvas | null
   /** Fires after any change that could affect "does this side have >=1 object" (POD.md §6.7 pricing) or the persisted snapshot. */
   onContentChange?: (objectCount: number, json: string) => void
+  /**
+   * Bug 3b (canvasGutter.ts) — the PURE bleed-rect pixel size of the
+   * currently active side, read fresh on every call (not a dependency,
+   * since geometry can change — e.g. a window resize or the mobile
+   * properties Sheet opening — without this hook re-rendering). Every
+   * place below that used to derive "where/how big is the canvas" from
+   * `canvas.getWidth()/getHeight()` now reads this instead, because those
+   * two now report the gutter-INCLUSIVE element size (EditorStage grows
+   * the actual canvas element for handle room — see canvasGutter.ts's
+   * header for why that would otherwise silently offset every new
+   * object's placement by the gutter). Defaults to a no-op {0,0} getter
+   * so this hook still degrades gracefully before EditorStage has ever
+   * reported a size.
+   */
+  getBleedSize?: () => { width: number; height: number }
 }
 
 export interface UseEditorObjectsApi {
@@ -75,7 +91,9 @@ export interface UseEditorObjectsApi {
  * (see EditorStage's `onBeforeSideSwap` / `onAfterSideSwap`), so front and
  * back never leak undo state into each other (POD.md §6.7).
  */
-export function useEditorObjects({ fabric, canvas, onContentChange }: UseEditorObjectsArgs): UseEditorObjectsApi {
+const NO_BLEED_SIZE = { width: 0, height: 0 }
+
+export function useEditorObjects({ fabric, canvas, onContentChange, getBleedSize }: UseEditorObjectsArgs): UseEditorObjectsApi {
   const [selected, setSelected] = useState<FabricObject | null>(null)
   const [objectCount, setObjectCount] = useState(0)
   const [canUndo, setCanUndo] = useState(false)
@@ -86,6 +104,8 @@ export function useEditorObjects({ fabric, canvas, onContentChange }: UseEditorO
   const restoringRef = useRef(false)
   const onContentChangeRef = useRef(onContentChange)
   onContentChangeRef.current = onContentChange
+  const getBleedSizeRef = useRef(getBleedSize)
+  getBleedSizeRef.current = getBleedSize
 
   const pushHistory = useCallback(() => {
     if (!canvas || restoringRef.current) return
@@ -207,36 +227,62 @@ export function useEditorObjects({ fabric, canvas, onContentChange }: UseEditorO
 
   const canvasCenter = useCallback((): { x: number; y: number } => {
     if (!canvas) return { x: 0, y: 0 }
-    // The design canvas element IS the bleed rect, and bleed grows the
-    // print rect symmetrically (POD.md §5.3), so the canvas's own center
-    // is always exactly the print rect's center too — no extra geometry
-    // plumbing needed here.
-    return { x: canvas.getWidth() / 2, y: canvas.getHeight() / 2 }
+    // Bug 3b — the canvas ELEMENT now includes a fixed gutter beyond the
+    // bleed rect for handle room (canvasGutter.ts), so `canvas.getWidth()
+    // /getHeight()` no longer equal the bleed rect's size. The bleed rect
+    // still grows the print rect symmetrically (POD.md §5.3) AND the
+    // gutter grows the canvas symmetrically around the bleed rect too, so
+    // the bleed rect's own center is exactly what's needed here — read
+    // from the PURE size EditorStage reports, not the live element.
+    const { width, height } = getBleedSizeRef.current?.() ?? NO_BLEED_SIZE
+    return { x: width / 2, y: height / 2 }
   }, [canvas])
+
+  /** Bug 3a — never let a freshly inserted object's handles start outside the bleed rect: shrink (never enlarge) it to fit within a margin of the bleed rect's smaller side. Scaling happens around the object's own center (every factory in fabric/objects.ts uses originX/originY:'center'), so it stays exactly where it was placed — no re-centering needed. */
+  const fitNewObjectToBleed = useCallback((obj: FabricObject) => {
+    const { width, height } = getBleedSizeRef.current?.() ?? NO_BLEED_SIZE
+    const factor = computeInsertFitScale(obj.getScaledWidth(), obj.getScaledHeight(), width, height)
+    if (factor !== 1) {
+      obj.set({
+        scaleX: (obj.scaleX ?? 1) * factor,
+        scaleY: (obj.scaleY ?? 1) * factor,
+      })
+      obj.setCoords()
+    }
+  }, [])
 
   const addText = useCallback(
     (fontFamily: string) => {
       if (!fabric || !canvas) return
       const obj = makeText(fabric, 'Your text', canvasCenter(), fontFamily)
+      fitNewObjectToBleed(obj)
       addAndSelect(canvas, obj)
     },
-    [fabric, canvas, canvasCenter]
+    [fabric, canvas, canvasCenter, fitNewObjectToBleed]
   )
 
   const addImage = useCallback(
     async (url: string, opts?: MakeImageOptions) => {
       if (!fabric || !canvas) return
-      const maxDim = Math.min(canvas.getWidth(), canvas.getHeight()) * 0.7
+      const { width, height } = getBleedSizeRef.current?.() ?? NO_BLEED_SIZE
+      const maxDim = Math.min(width, height) * 0.7
       const obj = await makeImage(fabric, url, canvasCenter(), { maxDisplayWidth: maxDim, ...opts })
+      // `maxDisplayWidth` above only caps the object's WIDTH against its
+      // own natural width — an unusually tall/narrow image (or a wide/
+      // short one) can still overflow the OTHER axis. This is the general
+      // safety net (Bug 3a) that catches that case regardless of aspect
+      // ratio.
+      fitNewObjectToBleed(obj)
       addAndSelect(canvas, obj)
     },
-    [fabric, canvas, canvasCenter]
+    [fabric, canvas, canvasCenter, fitNewObjectToBleed]
   )
 
   const addShape = useCallback(
     (kind: ShapeKind, style?: ShapeStyle) => {
       if (!fabric || !canvas) return
-      const size = Math.min(canvas.getWidth(), canvas.getHeight()) * 0.35
+      const { width, height } = getBleedSizeRef.current?.() ?? NO_BLEED_SIZE
+      const size = Math.min(width, height) * 0.35
       const center = canvasCenter()
       let obj
       switch (kind) {
@@ -256,9 +302,10 @@ export function useEditorObjects({ fabric, canvas, onContentChange }: UseEditorO
           obj = makeLine(fabric, center, size, style)
           break
       }
+      fitNewObjectToBleed(obj)
       addAndSelect(canvas, obj)
     },
-    [fabric, canvas, canvasCenter]
+    [fabric, canvas, canvasCenter, fitNewObjectToBleed]
   )
 
   const deleteSelected = useCallback(() => {

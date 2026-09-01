@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import './fonts.css'
 import { loadFabric, type FabricModule, type FabricCanvas } from './fabric/loadFabric'
-import { getCanvasSize, snapshotCanvas } from './fabric/canvas'
+import { snapshotCanvas } from './fabric/canvas'
 import { scanImageDpi, type ImageDpiInfo } from './fabric/selection'
 import { isImageObject, isTextObject } from './fabric/objectTypes'
 import { useEditorSettings } from './useEditorSettings'
@@ -10,10 +10,11 @@ import { useEditorObjects } from './useEditorObjects'
 import EditorStage, { type SideSnapshot } from './EditorStage'
 import ToolRail from './components/ToolRail'
 import PropertiesPanel from './components/PropertiesPanel'
+import SelectionActionBar from './components/SelectionActionBar'
 import SideTabs from './components/SideTabs'
 import PriceFooter, { type FooterSideFee } from './components/PriceFooter'
 import { useIsMobile } from './components/useIsMobile'
-import Sheet from '../components/ui/Sheet'
+import Sheet, { type SheetSnap } from '../components/ui/Sheet'
 import Badge from '../components/ui/Badge'
 import { DEFAULT_DESIGN_FONT, ensureFontsReady } from './fonts'
 import { uploadArt, isAcceptedArtFile, UploadArtError } from './uploadArt'
@@ -38,6 +39,17 @@ export interface CustomizerEditorProps {
 }
 
 const SIDE_LABEL: Record<EditorSideName, string> = { front: 'Front', back: 'Back' }
+
+// Bug 2 requirement 3 — when the mobile properties Sheet IS opened
+// deliberately, the object must stay visible/manipulable: the stage
+// SHRINKS by exactly the sheet's own height (rather than the sheet
+// overlaying the canvas) so EditorStage's existing ResizeObserver-driven
+// geometry recompute re-lays-out the design to fit fully above it — the
+// same, already-print-safe machinery a window resize goes through.
+// These match the Sheet's own peek/full heights below exactly, so the two
+// never drift apart.
+const MOBILE_SHEET_PEEK = '42vh'
+const MOBILE_SHEET_FULL = '88vh'
 
 /**
  * POD.md §6 / §7 — the customizer. Orchestrates the lazy Fabric module, the
@@ -131,6 +143,17 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
     sideSnapshotsRef.current[side] = snapshot
   }, [])
 
+  // Bug 3b (canvasGutter.ts) — the active side's PURE bleed-rect pixel
+  // size, kept in sync by EditorStage's onBleedSizeChange. Everywhere
+  // below that used to read `getCanvasSize(canvas)` (or `canvas.getWidth
+  // ()/getHeight()`) as a stand-in for "the bleed rect's size" now reads
+  // this instead, since the live canvas element is now gutter-inclusive.
+  const bleedSizeRef = useRef({ width: 0, height: 0 })
+  const handleBleedSizeChange = useCallback((width: number, height: number) => {
+    bleedSizeRef.current = { width, height }
+  }, [])
+  const getBleedSize = useCallback(() => bleedSizeRef.current, [])
+
   const activeSideRow = sidesByName[activeSide]
 
   const rescanDpi = useCallback(
@@ -140,8 +163,7 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
         setImageDpiInfos([])
         return
       }
-      const { width } = getCanvasSize(liveCanvas)
-      setImageDpiInfos(scanImageDpi(liveCanvas, width, row.print_width_in))
+      setImageDpiInfos(scanImageDpi(liveCanvas, bleedSizeRef.current.width, row.print_width_in))
     },
     [sidesByName]
   )
@@ -154,21 +176,33 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
     [activeSide, canvas, rescanDpi]
   )
 
-  const objectsApi = useEditorObjects({ fabric, canvas, onContentChange: handleContentChange })
+  const objectsApi = useEditorObjects({ fabric, canvas, onContentChange: handleContentChange, getBleedSize })
 
-  // POD-UI.md §3 Workstream C1/C2 — mobile gets a bottom Sheet for object
-  // properties (opens automatically on selection, at peek height, with the
-  // colour swatch row as its first element); desktop keeps an always-open
-  // right rail with the same PropertiesPanel content. `useIsMobile` (a real
+  // POD-UI.md §3 Workstream C1/C2, revised for Bug 2 — mobile gets a
+  // compact, ALWAYS-visible action bar the instant something is selected
+  // (SelectionActionBar, rendered below) carrying delete/duplicate/layer/
+  // colour, plus an explicit "Edit" control that opens the full bottom
+  // Sheet on demand. The Sheet no longer auto-opens on selection: doing
+  // so used to cover the canvas (including the very selection handles
+  // needed to move/resize/rotate the object, and left no reachable
+  // delete) — a design flaw in auto-opening a bottom sheet over a canvas
+  // editor, not a coding slip. Desktop keeps an always-open right rail
+  // with the same PropertiesPanel content. `useIsMobile` (a real
   // matchMedia listener, not a CSS-hidden wrapper) matters here because
   // Sheet has side effects — body scroll lock, focus trap, Escape handler —
   // that must not fire on desktop just because the sheet is visually hidden.
   const isMobile = useIsMobile()
-  const closeProperties = useCallback(() => {
-    if (!canvas) return
-    canvas.discardActiveObject()
-    canvas.requestRenderAll()
-  }, [canvas])
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetSnap, setSheetSnap] = useState<SheetSnap>('peek')
+
+  // Closing the sheet no longer deselects — the whole point of Bug 2's
+  // fix is that the object stays selected (and manipulable, and one tap
+  // from delete via the action bar) whether or not the sheet is open.
+  // Deselecting elsewhere (tapping empty canvas, Escape, etc.) is what
+  // should close the sheet, not the other way around.
+  useEffect(() => {
+    if (!objectsApi.selected) setSheetOpen(false)
+  }, [objectsApi.selected])
 
   // Preload the default design font as soon as the customizer mounts, so
   // the first "Add text" doesn't show a flash of the fallback font.
@@ -270,7 +304,11 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
         ...sideSnapshotsRef.current,
       }
       if (canvas) {
-        perSide[activeSide] = { json: snapshotCanvas(canvas), ...getCanvasSize(canvas) }
+        // Bug 3b — PURE bleed size (bleedSizeRef), never getCanvasSize(canvas)
+        // (which now includes the handle gutter) — canonicalizeSideSnapshot
+        // rescales by ratio, so a gutter-inclusive width here would silently
+        // shrink every object relative to what the shopper actually approved.
+        perSide[activeSide] = { json: snapshotCanvas(canvas), width: bleedSizeRef.current.width, height: bleedSizeRef.current.height }
       }
 
       const design: DesignJson = { version: 1 }
@@ -427,8 +465,18 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
             row: on mobile the properties panel no longer lives in-flow here
             (it moved to an overlay Sheet below), so the stage claims the
             full remaining viewport height instead of being squeezed by a
-            224px strip. */}
-        <div className="relative min-h-0 flex-1">
+            224px strip.
+            Bug 2 requirement 3 — while the Sheet is open on mobile, this
+            container's bottom padding reserves exactly the Sheet's own
+            height (peek or full, whichever it's currently snapped to), so
+            the stage — and EditorStage's own ResizeObserver-driven layout
+            inside it — shrinks to fit fully above the Sheet instead of the
+            Sheet overlaying (and hiding) the canvas. Closing the Sheet
+            drops the padding and the stage animates back to full size. */}
+        <div
+          className="relative min-h-0 flex-1 transition-[padding-bottom] duration-base ease-out-soft"
+          style={isMobile && sheetOpen ? { paddingBottom: sheetSnap === 'full' ? MOBILE_SHEET_FULL : MOBILE_SHEET_PEEK } : undefined}
+        >
           {activeSideRow ? (
             <EditorStage
               fabric={fabric}
@@ -448,6 +496,7 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
               onAfterSideSwap={objectsApi.resumeAndReseedHistory}
               initialSnapshots={initialStageSnapshots}
               onSnapshotCached={handleSnapshotCached}
+              onBleedSizeChange={handleBleedSizeChange}
               objectCount={objectsApi.objectCount}
             />
           ) : (
@@ -468,6 +517,24 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
         )}
       </div>
 
+      {/* Bug 2 — the compact, always-reachable action bar: rendered the
+          instant something is selected on mobile, WITHOUT opening the full
+          Sheet, so a freshly inserted object's handles are never covered
+          and delete/duplicate/reorder/colour are one tap away. Sits above
+          the tool rail in document order (below in the JSX = lower on
+          screen in this flex-col layout puts the rail BELOW this bar). */}
+      {isMobile && mode === 'edit' && objectsApi.selected && (
+        <SelectionActionBar
+          selected={objectsApi.selected}
+          onDelete={objectsApi.deleteSelected}
+          onDuplicate={objectsApi.duplicateSelected}
+          onBringForward={objectsApi.bringForward}
+          onSendBackward={objectsApi.sendBackward}
+          onCommit={objectsApi.commitChange}
+          onOpenSheet={() => setSheetOpen(true)}
+        />
+      )}
+
       {mode === 'edit' && (
         <div className="md:hidden">
           <ToolRail
@@ -483,20 +550,23 @@ export default function CustomizerEditor({ product, initialSize, initialDesign }
         </div>
       )}
 
-      {/* POD-UI.md §3 C1 — the headline fix. On mobile, selecting any object
-          auto-opens this bottom Sheet at `peek` height with the colour
-          swatch row as the very first thing inside it (before any tab),
-          so colour is one tap from selection instead of buried below
-          font/size controls in a 224px scrolling strip. `useIsMobile` (not
-          a CSS breakpoint) gates whether this ever opens, so the Sheet's
-          body-scroll-lock/focus-trap side effects never fire on desktop. */}
+      {/* POD-UI.md §3 C1, revised for Bug 2 — this Sheet now opens ONLY on
+          deliberate request (the action bar's "Edit" button above), never
+          automatically on selection: auto-opening used to cover the very
+          canvas/handles a shopper needed to manipulate the object they'd
+          just selected. `useIsMobile` (not a CSS breakpoint) still gates
+          whether this ever mounts open, so the Sheet's body-scroll-lock/
+          focus-trap side effects never fire on desktop. Closing it does
+          NOT deselect — the object stays selected (and reachable via the
+          action bar) either way. */}
       {isMobile && mode === 'edit' && (
         <Sheet
-          open={!!objectsApi.selected}
-          onClose={closeProperties}
+          open={sheetOpen && !!objectsApi.selected}
+          onClose={() => setSheetOpen(false)}
+          onSnapChange={setSheetSnap}
           initialSnap="peek"
-          peekHeight="42vh"
-          fullHeight="88vh"
+          peekHeight={MOBILE_SHEET_PEEK}
+          fullHeight={MOBILE_SHEET_FULL}
           title={isTextObject(objectsApi.selected) ? 'Text' : isImageObject(objectsApi.selected) ? 'Image' : 'Shape'}
         >
           <PropertiesPanel {...propertiesPanelProps} />

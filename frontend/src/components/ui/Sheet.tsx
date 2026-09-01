@@ -18,6 +18,8 @@ export interface SheetProps {
   /** Optional heading rendered above the content, wired to `aria-labelledby`. */
   title?: string
   className?: string
+  /** Fires whenever the sheet's snap state changes while open (peek <-> full, from a drag or the initial-open reset) — lets a caller reactively resize layout around the sheet (e.g. the customizer shrinking its stage) instead of guessing a fixed height. Optional and additive; existing callers are unaffected. */
+  onSnapChange?: (snap: SheetSnap) => void
 }
 
 const toCssLength = (value: number | string) => (typeof value === 'number' ? `${value}px` : value)
@@ -37,7 +39,7 @@ let sheetIdCounter = 0
  * back to `peek` (or closes on a fast flick).
  */
 const Sheet = forwardRef<HTMLDivElement, SheetProps>(function Sheet(
-  { open, onClose, children, peekHeight = '40vh', fullHeight = '85vh', initialSnap = 'peek', title, className = '' },
+  { open, onClose, children, peekHeight = '40vh', fullHeight = '85vh', initialSnap = 'peek', title, className = '', onSnapChange },
   forwardedRef,
 ) {
   const panelRef = useRef<HTMLDivElement | null>(null)
@@ -65,6 +67,14 @@ const Sheet = forwardRef<HTMLDivElement, SheetProps>(function Sheet(
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  // Report the current snap state to the caller whenever it changes while
+  // open (including the initial-open reset above) — see `onSnapChange`'s
+  // doc comment.
+  useEffect(() => {
+    if (open) onSnapChange?.(snap)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, snap])
 
   // Body scroll lock while open.
   useEffect(() => {
