@@ -2,7 +2,7 @@
 
 A print-on-demand storefront that runs entirely on Cloudflare's free tier — one Worker, D1, R2, no separate servers. Customers design their own T-shirts/mugs/etc. directly on the product in the browser; the merchant gets a lean admin panel and a one-click print-ready file per order.
 
-> ESPOD is the print-on-demand conversion of the original EdgeShop e-commerce engine — that pre-conversion codebase really was called EdgeShop; the brand was renamed EdgeShop → ESPOD afterwards (POD-UI2.md §2), so this one historical mention is accurate, not a leftover. See [`POD.md`](./POD.md) for the full conversion plan, architecture rationale and decisions log; see [`project.md`](./project.md) for the product overview.
+> ESPOD is the print-on-demand conversion of the original EdgeShop e-commerce engine — that pre-conversion codebase really was called EdgeShop; the brand was renamed EdgeShop → ESPOD afterwards ([`docs/archive/POD-UI2.md`](./docs/archive/POD-UI2.md) §2), so this one historical mention is accurate, not a leftover. See [`POD.md`](./POD.md) for the full conversion plan, architecture rationale and decisions log; see [`project.md`](./project.md) for the product overview.
 
 ---
 
@@ -11,6 +11,7 @@ A print-on-demand storefront that runs entirely on Cloudflare's free tier — on
 **Customer flow:** browse → customize on the product → preview exactly what will print → add to cart → checkout.
 
 - Product grid with a "Customizable" badge on designable products, plain "Add to cart" on the rest.
+- Navigation categories are derived from the catalogue itself (`GET /api/categories`, a single `GROUP BY` over active products) — there is no hardcoded category list to drift out of sync, and a category with no active products simply stops appearing.
 - **Customizer** (`/customize/:productId`) — full-screen Fabric.js canvas editor over the actual product mockup: text (curated self-hosted fonts), image upload, shapes, drag/resize/rotate/layer/undo-redo, front/back side tabs, a live price footer, and a low-DPI warning badge on art that would print blurry.
 - **Preview** — every guide, scrim and handle hidden; shows exactly what gets printed, with a front/back toggle and a last-chance size picker.
 - Cart lines are keyed `product_id:size:design_id`, so two shirts with different artwork are correctly two line items, not merged into one.
@@ -128,6 +129,7 @@ edgeshop/
 ├── wrangler.toml              # single Worker: D1 + R2 bindings, asset serving, daily GC cron trigger
 ├── deploy.sh                  # interactive one-command Cloudflare setup
 ├── scripts/setup.sh           # non-interactive CLI equivalent
+├── docs/archive/              # superseded plans, kept for provenance (see Documentation below)
 ├── frontend/                  # React app — built and served BY the worker (no separate Pages deploy)
 │   └── src/
 │       ├── admin/             # admin panel pages, product/print-area editors, print-file renderer
@@ -149,11 +151,34 @@ Existing (pre-POD) deployments don't run `schema.sql` directly — the worker's 
 
 ---
 
+## Documentation
+
+Live docs, kept current:
+
+| File | What it's for |
+|---|---|
+| [`README.md`](./README.md) | This file — orientation, stack, architecture decisions, getting started |
+| [`project.md`](./project.md) | Product definition: what ESPOD is and what it deliberately isn't |
+| [`POD.md`](./POD.md) | The build plan of record — task checklists, architecture rationale, and a dated decisions log explaining *why* each non-obvious choice was made |
+| [`DEPLOY.md`](./DEPLOY.md) | Full deploy reference: Git flow, CLI, manual fallback, what's verified and what isn't |
+| [`cloudflare-deploy.md`](./cloudflare-deploy.md) | The short deploy path, for when you don't need the full reference |
+| [`CLAUDE.md`](./CLAUDE.md) | Working agreement for AI agents contributing to this repo |
+
+Historical, in [`docs/archive/`](./docs/archive/):
+
+- `POD-UI.md`, `POD-UI2.md` — the two completed UI rounds (design tokens and mobile overhaul; then ecommerce depth and the EdgeShop → ESPOD rename). **Source-code comments cite these by filename** — e.g. `POD-UI2.md §7.2` — so when you meet such a reference, it lives here.
+- `plans/` — 26 dated plan/design documents from the pre-POD EdgeShop era, including the full v1/v2 implementation record.
+- `new-dev.md`, `ux-plan.md`, `plan-pointer.md` — superseded trackers from the theme-system era, which no longer exists on this branch.
+
+Nothing in `docs/archive/` describes current behaviour. Read it for provenance — why something was done — not as a guide to how the code works today.
+
+---
+
 ## Testing
 
 ```bash
-cd worker && npx vitest run      # pricing, design/side validation, /img/* proxy guard, orphan-design GC selection
-cd frontend && npx vitest run    # cart line-key dedupe, print-area coordinate math, design schema, SVG sanitizer, print-export math
+cd worker && npx vitest run      # 83 tests — pricing, design/side validation, /img/* proxy guard, orphan-design GC selection
+cd frontend && npx vitest run    # 100 tests — cart line-key dedupe, print-area coordinate math, design schema, SVG sanitizer, print-export math
 ```
 
 Both suites are pure-function unit tests — no mocked D1, no browser automation — following the pattern in `worker/src/lib/pricing.test.ts`: security- and correctness-critical logic is factored out into small, dependency-free functions specifically so it's cheap to test thoroughly.

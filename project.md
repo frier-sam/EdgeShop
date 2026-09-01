@@ -10,7 +10,7 @@ Primary Goal: Zero monthly hosting cost (Cloudflare Workers + D1 + R2, all withi
 
 Key Innovation ("Zero-CPU image logic"): every pixel operation — mockup resizing at upload time, the live customization canvas, the add-to-cart preview composite, and the 300 DPI print-file export — runs in a browser (the admin's or the customer's), never in the Worker. The Worker's job is auth, pricing, and streaming bytes to/from D1 and R2; it never touches image bytes beyond passthrough.
 
-Non-goals (deliberately removed from the older EdgeShop codebase this was converted from — that pre-conversion codebase really was called EdgeShop; the brand was renamed to ESPOD afterwards, see POD-UI2.md §2): themes/CMS, blog, product reviews, collections, discount codes, shipping zones, full-text search, colour/material variants, staff role management. See `POD.md` for the full deletion inventory and rationale.
+Non-goals (deliberately removed from the older EdgeShop codebase this was converted from — that pre-conversion codebase really was called EdgeShop; the brand was renamed to ESPOD afterwards, see docs/archive/POD-UI2.md §2): themes/CMS, blog, product reviews, collections, discount codes, shipping zones, full-text search, colour/material variants, staff role management. See `POD.md` for the full deletion inventory and rationale.
 
 ## 2. Technical Stack
 
