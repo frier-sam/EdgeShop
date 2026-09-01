@@ -1,4 +1,52 @@
 import type { D1Database } from '@cloudflare/workers-types'
+import { BASE_SCHEMA_SQL } from './schemaSql.generated'
+
+// Splits a .sql file's contents into individual statements suitable for
+// db.batch() (see the Migration interface comment below for why db.exec()
+// is avoided). Strips full-line `--` comments, then splits on `;`.
+//
+// This is a deliberately naive split — it does NOT understand string
+// literals or comments containing a literal `;`. That's safe ONLY because
+// schema.sql is verified (by migrate.test.ts, which re-parses the actual
+// committed file) to contain no semicolons inside string literals or
+// comments. Do not reuse this on arbitrary SQL without re-checking that
+// assumption.
+export function splitSqlStatements(sql: string): string[] {
+  const withoutComments = sql
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n')
+  return withoutComments
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0)
+}
+
+// schema.sql ends with `INSERT OR IGNORE INTO _migrations (name) VALUES
+// (...), (...), ...;` — the canonical list of every numbered migration a
+// fresh-install (schema.sql-shaped) database should be considered to have
+// already run. Extracted from the statement itself (rather than hand-
+// copied into a second list here) so there is exactly one place that list
+// is written down.
+function extractLegacyMigrationNames(statements: string[]): string[] {
+  const stmt = statements.find((s) => /^INSERT OR IGNORE INTO _migrations\b/i.test(s))
+  if (!stmt) return []
+  const names: string[] = []
+  const re = /'([^']+)'/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(stmt))) names.push(m[1])
+  return names
+}
+
+const BASE_SCHEMA_STATEMENTS = splitSqlStatements(BASE_SCHEMA_SQL)
+const BASE_SCHEMA_MIGRATION_NAME = '0000_base_schema'
+// The 0001..0015 names schema.sql's own bookkeeping INSERT marks as
+// already-applied. Used below to keep runMigrations' in-memory `applied`
+// set consistent with what 0000_base_schema's phases just wrote to the
+// real _migrations table in the same run (see runMigrations for why that
+// matters — without it, a fresh database would immediately try to re-run
+// 0012-0015 against the final schema 0000 just created, and fail).
+const LEGACY_MIGRATION_NAMES = extractLegacyMigrationNames(BASE_SCHEMA_STATEMENTS)
 
 interface Migration {
   name: string
@@ -16,6 +64,28 @@ interface Migration {
 // Add future migrations here. The worker auto-applies any that aren't
 // recorded in the _migrations table. Never remove or reorder entries.
 const MIGRATIONS: Migration[] = [
+  {
+    // Cloudflare deploy-automation hardening (see DEPLOY.md's "What gets
+    // created automatically" section) — an automatically-provisioned D1
+    // database starts completely empty: no tables at all, not even
+    // `products`. Without this entry, the very first request after a
+    // fresh Git-connected deploy 500s with "no such table: products"
+    // (0012_rewrite_image_urls.sql below is the first statement that
+    // touches `products`, and it assumes the table already exists).
+    //
+    // BASE_SCHEMA_STATEMENTS is generated from worker/migrations/schema.sql
+    // (see schemaSql.generated.ts and worker/scripts/generate-schema-sql.mjs)
+    // — the same file that's safe to paste directly into the D1 dashboard
+    // Console. Every CREATE TABLE/INDEX in it is IF NOT EXISTS and every
+    // seed INSERT is OR IGNORE, so running this migration against an
+    // ALREADY-migrated database (the path every existing deployment takes)
+    // is a genuine no-op: no table is altered, no row is overwritten.
+    //
+    // This must stay the FIRST entry in MIGRATIONS — later migrations
+    // (0012+) assume the base tables already exist.
+    name: BASE_SCHEMA_MIGRATION_NAME,
+    phases: [BASE_SCHEMA_STATEMENTS],
+  },
   {
     // Phase 2.3 (POD.md §5.8) — R2 objects used to be served from an
     // absolute R2_PUBLIC_URL origin. Rewrite any stored absolute URL to
@@ -270,6 +340,19 @@ export async function runMigrations(db: D1Database): Promise<void> {
       .prepare('INSERT INTO _migrations (name) VALUES (?)')
       .bind(migration.name)
       .run()
+    applied.add(migration.name)
+    if (migration.name === BASE_SCHEMA_MIGRATION_NAME) {
+      // 0000_base_schema's own phases just wrote an `INSERT OR IGNORE INTO
+      // _migrations (...)` row for every one of 0001..0015 (schema.sql's
+      // bookkeeping list) directly to the database. Mirror that into this
+      // run's in-memory `applied` set too — otherwise the loop below would
+      // still think 0012-0015 are unapplied (this Set was computed once,
+      // before 0000 ran) and try to re-run them against the schema 0000
+      // just finished creating, which fails: e.g. 0013_pod_reset.sql
+      // selects a `products.image_url` column that the fresh POD-shaped
+      // `products` table never had.
+      for (const name of LEGACY_MIGRATION_NAMES) applied.add(name)
+    }
     console.log(`[migrate] applied ${migration.name}`)
   }
 }

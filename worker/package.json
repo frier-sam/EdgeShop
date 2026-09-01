@@ -3,8 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "generate:schema": "node scripts/generate-schema-sql.mjs",
+    "predev": "npm run generate:schema",
     "dev": "wrangler dev",
     "typecheck": "tsc --noEmit",
+    "pretest": "npm run generate:schema",
     "test": "vitest run"
   },
   "dependencies": {
@@ -14,6 +17,6 @@
     "@cloudflare/workers-types": "^4.20241022.0",
     "typescript": "^5.5.0",
     "vitest": "^2.1.0",
-    "wrangler": "^3.80.0"
+    "wrangler": "^4.45.0"
   }
 }

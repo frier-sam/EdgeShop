@@ -10,6 +10,12 @@ name: Deploy to Cloudflare
 
 on:
   push:
+    # This code currently lives on the `POD` branch, not `main` — change
+    # this to `branches: [POD]` (or merge POD into main first) before
+    # enabling this workflow. Left as `main` here rather than presumed
+    # for you, so copying this file doesn't silently deploy nothing. See
+    # DEPLOY.md's branch note for the same caveat on Workers Builds' own
+    # Git integration.
     branches: [main]
 
 jobs:

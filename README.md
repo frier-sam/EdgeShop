@@ -98,10 +98,9 @@ npm run dev:worker
 npm run dev:frontend
 ```
 
-First time only — create and seed a local D1 database:
+No manual schema step needed — the Worker creates its own tables on first request, even against a brand-new empty local D1 (see `worker/src/lib/migrate.ts`'s `0000_base_schema`). Optional demo catalog:
 
 ```bash
-npx wrangler d1 execute edgeshop-db --local --file=worker/migrations/schema.sql
 npx wrangler d1 execute edgeshop-db --local --file=worker/migrations/seed-pod.sql   # optional demo products
 ```
 
@@ -109,16 +108,16 @@ npx wrangler d1 execute edgeshop-db --local --file=worker/migrations/seed-pod.sq
 
 ### Deploying
 
-See [`DEPLOY.md`](./DEPLOY.md) (CLI + step-by-step Cloudflare Dashboard walkthrough) or run the interactive [`deploy.sh`](./deploy.sh) script. Short version:
+The **zero-manual-setup path**: connect this repo in the Cloudflare dashboard (Workers & Pages → Create → Import a repository) and deploy — `wrangler.toml` deliberately omits `database_id`, so Cloudflare's automatic resource provisioning (open beta, `wrangler` ≥ 4.45.0) creates the D1 database and R2 bucket for you, and the schema self-bootstraps on first request either way. See [`cloudflare-deploy.md`](./cloudflare-deploy.md) for that path step by step, or [`DEPLOY.md`](./DEPLOY.md) for the full reference (CLI, dashboard-without-Git, manual fallback, local-dev notes). Or run the interactive [`deploy.sh`](./deploy.sh) script. CLI short version:
 
 ```bash
 npx wrangler login
 npx wrangler d1 create edgeshop-db          # update wrangler.toml's database_id with the printed value
-npx wrangler d1 execute edgeshop-db --remote --file=worker/migrations/schema.sql
 npx wrangler r2 bucket create edgeshop-images
-echo "$(openssl rand -hex 32)" | npx wrangler secret put JWT_SECRET
-npm run deploy                               # builds the frontend, then `wrangler deploy`
+npm run deploy                               # builds the frontend, then `wrangler deploy` — schema applies itself
 ```
+
+There's no `JWT_SECRET` step — the Worker generates and persists its own signing secret in the database the first time it's needed. The only optional deploy-time secret is `RAZORPAY_WEBHOOK_SECRET` (skip it if you're starting with Cash on Delivery only).
 
 ---
 

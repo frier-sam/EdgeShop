@@ -3,9 +3,12 @@
   "private": true,
   "workspaces": ["worker", "frontend"],
   "scripts": {
+    "generate:schema": "npm run generate:schema --workspace=worker",
+    "predev:worker": "npm run generate:schema",
     "dev:worker": "wrangler dev",
     "dev:frontend": "cd frontend && vite",
     "build": "cd frontend && npm install && npm run build",
+    "predeploy": "npm run generate:schema",
     "deploy": "npm run build && wrangler deploy"
   }
 }

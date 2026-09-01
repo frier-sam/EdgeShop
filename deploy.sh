@@ -142,11 +142,18 @@ setup_d1() {
     success "D1 database created: $DB_ID"
   fi
 
-  # Patch wrangler.toml (repo root) — match on the KEY, not a specific
-  # placeholder value, since the committed file already carries the
-  # original dev database's real (but useless-to-you) id.
+  # wrangler.toml intentionally ships with NO `database_id` line — that's
+  # what lets Cloudflare's automatic resource provisioning create the
+  # database for you on a Git-connected Workers Builds deploy (see
+  # DEPLOY.md). This CLI path pins an explicit id instead: drop any
+  # existing `database_id` line first (idempotent across reruns of this
+  # script), then insert a fresh one right after `database_name`.
   log "Patching wrangler.toml with your database_id..."
-  sed_i "s/^database_id = \".*\"/database_id = \"${DB_ID}\"/" wrangler.toml
+  sed_i "/^database_id = /d" wrangler.toml
+  awk -v id="$DB_ID" -v dbname="$DB_NAME" '
+    { print }
+    $0 == "database_name = \"" dbname "\"" { print "database_id = \"" id "\"" }
+  ' wrangler.toml > wrangler.toml.tmp && mv wrangler.toml.tmp wrangler.toml
   grep -q "database_id = \"${DB_ID}\"" wrangler.toml \
     || die "Failed to patch database_id in wrangler.toml. Set it manually: database_id = \"${DB_ID}\""
   success "wrangler.toml patched"

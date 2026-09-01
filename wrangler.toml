@@ -7,11 +7,23 @@ compatibility_flags = ["nodejs_compat"]
 directory = "frontend/dist"
 binding = "ASSETS"
 
+# No `database_id` on purpose — see DEPLOY.md's "Automatic resource
+# provisioning" section. Cloudflare Workers Builds (open beta, wrangler
+# >= 4.45.0) creates a D1 database named `edgeshop-db` and binds it here
+# automatically when this id is absent. `wrangler dev` (local/offline)
+# and `wrangler deploy` from an authenticated CLI both also provision
+# automatically on the same trigger. If you need to pin an existing
+# database instead (or provisioning doesn't fire for your account), run
+# `wrangler d1 create edgeshop-db` and add `database_id = "..."` back —
+# see DEPLOY.md's manual fallback.
 [[d1_databases]]
 binding = "DB"
 database_name = "edgeshop-db"
-database_id = "6290afd0-0301-4220-8212-e920ce046fa3"
 
+# No bucket id to omit here — R2 buckets are addressed purely by
+# `bucket_name`, so this binding is already in the shape automatic
+# provisioning expects: a fresh account gets a bucket named
+# `edgeshop-images` created and bound the same way.
 [[r2_buckets]]
 binding = "BUCKET"
 bucket_name = "edgeshop-images"
