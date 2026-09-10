@@ -13,10 +13,13 @@ const SIZE_CLASSES: Record<IconButtonSize, string> = {
   lg: 'h-[52px] w-[52px] [&_svg]:h-6 [&_svg]:w-6',
 }
 
+// POD-UI4.md §2.4/§5 A.1 — `rounded-pill`, not `rounded-btn`: the comp's
+// icon-only actions (person/cart in the header, arrows on rails/galleries)
+// are all perfect circles.
 const BASE =
-  'inline-flex shrink-0 items-center justify-center rounded-btn ' +
+  'inline-flex shrink-0 items-center justify-center rounded-pill ' +
   'transition-[background-color,border-color,color,transform] duration-fast ease-out-soft ' +
-  'active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ' +
+  'active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:active:scale-100 ' +
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 
 export interface IconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'className'> {

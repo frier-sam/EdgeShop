@@ -14,6 +14,12 @@ import Skeleton from '../../components/ui/Skeleton'
 interface OrderItem {
   product_id: string
   name: string
+  size?: string | null
+  // POD-UI4.md §4.2 — carried through `items_json`
+  // (worker/src/lib/pricing.ts's ResolvedLineItem) since this round; shown
+  // wherever size already is, exactly like the cart/checkout/order-success
+  // pages.
+  variant?: string | null
   price: number
   quantity: number
   image_url: string
@@ -186,17 +192,21 @@ export default function AccountOrdersPage() {
                     <div className="mt-4 border-t border-line pt-4">
                       {items.length > 0 && (
                         <div className="mb-3 space-y-2">
-                          {items.map((item, idx) => (
-                            <div key={idx} className="flex items-center justify-between text-sm text-ink">
-                              <span>
-                                <span className="text-ink-soft">{item.quantity}×</span> {item.name}
-                              </span>
-                              <span className="font-medium text-ink">
-                                {currency}
-                                {(item.price * item.quantity).toFixed(2)}
-                              </span>
-                            </div>
-                          ))}
+                          {items.map((item, idx) => {
+                            const qualifier = [item.size, item.variant].filter(Boolean).join(', ')
+                            return (
+                              <div key={idx} className="flex items-center justify-between text-sm text-ink">
+                                <span>
+                                  <span className="text-ink-soft">{item.quantity}×</span> {item.name}
+                                  {qualifier ? ` (${qualifier})` : ''}
+                                </span>
+                                <span className="font-medium text-ink">
+                                  {currency}
+                                  {(item.price * item.quantity).toFixed(2)}
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
                       )}
 

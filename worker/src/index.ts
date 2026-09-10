@@ -16,6 +16,8 @@ import sitemap from './routes/sitemap'
 import adminCustomers from './routes/admin/customers'
 import designs from './routes/designs'
 import orders from './routes/orders'
+import templates from './routes/templates'
+import adminTemplates from './routes/admin/templates'
 import { runMigrations } from './lib/migrate'
 import { runOrphanDesignGC } from './lib/gc'
 import { isAllowedImgKey } from './lib/imgGuard'
@@ -80,6 +82,10 @@ app.route('/api', designs)
 // post-refresh fallback fetch (see routes/orders.ts's header for why this
 // is safe to leave unauthenticated). Also mounted before requireAdmin.
 app.route('/api/orders', orders)
+// POD-V2.md §6.6 / §11 Phase 4.5 — public "browse designs" endpoint behind
+// the customizer's Designs drawer. Also mounted before requireAdmin: any
+// shopper (including guests) browses templates while customizing.
+app.route('/api/templates', templates)
 
 // Protect all admin routes with JWT staff check
 app.use('/api/admin/*', requireAdmin)
@@ -94,6 +100,14 @@ app.route('/api/auth', auth)
 app.route('/api/account', account)
 app.route('/sitemap.xml', sitemap)
 app.route('/api/admin/customers', adminCustomers)
+// POD-V2.md §11 Phase 4.2 — admin CRUD for template_collections +
+// design_templates. Mounted at the bare '/api/admin' base (not
+// '/api/admin/templates') because routes/admin/templates.ts defines two
+// sibling top-level resources itself — '/template-collections*' and
+// '/templates*' — rather than one nested under the other; see that file's
+// header. Still covered by the requireAdmin wildcard above since both
+// resulting paths start with '/api/admin/'.
+app.route('/api/admin', adminTemplates)
 
 // Runs once per worker instance (cold start). Subsequent requests skip
 // the migration check because migrationsDone stays true in memory.

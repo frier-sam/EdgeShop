@@ -23,6 +23,14 @@ interface OrderPreviewLine {
   key: string
   name: string
   size: string | null
+  // POD-V2.md §3.1 / POD-UI4.md §4.2 — axis 2's label. Present on BOTH
+  // paths that populate this page: router state straight from CheckoutPage
+  // (the fast, common one) and the `GET /api/orders/:id/previews` fallback
+  // fetch below, used on a hard refresh or bookmark once router state is
+  // gone. That route allow-lists preview-safe fields explicitly, and
+  // `variant` was added to it alongside `size` — it is an opaque option
+  // label the shopper chose, not a PII column off the `orders` row.
+  variant: string | null
   quantity: number
   preview_url: string | null
   design_id: string | null
@@ -120,17 +128,20 @@ export default function OrderSuccessPage() {
             <div className="fade-up-previews mb-10">
               <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-soft">Your designs</p>
               <div className="flex flex-wrap justify-center gap-3">
-                {previewLines.map((line) => (
-                  <div key={line.key} className="w-24 rounded-card border border-line bg-surface p-2 shadow-card sm:w-28">
-                    <div className="aspect-square overflow-hidden rounded-btn bg-surface-2">
-                      <img src={line.preview_url!} alt={line.name} className="h-full w-full object-cover" />
+                {previewLines.map((line) => {
+                  const qualifier = [line.size, line.variant].filter(Boolean).join(', ')
+                  return (
+                    <div key={line.key} className="w-24 rounded-card border border-line bg-surface p-2 shadow-card sm:w-28">
+                      <div className="aspect-square overflow-hidden rounded-btn bg-surface-2">
+                        <img src={line.preview_url!} alt={line.name} className="h-full w-full object-cover" />
+                      </div>
+                      <p className="mt-1.5 truncate text-[11px] text-ink-soft">
+                        {line.name}
+                        {qualifier ? ` (${qualifier})` : ''}
+                      </p>
                     </div>
-                    <p className="mt-1.5 truncate text-[11px] text-ink-soft">
-                      {line.name}
-                      {line.size ? ` (${line.size})` : ''}
-                    </p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           )}

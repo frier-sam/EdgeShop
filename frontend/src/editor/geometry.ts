@@ -186,6 +186,132 @@ export function computeReferenceGeometry(
   })
 }
 
+// ── Flat design-surface geometry — POD-UI3.md §4.1 ───────────────────────
+//
+// Design mode no longer renders the mockup at all (POD-UI3.md §3.1): the
+// shopper draws on a flat white plane whose aspect ratio IS the print
+// area's, fit to the stage. That plane is much bigger than the mockup-
+// relative print rect ever was (on a 390px phone: ~262px wide instead of
+// ~150px), because nothing has to leave room for a photo of a t-shirt.
+//
+// The trick that keeps this cheap and safe is that we do NOT invent a
+// second coordinate system for it. We solve for the *synthetic* mockup
+// `containBox` whose print rect, once run through the existing frozen
+// `normalizedToPixelRect` -> `deriveBleedRect`/`deriveSafeRect` chain,
+// happens to land its bleed rect centred and fit to the padded stage.
+// Everything downstream (the guides, `pixelToNormalizedRect`, any future
+// normalized lookup) therefore keeps working against a real contain box —
+// there is no "flat mode" special case anywhere else in the codebase.
+//
+// It also means the plane is proportional to the print area *by
+// construction* rather than by assertion, which is a print-safety
+// property and not a cosmetic one: `fabric/rescaleSnapshot.ts` rescales a
+// stored design between the live canvas size and the canonical reference
+// size (`computeReferenceGeometry`) by scaling each axis INDEPENDENTLY.
+// If the flat stage's bleed aspect differed from the reference's by even a
+// few percent, every design a shopper ever saved would come back
+// stretched. Guarantee 3 below pins that down.
+
+export interface FlatStageGeometryInput {
+  stageW: number
+  stageH: number
+  imageNaturalW: number
+  imageNaturalH: number
+  printRect: NormalizedRect
+  bleedPercent: number
+  safePercent: number
+  /** Reserved on every side of the stage so selection handles at the plane's
+   *  edge aren't clipped by the stage's own overflow:hidden. Callers pass
+   *  canvasGutter.ts's HANDLE_GUTTER_PX; kept as a parameter so geometry.ts
+   *  stays dependency-free and the invariants below are testable at any padding. */
+  padding: number
+}
+
+/**
+ * Design-mode geometry: the BLEED rect fit to the stage, no mockup involved
+ * (POD-UI3.md §4.1). Returns the same `StageGeometry` shape as
+ * `computeStageGeometry`, with these guarantees (each one a unit test in
+ * __tests__/geometry.test.ts):
+ *
+ *   1. `bleedRectPx` is centred in `stageW x stageH`.
+ *   2. `bleedRectPx` fits inside `(stageW - 2*padding) x (stageH - 2*padding)`
+ *      and touches it on exactly one axis — a fit, not a shrink.
+ *   3. `bleedRectPx`'s aspect ratio equals `computeReferenceGeometry`'s for
+ *      the same inputs (the print-safety invariant above).
+ *   4. `printRectPx`/`safeRectPx` are exactly what the frozen
+ *      `normalizedToPixelRect`/`deriveBleedRect`/`deriveSafeRect` produce
+ *      from the returned `containBox` — i.e. that box really is a mockup
+ *      box, so normalized <-> pixel mapping is still valid.
+ *   5. Degenerate inputs fall back to `computeStageGeometry(input)`.
+ *
+ * Derivation is closed-form (no iteration). Writing `ar` for the mockup's
+ * aspect and `W` for the synthetic box width, `normalizedToPixelRect` gives
+ * printW = printRect.w * W and printH = printRect.h * ar * W, so
+ * `marginAmountPx`'s percent-of-the-shorter-side bleed is
+ * `bp * W * min(printRect.w, printRect.h * ar)` — linear in W. Both bleed
+ * dimensions are therefore `W * const`, and the largest W that fits the
+ * padded stage is a single `min` of two divisions.
+ */
+export function computeFlatStageGeometry(input: FlatStageGeometryInput): StageGeometry {
+  const { stageW, stageH, imageNaturalW, imageNaturalH, printRect, bleedPercent, safePercent, padding } = input
+
+  const availW = stageW - 2 * padding
+  const availH = stageH - 2 * padding
+
+  const ar = imageNaturalH / imageNaturalW // mockup aspect (height per unit width)
+  const bp = bleedPercent / 100
+  // The print rect's shorter side, in box-width units — the quantity
+  // `marginAmountPx` takes its percentage of.
+  const minc = Math.min(printRect.w, printRect.h * ar)
+  // Bleed width/height, also in box-width units.
+  const a = printRect.w + 2 * bp * minc
+  const b = printRect.h * ar + 2 * bp * minc
+
+  // Guarantee 5. `availW`/`availH` are in here as well as the six inputs
+  // §4.1 lists: a stage narrower than its own padding has no positive plane
+  // to fit, and the same fallback is the right answer for the same reason.
+  // (The fallback keeps guarantee 3 too, incidentally — `computeContainBox`
+  // always preserves the mockup's aspect, so a contain-fit bleed rect has
+  // the same aspect as the reference one.) A non-positive `a`/`b` can only
+  // come from a negative `bleedPercent`, which no caller produces; guarded
+  // anyway so this function can never return a negative-width rect.
+  if (
+    stageW <= 0 ||
+    stageH <= 0 ||
+    imageNaturalW <= 0 ||
+    imageNaturalH <= 0 ||
+    printRect.w <= 0 ||
+    printRect.h <= 0 ||
+    availW <= 0 ||
+    availH <= 0 ||
+    a <= 0 ||
+    b <= 0
+  ) {
+    return computeStageGeometry(input)
+  }
+
+  // Guarantee 2: the binding axis hits its limit exactly, the other has slack.
+  const width = Math.min(availW / a, availH / b)
+  const height = width * ar
+
+  // Guarantee 1: solve `left`/`top` backwards from "the bleed rect is
+  // centred". bleedRectPx.x is `containBox.left + printRect.x * width`
+  // (normalizedToPixelRect) minus the bleed margin (deriveBleedRect), and
+  // we want that to equal `(stageW - width * a) / 2`. Same in y, where the
+  // normalized offset is scaled by `height` rather than `width`.
+  const left = (stageW - width * a) / 2 - printRect.x * width + bp * width * minc
+  const top = (stageH - width * b) / 2 - printRect.y * height + bp * width * minc
+
+  // Guarantee 4: from here on it is the ordinary frozen chain, byte for
+  // byte the same calls `computeStageGeometry` makes — only the box they
+  // are fed is synthetic.
+  const containBox: ContainBox = { left, top, width, height }
+  const printRectPx = normalizedToPixelRect(printRect, containBox)
+  const bleedRectPx = deriveBleedRect(printRectPx, bleedPercent)
+  const safeRectPx = deriveSafeRect(printRectPx, safePercent)
+  return { containBox, printRectPx, bleedRectPx, safeRectPx }
+}
+
 // ── DPI (POD.md §5.1, §6.5) ──────────────────────────────────────────────
 
 /** Below this, show a non-blocking "may look blurry" badge on the object. */

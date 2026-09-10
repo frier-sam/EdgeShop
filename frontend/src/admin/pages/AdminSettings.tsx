@@ -9,6 +9,8 @@ import ToggleField from '../../components/ToggleField'
 import SelectField from '../../components/SelectField'
 import Field from '../../components/Field'
 import Button from '../../components/Button'
+import Icon from '../../components/ui/Icon'
+import type { IconName } from '../../components/ui/iconNames'
 
 interface Settings {
   store_name: string
@@ -69,10 +71,16 @@ function fieldErrorFor(fieldError: FieldError, field: string): string | undefine
   return fieldError?.field === field ? fieldError.message : undefined
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+// Icon-prefixed section headers (POD-UI4.md §2/§5 D.8) — the same visual
+// idiom AdminProductEdit.tsx's own Section primitive uses for its
+// no-toggle (Basics) variant.
+function Section({ title, icon, children }: { title: string; icon?: IconName; children: React.ReactNode }) {
   return (
     <div className="space-y-4 rounded-card border border-line bg-surface p-5 shadow-card">
-      <h2 className="font-display font-semibold text-ink">{title}</h2>
+      <h2 className="flex items-center gap-2 font-display font-semibold text-ink">
+        {icon && <Icon name={icon} size={20} className="text-ink-soft" />}
+        {title}
+      </h2>
       {children}
     </div>
   )
@@ -131,14 +139,14 @@ export default function AdminSettings() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="mb-6 font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">Settings</h1>
+      <h1 className="mb-6 font-display text-headline-md text-primary">Settings</h1>
 
       <form
         onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(form) }}
         className="space-y-6"
       >
         {/* Store */}
-        <Section title="Store">
+        <Section title="Store" icon="storefront">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field
               label="Store name"
@@ -171,7 +179,7 @@ export default function AdminSettings() {
         </Section>
 
         {/* Payments */}
-        <Section title="Payments">
+        <Section title="Payments" icon="credit_card">
           <ToggleField
             label="Cash on Delivery"
             description="Let customers pay on delivery instead of online."
@@ -197,7 +205,7 @@ export default function AdminSettings() {
         </Section>
 
         {/* Shipping */}
-        <Section title="Shipping">
+        <Section title="Shipping" icon="local_shipping">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field
               label="Flat shipping amount"
@@ -218,7 +226,7 @@ export default function AdminSettings() {
         </Section>
 
         {/* Printing */}
-        <Section title="Printing">
+        <Section title="Printing" icon="print">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field
               label="Default print fee"
@@ -272,7 +280,7 @@ export default function AdminSettings() {
         </Section>
 
         {/* Email */}
-        <Section title="Email">
+        <Section title="Email" icon="mail">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <SelectField
               label="Provider"

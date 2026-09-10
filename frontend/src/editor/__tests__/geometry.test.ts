@@ -14,6 +14,8 @@ import {
   starPoints,
   computeReferenceGeometry,
   PREVIEW_REFERENCE_WIDTH,
+  computeFlatStageGeometry,
+  type FlatStageGeometryInput,
 } from '../geometry'
 
 describe('computeContainBox', () => {
@@ -220,5 +222,228 @@ describe('starPoints', () => {
     points.forEach((p, i) => {
       expect(dist(p)).toBeCloseTo(i % 2 === 0 ? 10 : 4, 5)
     })
+  })
+})
+
+// POD-UI3.md §4.1 — the flat design surface. Guarantee 3 (aspect fidelity
+// against computeReferenceGeometry) is the print-safety one: a mismatch
+// there stretches every design a shopper ever saves, because
+// rescaleFabricSnapshot scales each axis independently.
+describe('computeFlatStageGeometry (POD-UI3.md §4.1)', () => {
+  /** A deliberately varied matrix: a portrait tee, a very wide mockup with an
+   *  off-centre print area, a tall-narrow print area, and a square mockup. */
+  const MOCKUPS = [
+    { name: 'portrait tee 1200x1500', w: 1200, h: 1500 },
+    { name: 'very wide 2000x800', w: 2000, h: 800 },
+    { name: 'square 1500x1500', w: 1500, h: 1500 },
+    { name: 'very tall 700x2100', w: 700, h: 2100 },
+  ] as const
+
+  const PRINT_RECTS = [
+    { name: 'centred chest', rect: { x: 0.3, y: 0.28, w: 0.4, h: 0.34 } },
+    { name: 'off-centre right-sleeve', rect: { x: 0.62, y: 0.1, w: 0.2, h: 0.55 } },
+    { name: 'tall-narrow strip', rect: { x: 0.45, y: 0.05, w: 0.08, h: 0.85 } },
+    { name: 'wide-short band', rect: { x: 0.05, y: 0.6, w: 0.9, h: 0.12 } },
+  ] as const
+
+  const STAGES = [
+    { w: 390, h: 520 }, // mobile
+    { w: 1280, h: 720 }, // desktop landscape
+    { w: 500, h: 1200 }, // absurdly tall
+  ] as const
+
+  const input = (over: Partial<FlatStageGeometryInput> = {}): FlatStageGeometryInput => ({
+    stageW: 800,
+    stageH: 600,
+    imageNaturalW: 1200,
+    imageNaturalH: 1500,
+    printRect: { x: 0.3, y: 0.28, w: 0.4, h: 0.34 },
+    bleedPercent: 4,
+    safePercent: 4,
+    padding: 64,
+    ...over,
+  })
+
+  // ── Guarantee 1 ────────────────────────────────────────────────────────
+  it('centres the bleed rect in the stage, for every mockup/print/stage combination', () => {
+    for (const m of MOCKUPS) {
+      for (const p of PRINT_RECTS) {
+        for (const s of STAGES) {
+          const geo = computeFlatStageGeometry(
+            input({ stageW: s.w, stageH: s.h, imageNaturalW: m.w, imageNaturalH: m.h, printRect: p.rect })
+          )
+          const label = `${m.name} / ${p.name} / ${s.w}x${s.h}`
+          expect(geo.bleedRectPx.x + geo.bleedRectPx.w / 2, label).toBeCloseTo(s.w / 2, 6)
+          expect(geo.bleedRectPx.y + geo.bleedRectPx.h / 2, label).toBeCloseTo(s.h / 2, 6)
+        }
+      }
+    }
+  })
+
+  // ── Guarantee 2 ────────────────────────────────────────────────────────
+  it('fits the padded stage and touches it on at least one axis (a fit, not a shrink)', () => {
+    for (const m of MOCKUPS) {
+      for (const p of PRINT_RECTS) {
+        for (const s of STAGES) {
+          for (const padding of [0, 12, 64]) {
+            const geo = computeFlatStageGeometry(
+              input({ stageW: s.w, stageH: s.h, imageNaturalW: m.w, imageNaturalH: m.h, printRect: p.rect, padding })
+            )
+            const label = `${m.name} / ${p.name} / ${s.w}x${s.h} / pad ${padding}`
+            const availW = s.w - 2 * padding
+            const availH = s.h - 2 * padding
+            expect(geo.bleedRectPx.w, label).toBeLessThanOrEqual(availW + 1e-9)
+            expect(geo.bleedRectPx.h, label).toBeLessThanOrEqual(availH + 1e-9)
+            // The binding axis is exactly flush: min slack is zero.
+            const slack = Math.min(availW - geo.bleedRectPx.w, availH - geo.bleedRectPx.h)
+            expect(slack, label).toBeCloseTo(0, 6)
+          }
+        }
+      }
+    }
+  })
+
+  it('touches EXACTLY one axis when the plane and the padded stage differ in aspect', () => {
+    // A tall-narrow print area on a 1280x720 stage can only be height-bound;
+    // a wide-short one on a 500x1200 stage can only be width-bound. In both
+    // cases the other axis must have real slack, not a knife-edge tie.
+    const heightBound = computeFlatStageGeometry(
+      input({ stageW: 1280, stageH: 720, printRect: { x: 0.45, y: 0.05, w: 0.08, h: 0.85 } })
+    )
+    expect(720 - 2 * 64 - heightBound.bleedRectPx.h).toBeCloseTo(0, 6)
+    expect(1280 - 2 * 64 - heightBound.bleedRectPx.w).toBeGreaterThan(100)
+
+    const widthBound = computeFlatStageGeometry(
+      input({ stageW: 500, stageH: 1200, printRect: { x: 0.05, y: 0.6, w: 0.9, h: 0.12 } })
+    )
+    expect(500 - 2 * 64 - widthBound.bleedRectPx.w).toBeCloseTo(0, 6)
+    expect(1200 - 2 * 64 - widthBound.bleedRectPx.h).toBeGreaterThan(100)
+  })
+
+  // ── Guarantee 3 — the print-safety invariant ───────────────────────────
+  it('matches computeReferenceGeometry’s bleed aspect ratio exactly (print-safety invariant)', () => {
+    for (const m of MOCKUPS) {
+      for (const p of PRINT_RECTS) {
+        for (const s of STAGES) {
+          const flat = computeFlatStageGeometry(
+            input({ stageW: s.w, stageH: s.h, imageNaturalW: m.w, imageNaturalH: m.h, printRect: p.rect })
+          )
+          const ref = computeReferenceGeometry(m.w, m.h, p.rect, 4, 4)
+          const label = `${m.name} / ${p.name} / ${s.w}x${s.h}`
+          expect(flat.bleedRectPx.w / flat.bleedRectPx.h, label).toBeCloseTo(ref.bleedRectPx.w / ref.bleedRectPx.h, 10)
+          // Same for the print and safe rects, since the whole chain is shared.
+          expect(flat.printRectPx.w / flat.printRectPx.h, label).toBeCloseTo(ref.printRectPx.w / ref.printRectPx.h, 10)
+          expect(flat.safeRectPx.w / flat.safeRectPx.h, label).toBeCloseTo(ref.safeRectPx.w / ref.safeRectPx.h, 10)
+        }
+      }
+    }
+  })
+
+  it('holds the aspect invariant for two very different mockups and a tall-narrow off-centre print rect', () => {
+    // The two cases most likely to expose an axis mix-up: a very wide mockup
+    // (ar = 0.4) with an off-centre print area, and a very tall one (ar = 3)
+    // with a tall-narrow print area.
+    const cases = [
+      { w: 2000, h: 800, rect: { x: 0.62, y: 0.1, w: 0.2, h: 0.55 } },
+      { w: 700, h: 2100, rect: { x: 0.45, y: 0.05, w: 0.08, h: 0.85 } },
+    ]
+    for (const c of cases) {
+      const flat = computeFlatStageGeometry(
+        input({ stageW: 390, stageH: 520, imageNaturalW: c.w, imageNaturalH: c.h, printRect: c.rect })
+      )
+      const ref = computeReferenceGeometry(c.w, c.h, c.rect, 4, 4)
+      // Uniform scale on BOTH axes — not just a matching ratio.
+      const scale = flat.bleedRectPx.w / ref.bleedRectPx.w
+      expect(flat.bleedRectPx.h / ref.bleedRectPx.h).toBeCloseTo(scale, 9)
+      expect(flat.printRectPx.w / ref.printRectPx.w).toBeCloseTo(scale, 9)
+      expect(flat.printRectPx.h / ref.printRectPx.h).toBeCloseTo(scale, 9)
+    }
+  })
+
+  // ── Guarantee 4 ────────────────────────────────────────────────────────
+  it('returns a containBox that really does produce the three rects under the frozen maths', () => {
+    for (const m of MOCKUPS) {
+      for (const p of PRINT_RECTS) {
+        for (const s of STAGES) {
+          const geo = computeFlatStageGeometry(
+            input({ stageW: s.w, stageH: s.h, imageNaturalW: m.w, imageNaturalH: m.h, printRect: p.rect })
+          )
+          const label = `${m.name} / ${p.name} / ${s.w}x${s.h}`
+          const print = normalizedToPixelRect(p.rect, geo.containBox)
+          expect(print.x, label).toBeCloseTo(geo.printRectPx.x, 9)
+          expect(print.y, label).toBeCloseTo(geo.printRectPx.y, 9)
+          expect(print.w, label).toBeCloseTo(geo.printRectPx.w, 9)
+          expect(print.h, label).toBeCloseTo(geo.printRectPx.h, 9)
+
+          const bleed = deriveBleedRect(print, 4)
+          expect(bleed.x, label).toBeCloseTo(geo.bleedRectPx.x, 9)
+          expect(bleed.y, label).toBeCloseTo(geo.bleedRectPx.y, 9)
+          expect(bleed.w, label).toBeCloseTo(geo.bleedRectPx.w, 9)
+          expect(bleed.h, label).toBeCloseTo(geo.bleedRectPx.h, 9)
+
+          const safe = deriveSafeRect(print, 4)
+          expect(safe.x, label).toBeCloseTo(geo.safeRectPx.x, 9)
+          expect(safe.y, label).toBeCloseTo(geo.safeRectPx.y, 9)
+          expect(safe.w, label).toBeCloseTo(geo.safeRectPx.w, 9)
+          expect(safe.h, label).toBeCloseTo(geo.safeRectPx.h, 9)
+        }
+      }
+    }
+  })
+
+  it('keeps the containBox a true mockup box — its aspect is the mockup’s, and normalized coords round-trip', () => {
+    const geo = computeFlatStageGeometry(input({ imageNaturalW: 2000, imageNaturalH: 800 }))
+    expect(geo.containBox.height / geo.containBox.width).toBeCloseTo(800 / 2000, 9)
+    const back = pixelToNormalizedRect(geo.printRectPx, geo.containBox)
+    expect(back.x).toBeCloseTo(0.3, 9)
+    expect(back.y).toBeCloseTo(0.28, 9)
+    expect(back.w).toBeCloseTo(0.4, 9)
+    expect(back.h).toBeCloseTo(0.34, 9)
+  })
+
+  // ── Guarantee 5 ────────────────────────────────────────────────────────
+  it('falls back to computeStageGeometry on every degenerate input rather than dividing by zero', () => {
+    const degenerate: Partial<FlatStageGeometryInput>[] = [
+      { stageW: 0 },
+      { stageW: -10 },
+      { stageH: 0 },
+      { imageNaturalW: 0 },
+      { imageNaturalH: 0 },
+      { printRect: { x: 0.3, y: 0.28, w: 0, h: 0.34 } },
+      { printRect: { x: 0.3, y: 0.28, w: 0.4, h: 0 } },
+    ]
+    for (const over of degenerate) {
+      const args = input(over)
+      const flat = computeFlatStageGeometry(args)
+      expect(flat, JSON.stringify(over)).toEqual(computeStageGeometry(args))
+      for (const rect of [flat.printRectPx, flat.bleedRectPx, flat.safeRectPx]) {
+        expect(Number.isFinite(rect.x)).toBe(true)
+        expect(Number.isFinite(rect.y)).toBe(true)
+        expect(Number.isFinite(rect.w)).toBe(true)
+        expect(Number.isFinite(rect.h)).toBe(true)
+      }
+    }
+  })
+
+  it('falls back when the padding leaves no positive plane to fit (stage narrower than 2*padding)', () => {
+    const args = input({ stageW: 100, stageH: 400, padding: 64 })
+    expect(computeFlatStageGeometry(args)).toEqual(computeStageGeometry(args))
+    const exact = input({ stageW: 128, stageH: 400, padding: 64 })
+    expect(computeFlatStageGeometry(exact)).toEqual(computeStageGeometry(exact))
+  })
+
+  // ── Behaviour the whole change exists for (POD-UI3.md §3.1) ────────────
+  it('makes the plane far larger than the mockup-relative print area it replaces', () => {
+    const args = input({ stageW: 390, stageH: 520, padding: 64 })
+    const flat = computeFlatStageGeometry(args)
+    const mockupRelative = computeStageGeometry(args)
+    expect(flat.bleedRectPx.w).toBeGreaterThan(mockupRelative.bleedRectPx.w * 1.5)
+  })
+
+  it('collapses bleed onto print at bleedPercent 0 and still fits the padded stage', () => {
+    const geo = computeFlatStageGeometry(input({ bleedPercent: 0 }))
+    expect(geo.bleedRectPx).toEqual(geo.printRectPx)
+    expect(geo.bleedRectPx.w).toBeLessThanOrEqual(800 - 128 + 1e-9)
+    expect(geo.bleedRectPx.h).toBeLessThanOrEqual(600 - 128 + 1e-9)
   })
 })

@@ -12,8 +12,12 @@ export default function Toaster() {
         <div
           key={toast.id}
           onClick={() => removeToast(toast.id)}
-          className={`pointer-events-auto flex min-w-[180px] items-center justify-center gap-2.5 rounded-full px-4 py-3 text-sm font-medium text-white shadow-lift cursor-pointer select-none animate-fade-in ${
-            toast.type === 'error' ? 'bg-danger' : toast.type === 'info' ? 'bg-ink-soft' : 'bg-ink'
+          // POD-UI4.md §2.2/§5 A.1 — a Material-style snackbar ground
+          // (`inverse-surface`/`inverse-on-surface`) for success/info;
+          // `danger` keeps its own red ground so an error toast still
+          // reads as an alert rather than a neutral status message.
+          className={`pointer-events-auto flex min-w-[180px] items-center justify-center gap-2.5 rounded-pill px-4 py-3 text-sm font-medium shadow-lift cursor-pointer select-none animate-fade-in ${
+            toast.type === 'error' ? 'bg-danger text-on-primary' : 'bg-inverse-surface text-inverse-on-surface'
           }`}
         >
           {toast.type === 'success' && <span aria-hidden="true">✓</span>}

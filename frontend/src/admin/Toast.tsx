@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react'
+import Icon from '../components/ui/Icon'
+import type { IconName } from '../components/ui/iconNames'
 
 export interface Toast {
   id: string
@@ -32,6 +34,12 @@ const TOAST_CLASSES: Record<Toast['type'], string> = {
   info: 'bg-accent text-on-accent',
 }
 
+const TOAST_ICONS: Record<Toast['type'], IconName> = {
+  success: 'check_circle',
+  error: 'error',
+  info: 'info',
+}
+
 export function ToastContainer() {
   const [toasts, setToasts] = useState<Toast[]>([])
 
@@ -50,9 +58,7 @@ export function ToastContainer() {
           role="status"
           className={`pointer-events-auto flex w-full items-center gap-2 rounded-btn px-4 py-3 text-sm font-medium shadow-lift animate-fade-up sm:w-auto ${TOAST_CLASSES[toast.type]}`}
         >
-          {toast.type === 'success' && <span aria-hidden="true">&#10003;</span>}
-          {toast.type === 'error' && <span aria-hidden="true">&#10005;</span>}
-          {toast.type === 'info' && <span aria-hidden="true">&#8505;</span>}
+          <Icon name={TOAST_ICONS[toast.type]} size={18} fill />
           {toast.message}
         </div>
       ))}

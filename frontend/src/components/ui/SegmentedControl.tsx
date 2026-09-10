@@ -95,13 +95,16 @@ export default function SegmentedControl<T extends string = string>({
       ref={containerRef}
       role="tablist"
       aria-label={ariaLabel}
-      className={`relative inline-flex items-center gap-0.5 rounded-btn bg-surface-2 p-1 ${className}`}
+      // POD-UI4.md §2.4/§5 A.1 — a `surface-3` trough with a pill thumb,
+      // replacing the old `surface-2` trough + a squared, surface-coloured
+      // indicator.
+      className={`relative inline-flex items-center gap-0.5 rounded-pill bg-surface-3 p-1 ${className}`}
     >
       {indicator && (
         <span
           aria-hidden="true"
           style={{ left: indicator.left, width: indicator.width }}
-          className="absolute inset-y-1 rounded-[calc(var(--radius-btn)-4px)] bg-surface shadow-card transition-[left,width] duration-base ease-spring"
+          className="absolute inset-y-1 rounded-pill bg-accent shadow-card transition-[left,width] duration-base ease-spring"
         />
       )}
       {options.map((option, index) => {
@@ -121,8 +124,8 @@ export default function SegmentedControl<T extends string = string>({
             disabled={option.disabled}
             onClick={() => onChange(option.value)}
             onKeyDown={(event) => handleKeyDown(event, index)}
-            className={`relative z-10 flex h-11 min-w-11 items-center justify-center rounded-[calc(var(--radius-btn)-4px)] px-4 text-sm font-semibold transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
-              selected ? 'text-ink' : 'text-ink-soft hover:text-ink'
+            className={`relative z-10 flex h-11 min-w-11 items-center justify-center rounded-pill px-4 font-label text-label-md transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2 ${
+              selected ? 'text-on-accent' : 'text-ink-soft hover:text-ink'
             }`}
           >
             {option.label}

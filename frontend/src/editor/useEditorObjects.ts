@@ -47,6 +47,23 @@ export interface UseEditorObjectsArgs {
    * reported a size.
    */
   getBleedSize?: () => { width: number; height: number }
+  /**
+   * POD-UI3.md §4.5 — whether the live canvas is currently the thing the
+   * shopper is looking at. Pass `mode === 'edit'`. Defaults to `true` so
+   * every other caller keeps today's behaviour.
+   *
+   * When false, the global `keydown` effect below does not bind at all.
+   * This is a correctness gate, not a cosmetic one: as of POD-UI3.md §3.2
+   * preview mode covers the stage with an OPAQUE rendered composite
+   * (PreviewStage.tsx) while this hook's Fabric canvas stays mounted
+   * underneath it. Fabric's own interactivity is already off in that mode
+   * (`setCanvasInteractive`, EditorStage.tsx), but window-level
+   * keybindings are not scoped to the canvas — so an unguarded Cmd+Z or
+   * Backspace would silently mutate the design while the shopper studies a
+   * composite rendered BEFORE that mutation, and the divergence would only
+   * surface at add-to-cart (which re-reads the live canvas).
+   */
+  interactive?: boolean
 }
 
 export interface UseEditorObjectsApi {
@@ -78,6 +95,23 @@ export interface UseEditorObjectsApi {
   suspendHistory: () => void
   /** Un-mutes history and records the just-settled canvas as this side's fresh baseline (index 0) — wire to EditorStage's `onAfterSideSwap`. Each side's history is independent (POD.md §6.7): this is what makes it so. */
   resumeAndReseedHistory: () => void
+  /**
+   * Un-mutes history and records the just-settled canvas as ONE new entry
+   * on top of the EXISTING stack — the other way to close a
+   * `suspendHistory` bracket (POD-V2.md §6.5).
+   *
+   * The difference from `resumeAndReseedHistory` is the whole point, and
+   * it is a functional one, not a nicety. Reseeding is right for a side
+   * swap: the outgoing side's history must not be undoable into the
+   * incoming side, so it starts over at index 0 with `canUndo` false.
+   * That is exactly wrong for applying a design template, which REPLACES
+   * whatever the shopper had on the current side — reseeding there would
+   * make the replacement irreversible, so one mis-tap on a template card
+   * would destroy their work with no way back. This variant keeps the
+   * prior stack, so a single Cmd+Z returns to the pre-apply state, which
+   * is what "lands as a single undo entry, so it's recoverable" requires.
+   */
+  resumeHistoryAsOneEntry: () => void
 }
 
 /**
@@ -93,7 +127,13 @@ export interface UseEditorObjectsApi {
  */
 const NO_BLEED_SIZE = { width: 0, height: 0 }
 
-export function useEditorObjects({ fabric, canvas, onContentChange, getBleedSize }: UseEditorObjectsArgs): UseEditorObjectsApi {
+export function useEditorObjects({
+  fabric,
+  canvas,
+  onContentChange,
+  getBleedSize,
+  interactive = true,
+}: UseEditorObjectsArgs): UseEditorObjectsApi {
   const [selected, setSelected] = useState<FabricObject | null>(null)
   const [objectCount, setObjectCount] = useState(0)
   const [canUndo, setCanUndo] = useState(false)
@@ -134,6 +174,15 @@ export function useEditorObjects({ fabric, canvas, onContentChange, getBleedSize
     historyIndexRef.current = -1
     setCanRedo(false)
     pushHistory() // records the just-settled (new side's) canvas as index 0
+  }, [pushHistory])
+
+  // POD-V2.md §6.5 — see the interface doc above for why a template apply
+  // must NOT reseed. `pushHistory` already appends onto the existing stack
+  // and truncates any redo branch, so simply un-muting and pushing once
+  // records the whole apply as a single, undoable entry.
+  const resumeHistoryAsOneEntry = useCallback(() => {
+    restoringRef.current = false
+    pushHistory()
   }, [pushHistory])
 
   // Wire canvas events -> history / selection / object count.
@@ -195,8 +244,20 @@ export function useEditorObjects({ fabric, canvas, onContentChange, getBleedSize
   // Delete/Backspace to remove the selection, EXCEPT while an IText object
   // is in in-canvas editing mode (that classic bug: Backspace should edit
   // the text, not delete the whole object).
+  //
+  // POD-UI3.md §4.5 — and EXCEPT when `interactive` is false. These
+  // listeners are on `window`, not on the canvas element, so they fire
+  // regardless of what the canvas itself will accept. In preview mode the
+  // live canvas is hidden behind an opaque rendered composite
+  // (PreviewStage.tsx) that was produced from a snapshot taken when the
+  // shopper entered preview; a keystroke that mutated the canvas there
+  // would change the design out from under an image that cannot show it,
+  // so the design the shopper approves and the design add-to-cart persists
+  // would differ with nothing on screen to reveal it. Not binding at all
+  // (rather than early-returning inside the handler) also means we never
+  // `preventDefault()` a browser shortcut we have no intention of honouring.
   useEffect(() => {
-    if (!canvas) return
+    if (!canvas || !interactive) return
 
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement | null
@@ -223,7 +284,7 @@ export function useEditorObjects({ fabric, canvas, onContentChange, getBleedSize
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [canvas, undo, redo])
+  }, [canvas, undo, redo, interactive])
 
   const canvasCenter = useCallback((): { x: number; y: number } => {
     if (!canvas) return { x: 0, y: 0 }
@@ -351,5 +412,6 @@ export function useEditorObjects({ fabric, canvas, onContentChange, getBleedSize
     commitChange,
     suspendHistory,
     resumeAndReseedHistory,
+    resumeHistoryAsOneEntry,
   }
 }

@@ -19,9 +19,9 @@ export default function FeaturedProducts({ products, currency, isLoading, onAddT
   const featured = products.slice(0, FEATURED_LIMIT)
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-12 sm:px-8 md:py-20">
+    <section className="mx-auto max-w-7xl px-4 py-10 md:px-10 md:py-16">
       <div className="mb-8 flex items-end justify-between">
-        <h2 className="font-display text-[1.25rem] font-semibold text-ink md:text-[1.75rem]">Featured products</h2>
+        <h2 className="font-display text-headline-md text-ink">Featured products</h2>
         {/* size="md" (44px) rather than "sm" (36px, POD-UI.md's Button.tsx
             comment) so this stays ≥44px on touch — everything in this
             workstream's lane clears the touch-target floor. */}
@@ -40,7 +40,10 @@ export default function FeaturedProducts({ products, currency, isLoading, onAddT
             price: p.base_price,
             compare_price: p.compare_price,
             image_url: p.front_image ?? '',
+            back_image_url: p.back_image,
             is_customizable: p.is_customizable,
+            min_order_qty: p.min_order_qty,
+            lowest_break: p.lowest_break,
           }))}
           currency={currency}
           onAddToCart={onAddToCart}

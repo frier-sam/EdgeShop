@@ -20,18 +20,19 @@ interface Order {
 const ORDER_STATUSES = ['placed', 'confirmed', 'shipped', 'delivered', 'cancelled']
 const PAYMENT_STATUSES = ['pending', 'paid', 'refunded']
 
-// Same palette Badge draws from (POD-UI.md §2.1 status tokens), applied to
-// an editable <select> instead of a static pill so the colour still reads
-// at a glance while the value stays changeable inline.
+// Same palette Badge draws from (POD-UI4.md §2.2 status tokens — the
+// *-soft grounds, not a bare opacity modifier), applied to an editable
+// <select> instead of a static pill so the colour still reads at a glance
+// while the value stays changeable inline.
 const statusClasses: Record<string, string> = {
-  placed: 'bg-accent-soft text-accent-dark',
-  confirmed: 'bg-accent-soft text-accent-dark',
-  shipped: 'bg-warning/10 text-warning',
-  delivered: 'bg-success/10 text-success',
-  cancelled: 'bg-danger/10 text-danger',
+  placed: 'bg-accent-soft text-on-accent-soft',
+  confirmed: 'bg-accent-soft text-on-accent-soft',
+  shipped: 'bg-warning-soft text-warning',
+  delivered: 'bg-success-soft text-success',
+  cancelled: 'bg-danger-soft text-on-danger-soft',
   pending: 'bg-surface-2 text-ink-soft',
-  paid: 'bg-success/10 text-success',
-  refunded: 'bg-warning/10 text-warning',
+  paid: 'bg-success-soft text-success',
+  refunded: 'bg-warning-soft text-warning',
 }
 
 function StatusSelect({
@@ -87,7 +88,7 @@ export default function AdminOrders() {
 
   return (
     <div>
-      <h1 className="mb-6 font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">Orders</h1>
+      <h1 className="mb-6 font-display text-headline-md text-primary">Orders</h1>
 
       <div className="mb-4 flex flex-wrap gap-3">
         <Field

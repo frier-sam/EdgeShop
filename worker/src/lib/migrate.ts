@@ -48,7 +48,7 @@ const BASE_SCHEMA_MIGRATION_NAME = '0000_base_schema'
 // 0012-0015 against the final schema 0000 just created, and fail).
 const LEGACY_MIGRATION_NAMES = extractLegacyMigrationNames(BASE_SCHEMA_STATEMENTS)
 
-interface Migration {
+export interface Migration {
   name: string
   // Each inner array is one db.batch() transaction, run to completion
   // before the next phase starts. Split into phases (rather than one
@@ -63,7 +63,9 @@ interface Migration {
 
 // Add future migrations here. The worker auto-applies any that aren't
 // recorded in the _migrations table. Never remove or reorder entries.
-const MIGRATIONS: Migration[] = [
+// Exported (read-only, via the type below) only so migrate.test.ts can
+// assert on individual migrations' SQL shape without a live D1 database.
+export const MIGRATIONS: readonly Migration[] = [
   {
     // Cloudflare deploy-automation hardening (see DEPLOY.md's "What gets
     // created automatically" section) — an automatically-provisioned D1
@@ -312,6 +314,110 @@ const MIGRATIONS: Migration[] = [
         `UPDATE settings SET value = 'ESPOD' WHERE key IN ('store_name', 'email_from_name') AND value = 'EdgeShop'`,
       ],
     ],
+  },
+  {
+    // POD-V2.md §1.1/§3/§5/§6/§10, §11 Phase 1.1 — second option axis,
+    // bulk price breaks, and design templates. schema.sql (and therefore
+    // BASE_SCHEMA_STATEMENTS / 0000_base_schema above) already creates
+    // these 5 tables and carries schema.sql's own bookkeeping INSERT for
+    // this migration's name, so on a brand-new database this entry is
+    // never actually executed at all — runMigrations' post-0000 mirroring
+    // of LEGACY_MIGRATION_NAMES (see below) marks it applied before the
+    // loop ever reaches it. It only runs for real against an EXISTING
+    // database that already converged on 0015 and is missing these
+    // tables/columns, where CREATE TABLE IF NOT EXISTS and a plain ADD
+    // COLUMN (D1/SQLite has no ADD COLUMN IF NOT EXISTS, but each
+    // migration here — per the _migrations bookkeeping table this whole
+    // runner is built on — runs at most once per database, which is the
+    // guard) converge it onto the same shape schema.sql already
+    // describes, with no data loss.
+    name: '0016_v2_options_bulk_templates.sql',
+    phases: [
+      // ── Phase A: the 5 new tables. product_side_images and
+      // design_templates reference product_variants and
+      // template_collections respectively, so those are created first —
+      // not that SQLite requires the ordering at CREATE TABLE time, but
+      // it keeps this phase readable in the same dependency order as
+      // schema.sql itself.
+      [
+        // Axis 2 — see schema.sql's product_variants comment for why
+        // swatch_hex is nullable (a finish like matte/glossy has no
+        // colour; the storefront must degrade to a plain labelled pill)
+        // and why there is deliberately no price column (axis 2 never
+        // bears a price delta, keeping it out of lib/pricing.ts entirely).
+        `CREATE TABLE IF NOT EXISTS product_variants (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          label      TEXT    NOT NULL,
+          swatch_hex TEXT    DEFAULT NULL,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          UNIQUE (product_id, label)
+        )`,
+        `CREATE TABLE IF NOT EXISTS product_side_images (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          side_id    INTEGER NOT NULL REFERENCES product_sides(id) ON DELETE CASCADE,
+          variant_id INTEGER NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
+          image_url  TEXT    NOT NULL,
+          image_w    INTEGER NOT NULL,
+          image_h    INTEGER NOT NULL,
+          UNIQUE (side_id, variant_id)
+        )`,
+        `CREATE TABLE IF NOT EXISTS product_price_breaks (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          min_qty    INTEGER NOT NULL,
+          unit_price REAL    NOT NULL,
+          UNIQUE (product_id, min_qty)
+        )`,
+        `CREATE TABLE IF NOT EXISTS template_collections (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          name       TEXT    NOT NULL,
+          category   TEXT    NOT NULL DEFAULT '',
+          status     TEXT    NOT NULL DEFAULT 'active',
+          sort_order INTEGER NOT NULL DEFAULT 0
+        )`,
+        `CREATE TABLE IF NOT EXISTS design_templates (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          collection_id INTEGER NOT NULL REFERENCES template_collections(id) ON DELETE CASCADE,
+          name          TEXT    NOT NULL,
+          design_json   TEXT    NOT NULL,
+          canvas_w      REAL    NOT NULL,
+          canvas_h      REAL    NOT NULL,
+          preview_url   TEXT    NOT NULL DEFAULT '',
+          tags          TEXT    NOT NULL DEFAULT '',
+          status        TEXT    NOT NULL DEFAULT 'active',
+          sort_order    INTEGER NOT NULL DEFAULT 0,
+          created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`,
+      ],
+      // ── Phase B: new columns on existing tables. A fresh phase so
+      // Phase A's CREATE TABLEs are committed first (product_side_images
+      // above references product_sides, unaffected by this phase, but
+      // keeping the "tables, then columns" ordering matches schema.sql
+      // and 0013_pod_reset's own phase-separation convention).
+      [
+        `ALTER TABLE products ADD COLUMN axis1_label TEXT NOT NULL DEFAULT 'Size'`,
+        `ALTER TABLE products ADD COLUMN axis2_label TEXT NOT NULL DEFAULT 'Colour'`,
+        `ALTER TABLE products ADD COLUMN min_order_qty INTEGER NOT NULL DEFAULT 1`,
+        `ALTER TABLE product_sides ADD COLUMN label TEXT NOT NULL DEFAULT ''`,
+      ],
+    ],
+  },
+  {
+    // POD-UI4.md §4.1 / P2, §11 (E.3) — the product page's "Key Features"
+    // box. schema.sql (and therefore BASE_SCHEMA_STATEMENTS / 0000_base_schema
+    // above) already creates `products.highlights` and carries schema.sql's
+    // own bookkeeping INSERT for this migration's name, so — exactly like
+    // 0016 above — this entry never actually runs on a brand-new database;
+    // runMigrations' post-0000 mirroring of LEGACY_MIGRATION_NAMES marks it
+    // applied before the loop reaches it. It only runs for real against an
+    // EXISTING database that already converged on 0016 and is missing the
+    // column. SQLite permits `NOT NULL` on `ADD COLUMN` only when a
+    // non-null, non-expression DEFAULT is supplied (D1 enforces the same
+    // restriction) — `DEFAULT ''` qualifies, same as 0016's own
+    // `min_order_qty`/`axis1_label` columns above.
+    name: '0017_product_highlights.sql',
+    phases: [[`ALTER TABLE products ADD COLUMN highlights TEXT NOT NULL DEFAULT ''`]],
   },
 ]
 

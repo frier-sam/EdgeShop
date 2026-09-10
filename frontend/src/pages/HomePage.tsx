@@ -9,10 +9,12 @@ import { useToastStore } from '../store/toastStore'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import CartDrawer from '../components/CartDrawer'
-import Hero from '../components/home/Hero'
+import HeroCarousel from '../components/home/HeroCarousel'
 import TrustStrip from '../components/home/TrustStrip'
 import ShopByCategory from '../components/home/ShopByCategory'
+import NewArrivals from '../components/home/NewArrivals'
 import FeaturedProducts from '../components/home/FeaturedProducts'
+import RecentlyViewedRail from '../components/home/RecentlyViewedRail'
 import HowItWorks from '../components/home/HowItWorks'
 import SocialProof from '../components/home/SocialProof'
 import ClosingCta from '../components/home/ClosingCta'
@@ -23,12 +25,15 @@ interface ProductsData {
   total: number
 }
 
-// One fetch feeds two sections — the hero composition (first 3 with a
-// photo) and featured products (capped at 8, see
-// FeaturedProducts.FEATURED_LIMIT) — instead of issuing two separate
-// requests for the same catalog. "Shop by category" is unrelated: it's
-// backend-driven off GET /api/categories now (POD-UI2.md §7.1) and fetches
-// that itself.
+// One fetch feeds every product-driven section below — the hero
+// composition's zero-categories fallback (first 3 with a photo), "New
+// arrivals", "Featured products" (capped at 8, see
+// FeaturedProducts.FEATURED_LIMIT) and "Recently viewed"'s id resolution —
+// instead of issuing a separate request per section for the same catalog.
+// "Shop by category" is unrelated: it's backend-driven off
+// GET /api/categories (POD-UI2.md §7.1) and fetches that itself, as does
+// HeroCarousel's own slide data (same query key, so it shares that fetch
+// with ShopByCategory rather than duplicating it).
 const CATALOG_FETCH_LIMIT = 12
 
 export default function HomePage() {
@@ -81,10 +86,12 @@ export default function HomePage() {
       <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={NAV_ITEMS} />
 
       <main>
-        <Hero products={heroProducts} currency={currency} isLoading={isLoading} />
+        <HeroCarousel products={heroProducts} currency={currency} isLoading={isLoading} />
         <TrustStrip items={TRUST_ITEMS} />
         <ShopByCategory />
+        <NewArrivals products={products} currency={currency} isLoading={isLoading} onAddToCart={handleAddToCart} />
         <FeaturedProducts products={products} currency={currency} isLoading={isLoading} onAddToCart={handleAddToCart} />
+        <RecentlyViewedRail products={products} currency={currency} onAddToCart={handleAddToCart} />
         <HowItWorks />
         <SocialProof />
         <ClosingCta />

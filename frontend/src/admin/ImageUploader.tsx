@@ -1,7 +1,8 @@
 import { useState, useRef, type DragEvent } from 'react'
 import { processImage } from '../utils/imageProcessor'
 import { adminFetch } from './lib/adminFetch'
-import Button from '../components/Button'
+import IconButton from '../components/ui/IconButton'
+import Icon from '../components/ui/Icon'
 
 export interface UploadResult {
   url: string
@@ -20,6 +21,11 @@ interface Props {
    *  (worker/src/routes/admin/upload.ts). Product mockups always use
    *  'mockups'. */
   prefix: string
+  /** POD-UI4.md §5 D.6 (A10) — the comp's uploaded-file row carries a
+   *  delete action. Optional: a caller with nothing sensible to do on
+   *  removal (there is none today) simply omits it and the row renders
+   *  with no delete control, same as before this restyle. */
+  onRemove?: () => void
 }
 
 type UploadStatus = 'idle' | 'processing' | 'uploading' | 'done' | 'error'
@@ -44,9 +50,23 @@ function readImageDimensions(blob: Blob): Promise<{ width: number; height: numbe
   })
 }
 
-export default function ImageUploader({ onUploadComplete, existingUrl, prefix }: Props) {
+/** Label for the uploaded-file row when there's no in-session `File.name`
+ *  (e.g. the page just loaded with an already-saved mockup) — the last
+ *  path segment of the served URL, or a generic fallback if that fails. */
+function labelForPreview(url: string, fileName: string): string {
+  if (fileName) return fileName
+  try {
+    const last = new URL(url, window.location.origin).pathname.split('/').pop()
+    return last || 'Uploaded image'
+  } catch {
+    return 'Uploaded image'
+  }
+}
+
+export default function ImageUploader({ onUploadComplete, existingUrl, prefix, onRemove }: Props) {
   const [status, setStatus] = useState<UploadStatus>('idle')
   const [preview, setPreview] = useState<string>(existingUrl ?? '')
+  const [fileName, setFileName] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -63,6 +83,7 @@ export default function ImageUploader({ onUploadComplete, existingUrl, prefix }:
       const { width, height } = await readImageDimensions(webpBlob)
       const previewUrl = URL.createObjectURL(webpBlob)
       setPreview(previewUrl)
+      setFileName(file.name)
 
       setStatus('uploading')
       const presignRes = await adminFetch('/api/admin/upload/presign', {
@@ -94,8 +115,16 @@ export default function ImageUploader({ onUploadComplete, existingUrl, prefix }:
     if (file) handleFile(file)
   }
 
+  function handleRemove() {
+    setPreview('')
+    setFileName('')
+    setStatus('idle')
+    setErrorMsg('')
+    onRemove?.()
+  }
+
   const statusText: Record<UploadStatus, string> = {
-    idle: 'Click or drag an image (PNG, JPG)',
+    idle: '',
     processing: 'Optimising to WebP…',
     uploading: 'Uploading…',
     done: 'Upload complete',
@@ -104,17 +133,25 @@ export default function ImageUploader({ onUploadComplete, existingUrl, prefix }:
   const busy = status === 'processing' || status === 'uploading'
 
   return (
-    <div
-      onDrop={handleDrop}
-      onDragOver={(e) => e.preventDefault()}
-      className="rounded-card border-2 border-dashed border-line p-6 text-center transition-colors duration-fast hover:border-ink-faint"
-    >
-      {preview && (
-        <img src={preview} alt="Preview" className="mx-auto mb-4 max-h-40 rounded-btn object-contain" />
-      )}
-      <p className={`mb-3 text-sm ${status === 'error' ? 'text-danger' : status === 'done' ? 'text-success' : 'text-ink-soft'}`}>
-        {statusText[status]}
-      </p>
+    <div className="space-y-3">
+      {/* POD-UI4.md §5 D.6 (A10) — the comp's dashed dropzone. A real
+          <button>, not a styled <div>, so the whole box stays a single
+          keyboard- and screen-reader-reachable control while still
+          accepting a drag-and-drop file exactly as before. */}
+      <button
+        type="button"
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
+        onClick={() => inputRef.current?.click()}
+        disabled={busy}
+        aria-busy={busy}
+        className="group w-full rounded-lg border-2 border-dashed border-line p-8 text-center transition-colors duration-fast hover:border-ink-faint hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        <Icon name="cloud_upload" size={36} className="mx-auto mb-2 text-ink-faint transition-transform duration-fast group-hover:scale-110" />
+        <p className="font-label text-label-md text-ink-soft">Drop PNG/WebP files here</p>
+        <p className="mt-1 text-xs text-ink-faint">Recommended: at least 1000px on the longest side</p>
+      </button>
+
       <input
         ref={inputRef}
         type="file"
@@ -126,9 +163,26 @@ export default function ImageUploader({ onUploadComplete, existingUrl, prefix }:
           e.target.value = ''
         }}
       />
-      <Button type="button" variant="primary" size="sm" loading={busy} onClick={() => inputRef.current?.click()}>
-        {busy ? 'Working…' : 'Choose image'}
-      </Button>
+
+      {statusText[status] && (
+        <p className={`text-sm ${status === 'error' ? 'text-danger' : status === 'done' ? 'text-success' : 'text-ink-soft'}`}>
+          {statusText[status]}
+        </p>
+      )}
+
+      {preview && (
+        <div className="flex items-center justify-between gap-3 rounded-btn border border-line bg-surface-2 p-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <img src={preview} alt="Uploaded mockup preview" className="h-12 w-12 shrink-0 rounded-btn object-cover" />
+            <span className="truncate text-sm text-ink-soft">{labelForPreview(preview, fileName)}</span>
+          </div>
+          {onRemove && (
+            <IconButton variant="ghost" size="sm" aria-label="Remove image" className="shrink-0 text-danger hover:bg-danger-soft" onClick={handleRemove}>
+              <Icon name="delete" size={16} />
+            </IconButton>
+          )}
+        </div>
+      )}
     </div>
   )
 }

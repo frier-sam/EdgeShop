@@ -207,8 +207,11 @@ export default function PrintAreaSelector({ imageUrl, imageW, imageH, value, onC
             top: `${value.print_y * 100}%`,
             width: `${value.print_w * 100}%`,
             height: `${value.print_h * 100}%`,
+            // Token-derived, not raw hex/rgb: `--color-surface` is the same
+            // #FFFFFF the white ring always was, and the scrim is the ink
+            // token dimmed via `color-mix` rather than a one-off rgb().
             boxShadow:
-              '0 0 0 2px #ffffff, 0 0 0 4px var(--color-accent), 0 0 0 9999px rgb(16 16 20 / 0.6)',
+              '0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-accent), 0 0 0 9999px color-mix(in srgb, var(--color-ink) 60%, transparent)',
           }}
         >
           {(Object.keys(HANDLE_AXES) as HandleKey[]).map((h) => (
@@ -224,7 +227,7 @@ export default function PrintAreaSelector({ imageUrl, imageW, imageH, value, onC
               {/* White fill + dark ring reads on any garment colour —
                   black jacket or white tee alike — unlike a single accent
                   dot which can disappear against a similarly-toned mockup. */}
-              <span className="pointer-events-none block h-3 w-3 rounded-full border-2 border-ink bg-white shadow-[0_1px_3px_rgb(0_0_0_/_0.4)]" />
+              <span className="pointer-events-none block h-3 w-3 rounded-full border-2 border-ink bg-surface shadow-[0_1px_3px_rgb(0_0_0_/_0.4)]" />
             </div>
           ))}
         </div>

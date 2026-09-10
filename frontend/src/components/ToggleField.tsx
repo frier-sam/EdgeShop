@@ -31,12 +31,12 @@ export default function ToggleField({ label, description, checked, onChange, dis
           className="peer sr-only"
         />
         <div
-          className={`h-5 w-9 rounded-full border transition-colors duration-fast ${
+          className={`h-5 w-9 rounded-pill border transition-colors duration-fast ${
             checked ? 'border-ink bg-ink' : 'border-line bg-surface-2'
           } peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-accent peer-focus-visible:outline-offset-2`}
         />
         <div
-          className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-surface shadow-sm transition-transform duration-fast ${
+          className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-pill bg-surface shadow-sm transition-transform duration-fast ${
             checked ? 'translate-x-4' : 'translate-x-0'
           }`}
         />

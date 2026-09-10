@@ -105,7 +105,7 @@ export default function AdminCustomers() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
-        <h1 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">Customers</h1>
+        <h1 className="font-display text-headline-md text-primary">Customers</h1>
         <span className="text-sm text-ink-soft">{data?.total ?? 0} total</span>
       </div>
 

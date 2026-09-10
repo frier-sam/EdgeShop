@@ -201,6 +201,10 @@ export default function CheckoutPage() {
             product_id: l.product_id,
             quantity: l.quantity,
             size: l.size ?? undefined,
+            // POD-UI4.md §4.1 — axis 2, validated server-side the same way
+            // size is (an unknown label → `invalid_variant`), but never
+            // priced (POD-V2.md §3.1).
+            variant: l.variant ?? undefined,
             design_id: l.design_id ?? undefined,
           })),
           total_amount: total,
@@ -209,7 +213,7 @@ export default function CheckoutPage() {
 
       if (!res.ok) {
         const data = (await res.json()) as
-          | { error?: string; items?: Array<{ id: number; name: string; available: number }> }
+          | { error?: string; items?: Array<{ id: number; name: string; available: number }>; product_id?: number }
           | PriceMismatchResponse
         if (data.error === 'stock_error') {
           const msgs = data.items?.length
@@ -230,6 +234,25 @@ export default function CheckoutPage() {
           setSubmitting(false)
           return
         }
+        // POD-UI4.md §5 C.5 — `computeLine` (worker/src/lib/pricing.ts)
+        // validates `variant` and `min_order_qty` the same way it already
+        // validates `size`; these two shopper-readable messages sit
+        // alongside the existing stock_error/price_mismatch handling
+        // rather than falling through to the generic "Checkout failed".
+        // `data.product_id` (present on both errors — see buildQuote in
+        // routes/checkout.ts) lets the message name the actual line when
+        // the cart still has it client-side.
+        if (data.error === 'invalid_variant' || data.error === 'below_min_order_qty') {
+          const badLine = lines.find((l) => l.product_id === data.product_id)
+          const itemLabel = badLine ? `"${badLine.name}"` : 'One of the items in your cart'
+          setError(
+            data.error === 'invalid_variant'
+              ? `${itemLabel}'s selected option is no longer available. Please remove it from your cart and choose again from the product page.`
+              : `${itemLabel} needs a larger quantity to meet this product's minimum order requirement. Please update the quantity in your cart and try again.`
+          )
+          setSubmitting(false)
+          return
+        }
         throw new Error(data.error ?? 'Checkout failed')
       }
 
@@ -245,6 +268,7 @@ export default function CheckoutPage() {
           key: l.key,
           name: l.name,
           size: l.size,
+          variant: l.variant,
           quantity: l.quantity,
           preview_url: l.preview_url,
           design_id: l.design_id,
@@ -302,24 +326,31 @@ export default function CheckoutPage() {
           <div className="order-1 rounded-card border border-line bg-surface p-5 md:order-2 md:sticky md:top-24">
             <h2 className="mb-4 font-display font-semibold text-ink">Order Summary</h2>
             <ul className="space-y-3">
-              {lines.map((line) => (
-                <li key={line.key} className="flex gap-3 text-sm">
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-btn bg-surface-2 ring-1 ring-line">
-                    {line.preview_url && <img src={line.preview_url} alt="" className="h-full w-full object-cover" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-ink">
-                      {line.name}
-                      {line.size ? ` (${line.size})` : ''}
-                    </p>
-                    <p className="text-xs text-ink-soft">Qty {line.quantity}</p>
-                  </div>
-                  <span className="shrink-0 text-ink-soft">
-                    {currency}
-                    {(line.unit_price * line.quantity).toFixed(2)}
-                  </span>
-                </li>
-              ))}
+              {lines.map((line) => {
+                // POD-UI4.md §4.2 — size + variant shown together wherever
+                // size already was. Joined rather than labelled ("Size"/
+                // axis-2 name) because CartLine only carries the option
+                // VALUES, not the product's axis names.
+                const qualifier = [line.size, line.variant].filter(Boolean).join(', ')
+                return (
+                  <li key={line.key} className="flex gap-3 text-sm">
+                    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-btn bg-surface-2 ring-1 ring-line">
+                      {line.preview_url && <img src={line.preview_url} alt="" className="h-full w-full object-cover" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-ink">
+                        {line.name}
+                        {qualifier ? ` (${qualifier})` : ''}
+                      </p>
+                      <p className="text-xs text-ink-soft">Qty {line.quantity}</p>
+                    </div>
+                    <span className="shrink-0 text-ink-soft">
+                      {currency}
+                      {(line.unit_price * line.quantity).toFixed(2)}
+                    </span>
+                  </li>
+                )
+              })}
             </ul>
             <div className="mt-4 flex justify-between border-t border-line pt-3 text-sm text-ink-soft">
               <span>Subtotal</span>

@@ -1,4 +1,5 @@
 import ProductCard from './ProductCard'
+import type { LowestPriceBreak } from '../lib/types'
 
 interface ProductGridProps {
   products: Array<{
@@ -7,9 +8,12 @@ interface ProductGridProps {
     price: number
     compare_price?: number | null
     image_url: string
-    /** See ProductCard's doc comment — optional, no current caller has data for it. */
+    /** See ProductCard's doc comment — optional, real data as of POD-UI4.md §4.1 E.2. */
     back_image_url?: string | null
     is_customizable?: number | boolean
+    /** See ProductCard's doc comment — optional, additive so ShopPage (another lane) keeps compiling. */
+    min_order_qty?: number
+    lowest_break?: LowestPriceBreak | null
   }>
   currency: string
   onAddToCart: (productId: number) => void

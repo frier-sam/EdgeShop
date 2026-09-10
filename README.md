@@ -160,6 +160,9 @@ Live docs, kept current:
 | [`README.md`](./README.md) | This file — orientation, stack, architecture decisions, getting started |
 | [`project.md`](./project.md) | Product definition: what ESPOD is and what it deliberately isn't |
 | [`POD.md`](./POD.md) | The build plan of record — task checklists, architecture rationale, and a dated decisions log explaining *why* each non-obvious choice was made |
+| [`POD-UI3.md`](./POD-UI3.md) | Splitting the customizer's design surface (a flat plane proportional to the print area) from its preview (the mockup with the artwork composited and substrate-shaded). Holds the geometry and compositing contracts the editor is built against |
+| [`POD-V2.md`](./POD-V2.md) | Current round: two *nameable* product option axes (so the same form serves t-shirts, visiting cards and bottles), absolute bulk price breaks, and browsable design templates. Also the record of why this system is substrate-agnostic and has no `product_type` |
+| [`POD-UI4.md`](./POD-UI4.md) | Current round: the design language lifted from the reference comps supplied for this round (blue-tinted neutrals, black primary + one teal accent, a flat 2/4/8/12px radius scale, Material Symbols icons) plus the merchandising features that came with them. Also the **complete** inventory of comp features we did *not* build, each with the reason — read it before adding one back. The comps themselves lived in `referance/`, which is gitignored, so §1–§2 describe them in enough detail to work from without them |
 | [`DEPLOY.md`](./DEPLOY.md) | Full deploy reference: Git flow, CLI, manual fallback, what's verified and what isn't |
 | [`cloudflare-deploy.md`](./cloudflare-deploy.md) | The short deploy path, for when you don't need the full reference |
 | [`CLAUDE.md`](./CLAUDE.md) | Working agreement for AI agents contributing to this repo |

@@ -240,14 +240,30 @@ export default function PrimitivesDemo() {
         </div>
         <Sheet open={sheetOpen} onClose={() => setSheetOpen(false)} initialSnap={sheetSnap} title="Colour">
           <div className="grid grid-cols-5 gap-3 py-2">
-            {['#4F46E5', '#101014', '#DC2626', '#15803D', '#B45309', '#FFFFFF', '#F1F1F4', '#4338CA', '#EEF2FF', '#6A6A77'].map(
+            {/* The §2 palette, as CSS custom properties rather than literal
+                hex: this page exists to show what the design system currently
+                IS, so hardcoding values here guarantees it goes stale the next
+                time the palette moves (it already had, silently, across the
+                indigo → teal change). Reading the tokens keeps it honest. */}
+            {[
+              '--color-accent',
+              '--color-primary',
+              '--color-primary-container',
+              '--color-accent-soft',
+              '--color-surface-5',
+              '--color-surface',
+              '--color-surface-2',
+              '--color-success',
+              '--color-warning',
+              '--color-danger',
+            ].map(
               (color) => (
                 <button
                   key={color}
                   type="button"
                   aria-label={color}
-                  className="h-11 w-11 rounded-full border border-line transition-transform duration-fast active:scale-90"
-                  style={{ background: color }}
+                  className="h-11 w-11 rounded-pill border border-line transition-transform duration-fast active:scale-90"
+                  style={{ background: `var(${color})` }}
                 />
               ),
             )}

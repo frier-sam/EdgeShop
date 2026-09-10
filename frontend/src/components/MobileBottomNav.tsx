@@ -1,49 +1,12 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import Icon from './ui/Icon'
 
 export const MOBILE_NAV_HEIGHT = 56
 
 interface MobileBottomNavProps {
   cartCount: number
   onCartOpen: () => void
-}
-
-function HomeIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M3 9.5L10 3l7 6.5V17a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M7.5 18v-5h5v5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function ShopIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M4 8l1-4h10l1 4" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M3 8h14v7a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 15V8Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M7.5 8v1.5a2.5 2.5 0 0 0 5 0V8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function CartIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M5 2L3 5v11a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 17 16V5l-2-3H5Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <line x1="3" y1="5" x2="17" y2="5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M13 8.5a3 3 0 0 1-6 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function AccountIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M3 17c0-3.314 3.134-6 7-6s7 2.686 7 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  )
 }
 
 export default function MobileBottomNav({ cartCount, onCartOpen }: MobileBottomNavProps) {
@@ -73,25 +36,33 @@ export default function MobileBottomNav({ cartCount, onCartOpen }: MobileBottomN
         aria-label="Mobile navigation"
       >
         <div className="flex w-full items-center">
-          <Link to="/" className={`flex flex-1 flex-col items-center justify-center gap-0.5 pb-1 pt-2 transition-colors ${tabClass(isActive('/'))}`} aria-label="Home">
-            <HomeIcon />
+          <Link
+            to="/"
+            className={`flex flex-1 flex-col items-center justify-center gap-0.5 pb-1 pt-2 font-label transition-colors ${tabClass(isActive('/'))}`}
+            aria-label="Home"
+          >
+            <Icon name="home" size={20} />
             <span className="text-[10px] tracking-wide">Home</span>
           </Link>
 
-          <Link to="/shop" className={`flex flex-1 flex-col items-center justify-center gap-0.5 pb-1 pt-2 transition-colors ${tabClass(isActive('/shop'))}`} aria-label="Shop">
-            <ShopIcon />
+          <Link
+            to="/shop"
+            className={`flex flex-1 flex-col items-center justify-center gap-0.5 pb-1 pt-2 font-label transition-colors ${tabClass(isActive('/shop'))}`}
+            aria-label="Shop"
+          >
+            <Icon name="storefront" size={20} />
             <span className="text-[10px] tracking-wide">Shop</span>
           </Link>
 
           <button
             onClick={onCartOpen}
-            className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 pb-1 pt-2 transition-colors ${tabClass(false)}`}
+            className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 pb-1 pt-2 font-label transition-colors ${tabClass(false)}`}
             aria-label={`Open cart${cartCount > 0 ? `, ${cartCount} items` : ''}`}
           >
             <span className="relative inline-flex">
-              <CartIcon />
+              <Icon name="shopping_cart" size={20} />
               {cartCount > 0 && (
-                <span className="absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-accent px-0.5 text-[9px] font-semibold leading-none text-white">
+                <span className="absolute -right-1.5 -top-1.5 flex h-[15px] min-w-[15px] items-center justify-center rounded-pill bg-accent px-0.5 text-[9px] font-semibold leading-none text-on-accent">
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
@@ -101,10 +72,10 @@ export default function MobileBottomNav({ cartCount, onCartOpen }: MobileBottomN
 
           <Link
             to={accountHref}
-            className={`flex flex-1 flex-col items-center justify-center gap-0.5 pb-1 pt-2 transition-colors ${tabClass(isActive('/account'))}`}
+            className={`flex flex-1 flex-col items-center justify-center gap-0.5 pb-1 pt-2 font-label transition-colors ${tabClass(isActive('/account'))}`}
             aria-label={token ? 'My Account' : 'Login'}
           >
-            <AccountIcon />
+            <Icon name="person" size={20} />
             <span className="text-[10px] tracking-wide">{token ? 'Account' : 'Login'}</span>
           </Link>
         </div>

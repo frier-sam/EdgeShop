@@ -58,9 +58,10 @@ function EmptyCartIllustration() {
  * conventional right-edge panel at every viewport width, full height on
  * mobile and a fixed `w-96` rail on `sm:` and up.
  *
- * Line identity: keyed on `line.key` (POD.md §7.2's composite
- * `product_id:size:design_id`), never `product_id` alone — two lines that
- * differ only by size or design stay visually and functionally separate.
+ * Line identity: keyed on `line.key` (POD-UI4.md §4.2's composite
+ * `product_id:size:variant:design_id`), never `product_id` alone — two
+ * lines that differ only by size, variant or design stay visually and
+ * functionally separate.
  */
 export default function CartDrawer({ isOpen, lines, currency, onClose, onUpdateQuantity, onRemove, onCheckout }: CartDrawerProps) {
   const subtotal = lines.reduce((sum, l) => sum + l.unit_price * l.quantity, 0)
@@ -132,6 +133,13 @@ export default function CartDrawer({ isOpen, lines, currency, onClose, onUpdateQ
                     </Link>
                     <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-soft">
                       {line.size && <span>Size {line.size}</span>}
+                      {/* POD-UI4.md §4.2 / POD-V2.md §3.4 — axis 2's label,
+                          shown wherever size already is. No axis-2 name
+                          (e.g. "Colour"/"Finish") is stored on the cart
+                          line itself, only the option value, so this stays
+                          a bare value rather than guessing the wrong word
+                          for a substrate-agnostic product. */}
+                      {line.variant && <span>{line.variant}</span>}
                       {line.design_id && (
                         <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent-dark">
                           Custom design
@@ -147,7 +155,7 @@ export default function CartDrawer({ isOpen, lines, currency, onClose, onUpdateQ
                     )}
                     {line.design_id && (
                       <Link
-                        to={`/customize/${line.product_id}?design=${line.design_id}${line.size ? `&size=${encodeURIComponent(line.size)}` : ''}`}
+                        to={`/customize/${line.product_id}?design=${line.design_id}${line.size ? `&size=${encodeURIComponent(line.size)}` : ''}${line.variant ? `&variant=${encodeURIComponent(line.variant)}` : ''}`}
                         onClick={onClose}
                         className="mb-2 inline-block text-[11px] font-medium text-accent underline underline-offset-2 hover:text-accent-dark"
                       >

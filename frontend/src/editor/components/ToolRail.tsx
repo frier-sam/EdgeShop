@@ -2,6 +2,8 @@ import { useRef } from 'react'
 import type { ShapeKind } from '../types'
 
 export interface ToolRailProps {
+  /** POD-V2.md §6.6 — opens the "browse ready-made designs" drawer (TemplateDrawer.tsx). First entry in the rail, ahead of every insert-a-single-element tool. */
+  onOpenDesigns: () => void
   onAddText: () => void
   onPickImage: (file: File) => void
   onAddShape: (kind: ShapeKind) => void
@@ -32,7 +34,17 @@ const toolBtnCls =
  * fighting the properties Sheet's own `fixed` stacking). Same component,
  * same buttons; only the outer layout classes change per breakpoint.
  */
-export default function ToolRail({ onAddText, onPickImage, onAddShape, onUndo, onRedo, canUndo, canRedo, uploading }: ToolRailProps) {
+export default function ToolRail({
+  onOpenDesigns,
+  onAddText,
+  onPickImage,
+  onAddShape,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  uploading,
+}: ToolRailProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   return (
@@ -41,6 +53,13 @@ export default function ToolRail({ onAddText, onPickImage, onAddShape, onUndo, o
                  md:h-full md:w-24 md:flex-col md:overflow-visible md:border-r md:border-t-0 md:p-3 md:pb-3 md:shadow-none"
       data-testid="tool-rail"
     >
+      <button className={toolBtnCls} onClick={onOpenDesigns} data-testid="tool-rail-designs">
+        <span className="text-base leading-none">🎨</span>
+        Designs
+      </button>
+
+      <div className="hidden shrink-0 self-stretch border-t border-line md:block" />
+
       <button className={toolBtnCls} onClick={onAddText}>
         <span className="text-base leading-none">T</span>
         Text

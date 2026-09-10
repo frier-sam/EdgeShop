@@ -2,52 +2,21 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, Link, useLocation, useNavigate } from 'react-router-dom'
 import { ToastContainer } from './Toast'
 import { useAdminAuthStore } from '../store/adminAuthStore'
+import { useSettings } from '../lib/useSettings'
 import IconButton from '../components/ui/IconButton'
+import Icon from '../components/ui/Icon'
+import type { IconName } from '../components/ui/iconNames'
 
-// Minimal inline SVG icons — single color, stroke-based, 16×16 viewBox
-function IconHome() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12L12 3l9 9" /><path d="M9 21V12h6v9" /><path d="M3 12v9h18V12" />
-    </svg>
-  )
-}
-function IconBox() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 8l-9-5-9 5v8l9 5 9-5V8z" /><path d="M3 8l9 5 9-5" /><path d="M12 13v8" />
-    </svg>
-  )
-}
-function IconCart() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6" />
-    </svg>
-  )
-}
-function IconCog() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
-      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" />
-    </svg>
-  )
-}
-function IconUsers() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />
-    </svg>
-  )
-}
-
-const NAV_ITEMS = [
-  { to: '/admin/dashboard', label: 'Dashboard', icon: <IconHome /> },
-  { to: '/admin/products', label: 'Products', icon: <IconBox /> },
-  { to: '/admin/orders', label: 'Orders', icon: <IconCart /> },
-  { to: '/admin/customers', label: 'Customers', icon: <IconUsers /> },
-  { to: '/admin/settings', label: 'Settings', icon: <IconCog /> },
+// POD-UI4.md §5 D.1 (A1) — six nav rows, each a fixed (route, label, icon)
+// tuple. Replaces the six hand-rolled inline SVGs that used to live in
+// this file with the shared <Icon> glyph set.
+const NAV_ITEMS: { to: string; label: string; icon: IconName }[] = [
+  { to: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
+  { to: '/admin/products', label: 'Products', icon: 'inventory_2' },
+  { to: '/admin/templates', label: 'Templates', icon: 'layers' },
+  { to: '/admin/orders', label: 'Orders', icon: 'receipt_long' },
+  { to: '/admin/customers', label: 'Customers', icon: 'group' },
+  { to: '/admin/settings', label: 'Settings', icon: 'settings' },
 ]
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
@@ -59,14 +28,15 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           to={to}
           onClick={onNavigate}
           className={({ isActive }) =>
-            `flex items-center gap-2.5 rounded-btn px-3 py-2.5 text-sm font-medium transition-colors duration-fast ${
-              isActive
-                ? 'bg-accent-soft text-accent-dark'
-                : 'text-ink-soft hover:bg-surface-2 hover:text-ink'
+            // Mint active state (POD-UI4.md §2.2's accent-soft) vs. the
+            // rest in ink-soft with a surface-3 hover — the comp's
+            // `sidebar-active` treatment.
+            `flex items-center gap-3 rounded-pill px-4 py-3 font-label text-label-md transition-colors duration-fast ${
+              isActive ? 'bg-accent-soft text-on-accent-soft' : 'text-ink-soft hover:bg-surface-3'
             }`
           }
         >
-          <span className="shrink-0">{icon}</span>
+          <Icon name={icon} size={20} />
           {label}
         </NavLink>
       ))}
@@ -74,18 +44,82 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
+function BrandBlock() {
+  // Public /api/settings — same source Header.tsx/Footer.tsx already read
+  // the storefront's own store_name from, cached by TanStack Query so
+  // mounting this alongside the storefront's own useSettings() call costs
+  // nothing extra.
+  const { store_name: storeName } = useSettings()
+  return (
+    <div className="p-4">
+      <Link
+        to="/"
+        className="mb-2 inline-block font-label text-label-sm text-ink-faint transition-colors duration-fast hover:text-ink-soft"
+      >
+        ← Storefront
+      </Link>
+      <p className="truncate font-display text-headline-md text-primary">{storeName}</p>
+      <p className="font-label text-label-sm text-ink-faint">Print-on-demand storefront</p>
+    </div>
+  )
+}
+
 function AccountFooter({ adminName, adminRole, onSignOut }: { adminName: string; adminRole: string; onSignOut: () => void }) {
   return (
-    <div className="border-t border-line p-3">
-      <p className="truncate text-xs font-medium text-ink">{adminName}</p>
-      <p className="mb-2 text-xs capitalize text-ink-faint">{adminRole.replace(/_/g, ' ')}</p>
+    <div className="border-t border-line p-4">
+      <div className="mb-3 flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-pill bg-primary-container text-on-primary">
+          <Icon name="person" size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-label text-label-md text-ink">{adminName || 'Admin'}</p>
+          <p className="truncate text-xs capitalize text-ink-faint">{adminRole.replace(/_/g, ' ')}</p>
+        </div>
+      </div>
       <button
+        type="button"
         onClick={onSignOut}
-        className="text-left text-xs font-medium text-danger transition-colors duration-fast hover:text-danger/80"
+        className="flex min-h-11 items-center gap-1.5 text-xs font-medium text-danger transition-colors duration-fast hover:text-danger/80"
       >
+        <Icon name="logout" size={16} />
         Sign out
       </button>
     </div>
+  )
+}
+
+// POD-UI4.md §5 D.1 (A11) — the comp's slim admin footer bar. `href: '#'`
+// entries render as inert text rather than dead links, mirroring the
+// storefront Footer's own convention (components/Footer.tsx) — there is
+// no admin support page or docs site behind these yet.
+const FOOTER_LINKS: { label: string; href: string }[] = [
+  { label: 'Support', href: '#' },
+  { label: 'Documentation', href: '#' },
+]
+
+function AdminFooter() {
+  const { store_name: storeName } = useSettings()
+  return (
+    <footer className="border-t border-line bg-surface-5 px-4 py-4 sm:px-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-body-sm text-ink-soft">
+          © {new Date().getFullYear()} {storeName}. All rights reserved.
+        </p>
+        <div className="flex gap-4">
+          {FOOTER_LINKS.map((link) =>
+            link.href === '#' ? (
+              <span key={link.label} title="Coming soon" className="text-body-sm text-ink-faint">
+                {link.label}
+              </span>
+            ) : (
+              <Link key={link.label} to={link.href} className="text-body-sm text-ink-soft transition-colors duration-fast hover:text-ink">
+                {link.label}
+              </Link>
+            ),
+          )}
+        </div>
+      </div>
+    </footer>
   )
 }
 
@@ -112,12 +146,9 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-paper md:flex-row">
-      {/* Desktop sidebar */}
-      <aside className="hidden min-h-screen w-60 shrink-0 flex-col border-r border-line bg-surface md:flex">
-        <div className="border-b border-line p-4">
-          <Link to="/" className="mb-1 block text-xs text-ink-faint transition-colors duration-fast hover:text-ink-soft">← Storefront</Link>
-          <p className="font-display text-sm font-semibold text-ink">Admin Panel</p>
-        </div>
+      {/* Desktop sidebar — 280px, POD-UI4.md §5 D.1 (A1) */}
+      <aside className="hidden min-h-screen w-[280px] shrink-0 flex-col border-r border-line bg-surface-2 md:flex">
+        <BrandBlock />
         <SidebarNav />
         <AccountFooter adminName={adminName} adminRole={adminRole} onSignOut={signOut} />
       </aside>
@@ -125,13 +156,11 @@ export default function AdminLayout() {
       {/* Mobile top bar */}
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-line bg-surface px-4 py-3 md:hidden">
         <div>
-          <Link to="/" className="text-xs text-ink-faint">← Storefront</Link>
+          <Link to="/" className="font-label text-label-sm text-ink-faint">← Storefront</Link>
           <p className="mt-0.5 font-display text-sm font-semibold leading-none text-ink">Admin</p>
         </div>
         <IconButton variant="ghost" onClick={() => setDrawerOpen(true)} aria-label="Open menu">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-            <path d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
+          <Icon name="menu" />
         </IconButton>
       </div>
 
@@ -145,28 +174,32 @@ export default function AdminLayout() {
 
       {/* Mobile drawer panel */}
       <div
-        className={`fixed left-0 top-0 z-50 flex h-full w-72 transform flex-col bg-surface shadow-lift transition-transform duration-base ease-out-soft md:hidden ${
+        className={`fixed left-0 top-0 z-50 flex h-full w-72 transform flex-col bg-surface-2 shadow-lift transition-transform duration-base ease-out-soft md:hidden ${
           drawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-line p-4">
-          <div>
-            <Link to="/" className="text-xs text-ink-faint">← Storefront</Link>
-            <p className="font-display text-sm font-semibold text-ink">Admin Panel</p>
-          </div>
-          <IconButton variant="ghost" size="sm" onClick={() => setDrawerOpen(false)} aria-label="Close menu">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
+        <div className="relative border-b border-line">
+          <BrandBlock />
+          <IconButton
+            variant="ghost"
+            size="sm"
+            onClick={() => setDrawerOpen(false)}
+            aria-label="Close menu"
+            className="absolute right-2 top-2"
+          >
+            <Icon name="close" size={18} />
           </IconButton>
         </div>
         <SidebarNav onNavigate={() => setDrawerOpen(false)} />
         <AccountFooter adminName={adminName} adminRole={adminRole} onSignOut={signOut} />
       </div>
 
-      {/* Main content */}
-      <main className="min-h-screen flex-1 overflow-auto p-4 sm:p-6">
-        <Outlet />
+      {/* Main content column */}
+      <main className="flex min-h-screen flex-1 flex-col overflow-auto">
+        <div className="flex-1 px-4 py-4 sm:px-6 sm:py-6">
+          <Outlet />
+        </div>
+        <AdminFooter />
       </main>
       <ToastContainer />
     </div>

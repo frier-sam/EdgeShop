@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Icon from './ui/Icon'
 
 const STORAGE_KEY = 'espod:announcement-dismissed'
 
@@ -42,9 +43,7 @@ export default function AnnouncementBar() {
 
   return (
     <div className="relative flex h-9 items-center justify-center bg-accent px-9 text-center">
-      <p className="truncate text-xs font-medium tracking-wide text-on-accent sm:text-[13px]">
-        Free shipping on orders over ₹999
-      </p>
+      <p className="truncate font-label text-label-sm text-on-accent">Free shipping on orders over ₹999</p>
       {/* Absolutely positioned so its 44px touch target (POD-UI.md §2.1
           floor) can extend beyond the 36px bar without growing its height —
           only the visible 20px glyph box sits inside the bar's own bounds. */}
@@ -54,10 +53,7 @@ export default function AnnouncementBar() {
         aria-label="Dismiss announcement"
         className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 shrink-0 items-center justify-center text-on-accent/80 transition-colors duration-fast hover:text-on-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-on-accent focus-visible:-outline-offset-2"
       >
-        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" aria-hidden="true">
-          <line x1="1" y1="1" x2="11" y2="11" />
-          <line x1="11" y1="1" x2="1" y2="11" />
-        </svg>
+        <Icon name="close" size={16} />
       </button>
     </div>
   )

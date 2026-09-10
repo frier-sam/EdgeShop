@@ -10,6 +10,7 @@ import {
   type LineInput,
   type PricingProduct,
   type PricingSize,
+  type PricingVariant,
   type PricingSide,
   type PricingDesign,
   type ResolvedLineItem,
@@ -105,13 +106,22 @@ async function buildQuote(
   for (const input of items) {
     const productId = Number(input.product_id)
     const product = await db.prepare(
-      'SELECT id, name, base_price, status, is_customizable FROM products WHERE id = ?'
+      'SELECT id, name, base_price, status, is_customizable, min_order_qty FROM products WHERE id = ?'
     ).bind(productId).first<PricingProduct>()
 
     const size = input.size
       ? await db.prepare(
           'SELECT label, price_delta, stock_count FROM product_sizes WHERE product_id = ? AND label = ?'
         ).bind(productId, input.size).first<PricingSize>()
+      : null
+
+    // POD-V2.md §3.1 — axis 2. Looked up by (product_id, label) exactly
+    // like size above; computeLine treats an unresolved non-empty claim as
+    // invalid_variant the same way a bad size is invalid_size.
+    const variant = input.variant
+      ? await db.prepare(
+          'SELECT label FROM product_variants WHERE product_id = ? AND label = ?'
+        ).bind(productId, input.variant).first<PricingVariant>()
       : null
 
     const { results: sides } = await db.prepare(
@@ -133,6 +143,7 @@ async function buildQuote(
       input: { ...input, product_id: productId },
       product: product ?? null,
       size: size ?? null,
+      variant: variant ?? null,
       sides: sides ?? [],
       design,
       previewJson,

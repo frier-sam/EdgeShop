@@ -9,6 +9,11 @@ export interface CartLine {
   product_id: number
   name: string
   size: string | null
+  // POD-V2.md §3.4 / POD-UI4.md §4.2 — axis 2 (colour/finish/material).
+  // Carried purely for identity/display/fulfilment, exactly like `size`,
+  // but NEVER priced: axis 2 has no price_delta by design (POD-V2.md §3.1),
+  // so nothing downstream of this field may touch a monetary value.
+  variant: string | null
   design_id: string | null
   preview_url: string | null // e.g. '/img/designs/dsn_x/front.webp', or a plain product mockup
   base_price: number
@@ -19,19 +24,31 @@ export interface CartLine {
   max_qty: number
 }
 
-export type NewCartLine = Omit<CartLine, 'key' | 'quantity' | 'max_qty'> & {
+// `variant` is optional here (defaulting to null in `addLine` below), not
+// required like the rest of `CartLine` — HomePage's plain add-to-cart and
+// CustomizerEditor's addLine call (frozen apart from threading
+// `initialVariant` through) both predate axis 2 and have no variant to
+// pass; forcing every existing call site to add `variant: null` for a
+// no-op would be needless churn for zero behaviour change.
+export type NewCartLine = Omit<CartLine, 'key' | 'quantity' | 'max_qty' | 'variant'> & {
+  variant?: string | null
   quantity: number
   max_qty?: number
 }
 
-export function cartLineKey(product_id: number, size: string | null, design_id: string | null): string {
-  return `${product_id}:${size ?? '-'}:${design_id ?? 'plain'}`
+// POD-UI4.md §4.2 / POD-V2.md §3.4 — cart line identity gains a `variant`
+// segment. Order matters: `ServerQuoteItem` below and the worker's
+// `items_json` resolution must build the exact same string or
+// `reconcilePricing`'s key-based matching silently stops finding lines.
+export function cartLineKey(product_id: number, size: string | null, variant: string | null, design_id: string | null): string {
+  return `${product_id}:${size ?? '-'}:${variant ?? '-'}:${design_id ?? 'plain'}`
 }
 
 /** One entry of the server's §7.3 price-mismatch quote — matched back onto cart lines by their composite key. */
 export interface ServerQuoteItem {
   product_id: number
   size: string | null
+  variant: string | null
   design_id: string | null
   base_price: number
   size_delta: number
@@ -67,7 +84,7 @@ export const useCartStore = create<CartStore>()(
           const maxQty = input.max_qty ?? Infinity
           if (maxQty <= 0 || input.quantity <= 0) return state
 
-          const key = cartLineKey(input.product_id, input.size ?? null, input.design_id ?? null)
+          const key = cartLineKey(input.product_id, input.size ?? null, input.variant ?? null, input.design_id ?? null)
           const idx = state.lines.findIndex((l) => l.key === key)
 
           if (idx === -1) {
@@ -75,6 +92,7 @@ export const useCartStore = create<CartStore>()(
               ...input,
               key,
               size: input.size ?? null,
+              variant: input.variant ?? null,
               design_id: input.design_id ?? null,
               preview_url: input.preview_url ?? null,
               max_qty: maxQty,
@@ -112,7 +130,7 @@ export const useCartStore = create<CartStore>()(
 
       reconcilePricing: (items) =>
         set((state) => {
-          const byKey = new Map(items.map((i) => [cartLineKey(i.product_id, i.size, i.design_id), i]))
+          const byKey = new Map(items.map((i) => [cartLineKey(i.product_id, i.size, i.variant, i.design_id), i]))
           return {
             lines: state.lines.map((line) => {
               const match = byKey.get(line.key)
@@ -132,8 +150,17 @@ export const useCartStore = create<CartStore>()(
       name: 'edgeshop-cart',
       // v1 stored `items: CartItem[]` deduped on product_id — an incompatible
       // shape. Silently carrying it forward would corrupt totals, so any
-      // persisted version below 2 is discarded rather than migrated.
-      version: 2,
+      // persisted version below 2 was discarded rather than migrated.
+      //
+      // POD-UI4.md §4.2 / POD-V2.md §11 Phase 2.4 — v3 bump for the same
+      // reason: `cartLineKey` gained a `variant` segment, so a v2 key like
+      // `1:M:plain` no longer matches the v3 shape `1:M:-:plain`. A live
+      // shopper's `localStorage` holds v2-keyed lines; silently reading them
+      // as v3 would make every `reconcilePricing` key lookup miss, so the
+      // same "discard, don't migrate" call as v1→v2 applies here — an empty
+      // cart the shopper has to re-fill beats one that silently stops
+      // reconciling its own prices.
+      version: 3,
       migrate: () => ({ lines: [] }),
       partialize: (state) => ({ lines: state.lines }),
     }

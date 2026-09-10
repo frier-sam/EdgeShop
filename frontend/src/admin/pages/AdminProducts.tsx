@@ -60,7 +60,7 @@ export default function AdminProducts() {
   return (
     <div>
       <div className="mb-6 flex items-center justify-between gap-3">
-        <h1 className="font-display text-xl font-bold tracking-tight text-ink sm:text-2xl">Products</h1>
+        <h1 className="font-display text-headline-md text-primary">Products</h1>
         <Button variant="primary" onClick={() => navigate('/admin/products/new')}>
           + Add product
         </Button>

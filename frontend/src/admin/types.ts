@@ -67,3 +67,28 @@ export interface SizeDraftRow {
   price_delta: number
   stock_count: number
 }
+
+/** One row in ProductVariantsEditor (axis 2 — POD-V2.md §3.1). Same
+ *  `key`-for-React-list-identity convention as SizeDraftRow. No
+ *  price_delta/stock_count — axis 2 deliberately carries neither (§3.1,
+ *  §3.3). `swatch_hex` is nullable in the draft exactly as it is on the
+ *  wire: null means "this option has no colour" (Matte, Textured, …),
+ *  not "colour not chosen yet" — see ProductVariantsEditor's swatch UI
+ *  for how the draft distinguishes those two states. */
+export interface VariantDraftRow {
+  key: string
+  label: string
+  swatch_hex: string | null
+}
+
+/** One row in ProductPriceBreaksEditor (bulk pricing — POD-V2.md §5).
+ *  Same numeric-field convention as SizeDraftRow (coerced on every
+ *  keystroke via `parseFloat(...) || 0` / `parseInt(...) || 0`, not kept
+ *  as strings). `unit_price` is the absolute, all-in per-unit price at
+ *  this tier (§9 decision 7) — printing is already folded in, it is not
+ *  added on top of base_price + print fees. */
+export interface PriceBreakDraftRow {
+  key: string
+  min_qty: number
+  unit_price: number
+}

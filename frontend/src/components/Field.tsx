@@ -30,11 +30,11 @@ type FieldSelectProps = FieldBaseProps & {
 // system's tokens/radius; no prop was renamed or removed.
 export type FieldProps = FieldInputProps | FieldTextareaProps | FieldSelectProps
 
-// 44px min height (h-11) on the touch floor; accent focus ring; danger
-// border + ring when `error` is set.
+// 44px min height (h-11) on the touch floor; accent focus border + ring
+// (POD-UI4.md §5 A.1); danger border + ring when `error` is set.
 const CONTROL_CLASSES =
   'w-full rounded-btn border bg-surface px-3.5 text-sm text-ink placeholder:text-ink-faint ' +
-  'transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-accent/30'
+  'transition-colors duration-fast focus:outline-none focus:ring-2 focus:ring-accent/20'
 
 function fieldId(props: FieldProps): string {
   if ('id' in props && props.id) return props.id
@@ -49,7 +49,7 @@ export default function Field(props: FieldProps) {
   const errorId = `${id}-error`
   const hintId = `${id}-hint`
   const describedBy = error ? errorId : hint ? hintId : undefined
-  const borderClasses = error ? 'border-danger focus:border-danger' : 'border-line focus:border-ink'
+  const borderClasses = error ? 'border-danger focus:border-danger' : 'border-line focus:border-accent'
 
   let control: React.ReactNode
   if (props.as === 'select') {

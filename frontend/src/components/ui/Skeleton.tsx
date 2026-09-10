@@ -2,10 +2,14 @@ import type { CSSProperties } from 'react'
 
 export type SkeletonShape = 'text' | 'rect' | 'circle'
 
+// POD-UI4.md §2.4 — named radius tokens throughout, rather than Tailwind's
+// unnamed default `rounded` (which happens to match `radius-sm` today but
+// isn't tied to the scale) or built-in `rounded-full` (same 9999px value
+// as our own `radius-pill`, but not the token name itself).
 const SHAPE_CLASSES: Record<SkeletonShape, string> = {
-  text: 'rounded',
+  text: 'rounded-sm',
   rect: 'rounded-card',
-  circle: 'rounded-full',
+  circle: 'rounded-pill',
 }
 
 export interface SkeletonProps {

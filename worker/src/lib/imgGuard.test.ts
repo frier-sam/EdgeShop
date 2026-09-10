@@ -14,6 +14,10 @@ describe('isAllowedImgKey', () => {
     expect(isAllowedImgKey('designs/dsn_xyz/front.webp')).toBe(true)
   })
 
+  it('allows a real template-preview key (POD-V2.md §11 Phase 4.4)', () => {
+    expect(isAllowedImgKey('templates/42/preview.webp')).toBe(true)
+  })
+
   it('rejects an empty key', () => {
     expect(isAllowedImgKey('')).toBe(false)
   })
@@ -33,6 +37,7 @@ describe('isAllowedImgKey', () => {
     // startsWith('mockups') check but must NOT pass startsWith('mockups/').
     expect(isAllowedImgKey('mockupsevil/x.webp')).toBe(false)
     expect(isAllowedImgKey('uploadsx/y.png')).toBe(false)
+    expect(isAllowedImgKey('templatesevil/x.webp')).toBe(false)
   })
 
   it('rejects a literal ".." traversal attempt inside an otherwise-allowed prefix', () => {

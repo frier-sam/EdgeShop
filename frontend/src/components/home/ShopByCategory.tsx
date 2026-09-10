@@ -2,12 +2,17 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchJson } from '../../lib/api'
+import ProductRail from '../ProductRail'
 
 // POD-UI2.md §7.1 — backend-driven, no more hardcoded storeConfig list.
 // `name` doubles as the tile label and the `?category=` value: the worker
 // groups on the raw `products.category` column and the products list
 // endpoint filters with an exact `p.category = ?` (case-sensitive), so
 // this must stay byte-identical, not a slugified/title-cased derivation.
+//
+// Exported for HeroCarousel.tsx, which fetches the same `/api/categories`
+// shape for its slides (POD-UI4.md §4.4) — one shared type instead of two
+// structurally-identical local ones.
 export interface StorefrontCategory {
   name: string
   count: number
@@ -18,42 +23,43 @@ interface CategoriesResponse {
   categories: StorefrontCategory[]
 }
 
+// POD-UI4.md §4/H3 / §5 B.4 — compact tile: a square image (or a plain
+// neutral fallback) with the category name as its own label underneath,
+// rather than the old text-over-gradient overlay. That overlay logic is
+// gone entirely now: with the label no longer sharing space with the
+// image, "the image failed to load" just means the tile shows its
+// `bg-surface-2` ground and nothing else — the label renders unconditionally.
 function CategoryTile({ cat, index }: { cat: StorefrontCategory; index: number }) {
-  // Falls back to a plain neutral tile (no <img>) if there's no
-  // representative image at all, or the one the API returned 404s —
-  // rather than showing a broken-image glyph.
   const [imgFailed, setImgFailed] = useState(!cat.image)
 
   return (
     <Link
       to={`/shop?category=${encodeURIComponent(cat.name)}`}
-      className="stagger-delay animate-fade-up group relative block aspect-square overflow-hidden rounded-card bg-surface-2 ring-1 ring-line"
+      className="stagger-delay animate-fade-up group flex w-32 shrink-0 snap-start flex-col items-center gap-3 md:w-40"
       style={{ '--stagger-index': index } as React.CSSProperties}
     >
-      {!imgFailed && cat.image && (
-        <img
-          src={cat.image}
-          alt=""
-          onError={() => setImgFailed(true)}
-          className="h-full w-full object-cover transition-transform duration-slow ease-out-soft md:group-hover:scale-110"
-        />
-      )}
-      <div
-        className={imgFailed ? 'absolute inset-0 bg-surface-2' : 'absolute inset-0 bg-gradient-to-t from-ink/70 via-ink/0 to-ink/0'}
-        aria-hidden="true"
-      />
-      <span
-        className={`absolute inset-x-0 bottom-0 flex min-h-11 items-center justify-center px-2 py-3 text-center text-sm font-semibold ${
-          imgFailed ? 'text-ink' : 'text-on-accent'
-        }`}
-      >
-        {cat.name}
-      </span>
+      <div className="aspect-square w-full overflow-hidden rounded-card bg-surface-2 ring-1 ring-line">
+        {!imgFailed && cat.image && (
+          <img
+            src={cat.image}
+            alt=""
+            onError={() => setImgFailed(true)}
+            className="h-full w-full object-cover transition-transform duration-slow ease-out-soft group-hover:scale-105"
+          />
+        )}
+      </div>
+      <span className="text-center font-label text-label-md text-ink">{cat.name}</span>
     </Link>
   )
 }
 
-/** F3 — image tiles linking into the shop, pre-filtered by category. Backend-driven (POD-UI2.md §7.1) — renders nothing while loading, on error, or when the catalogue has no active categories at all. */
+/**
+ * H3 (POD-UI4.md §3.2/§4/H3) — a horizontal snap-scroll rail of category
+ * tiles, backend-driven off GET /api/categories (POD-UI2.md §7.1).
+ * `ProductRail` already renders nothing when it has no children, so the
+ * "no categories" case needs no separate empty-state branch here beyond
+ * the query itself resolving to an empty list.
+ */
 export default function ShopByCategory() {
   const { data } = useQuery<CategoriesResponse>({
     queryKey: ['categories'],
@@ -62,16 +68,11 @@ export default function ShopByCategory() {
   })
   const categories = data?.categories ?? []
 
-  if (categories.length === 0) return null
-
   return (
-    <section className="mx-auto max-w-6xl px-4 py-12 sm:px-8 md:py-20">
-      <h2 className="mb-8 font-display text-[1.25rem] font-semibold text-ink md:text-[1.75rem]">Shop by category</h2>
-      <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-4">
-        {categories.map((cat, i) => (
-          <CategoryTile key={cat.name} cat={cat} index={i} />
-        ))}
-      </div>
-    </section>
+    <ProductRail title="Shop by category">
+      {categories.map((cat, i) => (
+        <CategoryTile key={cat.name} cat={cat} index={i} />
+      ))}
+    </ProductRail>
   )
 }

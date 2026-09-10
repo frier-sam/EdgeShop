@@ -1,19 +1,28 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { fetchJson } from '../lib/api'
 import { useSettings } from '../lib/useSettings'
 import { NAV_ITEMS, FOOTER_LINKS, currencySymbol } from '../lib/storeConfig'
 import { useCartStore } from '../store/cartStore'
 import { useToastStore } from '../store/toastStore'
-import type { ProductDetail, ProductSide } from '../lib/types'
+import type { ProductDetail, ProductSide, ProductSummary, ProductVariant } from '../lib/types'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import CartDrawer from '../components/CartDrawer'
+import ProductCard from '../components/ProductCard'
+import ProductRail from '../components/ProductRail'
 import Button from '../components/Button'
 import IconButton from '../components/ui/IconButton'
 import Badge from '../components/ui/Badge'
 import Skeleton from '../components/ui/Skeleton'
+import Icon from '../components/ui/Icon'
+// POD-UI4.md §5 C.8 — created by another lane (WS-B owns lib/recentlyViewed.ts,
+// exactly `recordView(id: number)` / `readRecentlyViewed(): number[]`); this
+// file only ever imports it, never edits or recreates it. If it isn't on
+// disk yet when this lands, `tsc` will report an unresolved module here
+// until WS-B's file arrives — see this workstream's report.
+import { recordView, readRecentlyViewed } from '../lib/recentlyViewed'
 // Not a component render — just consuming the exported height constant so
 // this page's own mobile sticky bar can stack cleanly above the app-wide
 // bottom tab bar instead of both fighting over `bottom: 0` (App.tsx renders
@@ -21,70 +30,104 @@ import Skeleton from '../components/ui/Skeleton'
 // which doesn't exclude /product — see the CSS var below).
 import { MOBILE_NAV_HEIGHT } from '../components/MobileBottomNav'
 
-function ChevronIcon({ direction }: { direction: 'left' | 'right' }) {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points={direction === 'left' ? '15 18 9 12 15 6' : '9 18 15 12 9 6'} />
-    </svg>
-  )
+/** A hex value from the database is untrusted input, not a design token —
+ * POD-UI4.md §5 C.4 / POD-V2.md §3.1 requires it validated before it ever
+ * reaches a `style` prop. Exported so the variant-picker degradation states
+ * (swatch vs. plain pill vs. mixed) are unit-testable without mounting the
+ * whole page. */
+const HEX_RE = /^#[0-9a-fA-F]{6}$/
+export function isValidSwatchHex(hex: string | null | undefined): hex is string {
+  return !!hex && HEX_RE.test(hex)
 }
 
-function ChevronDownIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={`shrink-0 transition-transform duration-fast ease-out-soft ${open ? 'rotate-180' : ''}`}
-      aria-hidden="true"
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  )
+export interface VariantPickerProps {
+  variants: ProductVariant[]
+  axisLabel: string
+  selected: string | null
+  onSelect: (label: string) => void
 }
 
-function TruckIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="1" y="6" width="14" height="11" rx="1.5" />
-      <path d="M15 10h3.5L22 13.5V17h-7" />
-      <circle cx="6" cy="19" r="1.75" />
-      <circle cx="17.5" cy="19" r="1.75" />
-    </svg>
-  )
-}
+/**
+ * POD-UI4.md §5 C.4 / POD-V2.md §3.1, §3.3 decision #9 — axis 2 with all
+ * three degradation states a substrate-agnostic catalogue requires:
+ *  - a validated `swatch_hex` renders a circular colour chip
+ *  - a null `swatch_hex` renders a plain labelled pill ("Matte"/"Glossy"
+ *    has no colour to show)
+ *  - a product can mix both, decided per-option, never per-product
+ *
+ * Colour is never the only channel carrying the information: the axis
+ * label + selected value are always shown as text next to the group, and
+ * repeated in every chip's own `aria-label`.
+ *
+ * Swatch chips are visually the comp's `w-8 h-8` circle, but that alone is
+ * an 32px touch target below the 44px floor this app requires everywhere
+ * else — so the circle sits inside an `h-11 w-11` button rather than being
+ * the whole hit area itself.
+ */
+export function VariantPicker({ variants, axisLabel, selected, onSelect }: VariantPickerProps) {
+  if (variants.length === 0) return null
 
-function ShieldCheckIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 3 4.5 6v6c0 4.5 3.2 7.7 7.5 9 4.3-1.3 7.5-4.5 7.5-9V6L12 3Z" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
-  )
-}
+    <div className="mb-6">
+      <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-ink">
+        {axisLabel}
+        {selected && <span className="ml-1 font-normal normal-case text-ink-soft">: {selected}</span>}
+      </p>
+      <div className="flex flex-wrap gap-3">
+        {variants.map((v) => {
+          const isSelected = selected === v.label
+          const hex = isValidSwatchHex(v.swatch_hex) ? v.swatch_hex : null
+          const optionLabel = `${axisLabel}: ${v.label}`
 
-function RefreshIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 12a9 9 0 0 1 15.4-6.4L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-15.4 6.4L3 16" />
-      <path d="M3 21v-5h5" />
-    </svg>
+          if (hex) {
+            return (
+              <button
+                key={v.label}
+                type="button"
+                onClick={() => onSelect(v.label)}
+                aria-label={optionLabel}
+                aria-pressed={isSelected}
+                title={v.label}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-pill"
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-8 w-8 rounded-pill border border-line transition-transform duration-fast ease-out-soft hover:scale-110 ${
+                    isSelected ? 'outline outline-2 outline-offset-2 outline-accent' : ''
+                  }`}
+                  style={{ backgroundColor: hex }}
+                />
+              </button>
+            )
+          }
+
+          return (
+            <button
+              key={v.label}
+              type="button"
+              onClick={() => onSelect(v.label)}
+              aria-pressed={isSelected}
+              className={`flex min-h-11 items-center justify-center rounded-pill border px-4 text-sm font-medium transition-colors duration-fast ${
+                isSelected ? 'border-2 border-accent bg-surface-2 text-ink' : 'border-line text-ink hover:border-accent/50'
+              }`}
+            >
+              {v.label}
+            </button>
+          )
+        })}
+      </div>
+      {!selected && <p className="mt-2.5 text-xs text-ink-soft">Choose a {axisLabel.toLowerCase()} to continue.</p>}
+    </div>
   )
 }
 
 /**
  * Swipeable product gallery — a horizontally scroll-snapping track (no JS
  * carousel library, per POD-UI.md §B4). Dot indicators track the active
- * slide from native `scroll` events; the same dots (and, on hover-capable
- * pointers, arrow buttons) drive `scrollTo` to move the track. Genuinely
- * swipeable on touch since it's just native overflow scroll underneath.
+ * slide from native `scroll` events; the same dots (mobile only, below
+ * `sm`) and — at `sm` and up — a 96px thumbnail strip (POD-UI4.md §5 C.1 /
+ * P1) drive `scrollTo` to move the track. Genuinely swipeable on touch
+ * since it's just native overflow scroll underneath.
  */
 function ProductGallery({
   sides,
@@ -165,7 +208,9 @@ function ProductGallery({
               `.hidden` in the stylesheet, so at equal specificity it always
               wins the cascade and silently defeats a `hidden md:inline-flex`
               override no matter the viewport. Toggling `hidden`/`md:block`
-              on a plain wrapper div sidesteps that clash entirely. */}
+              on a plain wrapper div sidesteps that clash entirely — the
+              same trap the thumbnail strip and mobile-only dots below avoid
+              by living on plain `<div>`s with no forced base display class. */}
           <div className="absolute left-2 top-1/2 hidden -translate-y-1/2 md:block">
             <IconButton
               variant="secondary"
@@ -175,7 +220,7 @@ function ProductGallery({
               disabled={activeIdx === 0}
               className="bg-surface/90 opacity-0 shadow-card backdrop-blur-sm transition-opacity duration-fast group-hover/gallery:opacity-100"
             >
-              <ChevronIcon direction="left" />
+              <Icon name="chevron_left" size={18} />
             </IconButton>
           </div>
           <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 md:block">
@@ -187,11 +232,14 @@ function ProductGallery({
               disabled={activeIdx === sides.length - 1}
               className="bg-surface/90 opacity-0 shadow-card backdrop-blur-sm transition-opacity duration-fast group-hover/gallery:opacity-100"
             >
-              <ChevronIcon direction="right" />
+              <Icon name="chevron_right" size={18} />
             </IconButton>
           </div>
 
-          <div className="mt-3 flex items-center justify-center gap-1.5" role="tablist" aria-label="Product images">
+          {/* Dots — mobile only (below `sm`); the thumbnail strip below
+              takes over as the "which image am I on" affordance at `sm`+,
+              matching the comp (POD-UI4.md §5 C.1 / P1). */}
+          <div className="mt-3 flex items-center justify-center gap-1.5 sm:hidden" role="tablist" aria-label="Product images">
             {sides.map((s, i) => (
               <button
                 key={s.side}
@@ -202,6 +250,33 @@ function ProductGallery({
                 className={`h-2 rounded-full transition-all duration-fast ${i === activeIdx ? 'w-6 bg-ink' : 'w-2 bg-ink/20 hover:bg-ink/40'}`}
               />
             ))}
+          </div>
+
+          {/* Thumbnail strip — `sm`+ only. The strip itself scroll-snaps
+              horizontally with `hide-scrollbar` should it ever hold more
+              thumbnails than fit; today it holds at most 2 (front/back). */}
+          <div className="mt-3 hidden gap-3 overflow-x-auto hide-scrollbar sm:flex">
+            {sides.map((s, i) => {
+              const active = i === activeIdx
+              return (
+                <button
+                  key={s.side}
+                  type="button"
+                  onClick={() => scrollToIndex(i)}
+                  aria-label={`Show ${s.side} image`}
+                  aria-current={active}
+                  className={`h-24 w-24 shrink-0 overflow-hidden rounded-sm transition-opacity duration-fast ${
+                    active ? 'border-2 border-accent' : 'border border-line opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  {s.image_url ? (
+                    <img src={s.image_url} alt="" aria-hidden="true" className="h-full w-full object-cover" draggable={false} />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[10px] text-ink-soft">No image</div>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </>
       )}
@@ -240,7 +315,11 @@ function ProductAccordion({ items, defaultOpenId }: { items: AccordionItemData[]
               className="flex min-h-11 w-full items-center justify-between gap-4 py-3.5 text-left text-sm font-semibold text-ink"
             >
               {item.title}
-              <ChevronDownIcon open={open} />
+              <Icon
+                name="expand_more"
+                size={18}
+                className={`shrink-0 text-ink-soft transition-transform duration-fast ease-out-soft ${open ? 'rotate-180' : ''}`}
+              />
             </button>
             {open && (
               <div id={panelId} className="animate-fade-in pb-4 text-sm leading-relaxed text-ink-soft">
@@ -274,12 +353,17 @@ function ProductPageSkeleton() {
   )
 }
 
+interface ProductsListResponse {
+  products: ProductSummary[]
+}
+
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { store_name: storeName, currency: storeCurrency } = useSettings()
   const [qty, setQty] = useState(1)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null)
   const [activeSideIdx, setActiveSideIdx] = useState(0)
 
   const cartOpen = useCartStore((s) => s.isCartOpen)
@@ -302,13 +386,56 @@ export default function ProductPage() {
 
   useEffect(() => {
     setSelectedSize(null)
-    setQty(1)
+    setSelectedVariant(null)
+    setQty(Math.max(1, product?.min_order_qty ?? 1))
     setActiveSideIdx(0)
   }, [product?.id])
 
   useEffect(() => {
     if (product) document.title = product.seo_title || product.name
   }, [product])
+
+  // POD-UI4.md §5 C.8 — record exactly once per successful product load,
+  // not on every render (the effect's dependency array is what guards
+  // that; a bare call in the render body would re-fire constantly).
+  useEffect(() => {
+    if (product?.id) recordView(product.id)
+  }, [product?.id])
+
+  // POD-UI4.md §5 C.8 — "Recently viewed" rail data. `readRecentlyViewed`
+  // is a synchronous localStorage read (cheap, try/catch-guarded inside the
+  // module itself), so it's fine to call directly in the render body rather
+  // than caching it in state; the current product is excluded so the rail
+  // never recommends the page you're already on.
+  const recentIds = product ? readRecentlyViewed().filter((rid) => rid !== product.id).slice(0, 8) : []
+  const recentQueries = useQueries({
+    queries: recentIds.map((rid) => ({
+      // Same queryKey shape as the main product query above, so a
+      // recently-viewed product already in the cache (e.g. you just came
+      // from it) costs nothing extra to resolve here.
+      queryKey: ['product', String(rid)],
+      queryFn: () => fetchJson<ProductDetail>(`/api/products/${rid}`),
+      retry: false,
+      staleTime: 5 * 60 * 1000,
+    })),
+  })
+  const recentlyViewedProducts = recentQueries.map((q) => q.data).filter((p): p is ProductDetail => !!p)
+
+  // POD-UI4.md §5 C.7 / §3.3 P11 — "You may also like": the honest
+  // substitute for the comp's "Frequently bought together" rail. There is
+  // no co-purchase data anywhere in this schema to base that claim on, so
+  // this is same-category browsing instead — `?category=&exclude=`, both
+  // params already on `GET /api/products` (§4.1). Renders nothing when the
+  // product has no category (query stays disabled) or the response is empty.
+  const { data: relatedData } = useQuery<ProductsListResponse>({
+    queryKey: ['related-products', product?.id, product?.category],
+    queryFn: () => {
+      const params = new URLSearchParams({ category: product!.category, exclude: String(product!.id), limit: '8' })
+      return fetchJson<ProductsListResponse>(`/api/products?${params}`)
+    },
+    enabled: !!product?.category,
+  })
+  const relatedProducts = relatedData?.products ?? []
 
   if (isLoading) {
     return (
@@ -333,19 +460,48 @@ export default function ProductPage() {
 
   const sides = product.sides ?? []
   const sizes = product.sizes ?? []
+  const variants = product.variants ?? []
   const activeSide = sides[activeSideIdx] ?? sides[0]
   const selectedSizeRow = sizes.find((s) => s.label === selectedSize) ?? null
+
+  // POD-V2.md §1.1 — "Size"/"Colour" are t-shirt words; a bottle merchant
+  // renames axis 1 to "Volume", a card merchant renames axis 2 to "Finish".
+  const axis1Label = product.axis1_label?.trim() || 'Size'
+  const axis2Label = product.axis2_label?.trim() || 'Colour'
+
   const customizableSides = sides.filter((s) => !!s.customizable)
 
   const needsSize = sizes.length > 0
   const sizeChosen = !needsSize || !!selectedSize
+  const needsVariant = variants.length > 0
+  // Axis 2 never touches stock (POD-V2.md §3.3) — this is a pure
+  // "did they pick one" gate, exactly like size's own gate above.
+  const variantChosen = !needsVariant || !!selectedVariant
   const displayPrice = product.base_price + (selectedSizeRow?.price_delta ?? 0)
   const displayStock = needsSize ? selectedSizeRow?.stock_count ?? 0 : product.stock_count
   const outOfStock = displayStock <= 0
-  // A size must be chosen before the CTA is enabled; out-of-stock sizes
-  // can't be selected in the first place (see the disabled size buttons).
-  const ctaDisabled = !sizeChosen || outOfStock
+  // A size AND a variant (when either axis exists) must be chosen before
+  // the CTA is enabled; out-of-stock sizes can't be selected in the first
+  // place (see the disabled size cards below).
+  const ctaDisabled = !sizeChosen || !variantChosen || outOfStock
   const ctaLabel = sizeChosen && outOfStock ? 'Out of stock' : product.is_customizable ? 'Customize' : 'Add to cart'
+
+  // POD-UI4.md §5 C.2 — "Key Features" box from the new `highlights`
+  // column: newline-separated merchant copy, never parsed beyond splitting
+  // on newlines and trimming. Hidden entirely when empty (every product
+  // predating the column).
+  const highlightLines = (product.highlights || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  // POD-UI4.md §5 C.3 — whole-percent discount, only shown when it rounds
+  // to at least 1%, computed off the price actually displayed (which
+  // already folds in a selected size delta) rather than base_price alone.
+  const discountPercent =
+    product.compare_price && product.compare_price > displayPrice
+      ? Math.round(((product.compare_price - displayPrice) / product.compare_price) * 100)
+      : 0
 
   // ── Product JSON-LD (POD.md §9.2) ─────────────────────────────────────
   // `offers.price` is deliberately `base_price` alone, NOT `displayPrice`
@@ -361,6 +517,8 @@ export default function ProductPage() {
   // a priceSpecification range; customization cost is surfaced honestly
   // to the shopper in the on-page price breakdown above, and recomputed
   // authoritatively server-side at checkout (routes/checkout.ts, §7.3).
+  // Variants never enter this calculation either — axis 2 carries no
+  // price by design (POD-V2.md §3.1).
   const anyInStock = needsSize ? sizes.some((s) => s.stock_count > 0) : product.stock_count > 0
   const absoluteImageUrls = sides
     .map((s) => s.image_url)
@@ -387,6 +545,7 @@ export default function ProductPage() {
       product_id: product.id,
       name: product.name,
       size: selectedSize,
+      variant: selectedVariant,
       design_id: null,
       preview_url: activeSide?.image_url ?? null,
       base_price: product.base_price,
@@ -401,13 +560,40 @@ export default function ProductPage() {
 
   function handleCustomize() {
     if (!product) return
-    const query = selectedSize ? `?size=${encodeURIComponent(selectedSize)}` : ''
+    // POD-UI4.md §5 C.10 — `?variant=` rides alongside the existing
+    // `?size=`; CustomizePage reads both and threads them into the editor
+    // (`initialSize` / `initialVariant`) exactly the same way.
+    const params = new URLSearchParams()
+    if (selectedSize) params.set('size', selectedSize)
+    if (selectedVariant) params.set('variant', selectedVariant)
+    const query = params.toString() ? `?${params.toString()}` : ''
     navigate(`/customize/${product.id}${query}`)
   }
 
   function handleCta() {
     if (product?.is_customizable) handleCustomize()
     else handleAddToCart()
+  }
+
+  // Shared by both rails below ("You may also like" sends a ProductSummary,
+  // "Recently viewed" a full ProductDetail) — only these four fields are
+  // ever used, so the parameter is a narrow structural shape rather than
+  // forcing a full ProductSummary literal to be built from a ProductDetail.
+  function handleQuickAddToCart(p: { id: number; name: string; base_price: number; image_url: string | null }) {
+    addLine({
+      product_id: p.id,
+      name: p.name,
+      size: null,
+      variant: null,
+      design_id: null,
+      preview_url: p.image_url,
+      base_price: p.base_price,
+      size_delta: 0,
+      print_fees: [],
+      unit_price: p.base_price,
+      quantity: 1,
+    })
+    addToast('Added to cart')
   }
 
   // Static, deliberately generic accordion copy (POD-UI2.md §3/G3: "keep it
@@ -426,12 +612,13 @@ export default function ProductPage() {
       ? [
           {
             id: 'size-guide',
-            title: 'Size guide',
+            title: `${axis1Label} guide`,
             content: (
               <p>
                 Sizes run true to standard unisex fit. If you're between sizes, we recommend sizing up for a more
                 relaxed fit. Because each order is made to order, we're not able to exchange a customized item for a
-                different size once it's printed — please double-check your size before checking out.
+                different {axis1Label.toLowerCase()} once it's printed — please double-check your selection before
+                checking out.
               </p>
             ),
           },
@@ -468,15 +655,14 @@ export default function ProductPage() {
       <Header storeName={storeName} cartCount={totalItems()} onCartOpen={openCart} navItems={NAV_ITEMS} />
 
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-8 sm:py-8">
-        {/* Breadcrumbs (POD-UI2.md §3/G3) — replaces the old bare "← Back to
-            shop" link with the standard Home / Category / Product trail;
-            the category crumb reuses the exact `?category=` param ShopPage
-            already filters on. */}
-        <nav aria-label="Breadcrumb" className="mb-5 flex items-center gap-1.5 text-sm text-ink-soft sm:mb-7">
+        {/* Breadcrumbs (POD-UI2.md §3/G3, chevrons per POD-UI4.md §2.6/P13)
+            — the category crumb reuses the exact `?category=` param
+            ShopPage already filters on. */}
+        <nav aria-label="Breadcrumb" className="mb-5 flex items-center gap-1 text-sm text-ink-soft sm:mb-7">
           <Link to="/" className="transition-colors duration-fast hover:text-ink">
             Home
           </Link>
-          <span aria-hidden="true">/</span>
+          <Icon name="chevron_right" size={16} className="text-ink-faint" />
           {product.category && (
             <>
               <Link
@@ -485,7 +671,7 @@ export default function ProductPage() {
               >
                 {product.category}
               </Link>
-              <span aria-hidden="true">/</span>
+              <Icon name="chevron_right" size={16} className="text-ink-faint" />
             </>
           )}
           <span className="truncate text-ink" aria-current="page">
@@ -514,9 +700,21 @@ export default function ProductPage() {
               )}
             </div>
 
-            <h1 className="mb-6 font-display text-[1.75rem] font-bold leading-tight tracking-[-0.02em] text-ink sm:text-[2rem]">
-              {product.name}
-            </h1>
+            <h1 className="mb-4 font-display text-headline-md text-ink md:text-headline-lg">{product.name}</h1>
+
+            {/* "Key Features" box (POD-UI4.md §5 C.2 / P2) — hidden entirely
+                when the product has no highlights, which is every product
+                predating the column. */}
+            {highlightLines.length > 0 && (
+              <div className="mb-6 rounded-btn border border-line bg-surface-2 p-4">
+                <p className="mb-2 font-label text-label-sm uppercase tracking-widest text-accent">Key Features</p>
+                <ul className="list-disc space-y-1.5 pl-4 text-body-sm text-ink-soft">
+                  {highlightLines.map((lineText, i) => (
+                    <li key={i}>{lineText}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Price breakdown — POD.md §3.2, larger price treatment for hierarchy (POD-UI2.md §3/G3) */}
             {product.is_customizable && customizableSides.length > 0 ? (
@@ -552,6 +750,9 @@ export default function ProductPage() {
                     {product.compare_price.toFixed(2)}
                   </span>
                 )}
+                {/* % OFF badge (POD-UI4.md §5 C.3 / P3) — computed, never a
+                    static claim, and only shown when it rounds to ≥1%. */}
+                {discountPercent >= 1 && <span className="font-label text-label-sm text-accent">{discountPercent}% OFF</span>}
               </div>
             )}
 
@@ -559,66 +760,93 @@ export default function ProductPage() {
                 order, so this is a fixed, honest lead time rather than a
                 per-SKU stock-driven estimate we don't actually have data for. */}
             <div className="mb-6 flex items-center gap-2 text-sm text-ink-soft">
-              <span className="text-ink-faint">
-                <TruckIcon />
-              </span>
+              <Icon name="local_shipping" size={18} className="text-ink-faint" />
               <span>Made to order — ships in 3–5 days</span>
             </div>
 
-            {/* Size picker — 44px chips (POD-UI.md §B4) */}
+            {/* Size cards (POD-UI4.md §5 C.3 / P4) — a grid of cards showing
+                the REAL price delta, never a fabricated one; heading reads
+                the product's own axis1_label ("Size" default, but a bottle
+                merchant renamed it "Volume" — POD-V2.md §1.1). */}
             {needsSize && (
               <div className="mb-6">
                 <p className="mb-2.5 text-xs font-semibold uppercase tracking-wide text-ink">
-                  Size {selectedSize && <span className="ml-1 font-normal normal-case text-ink-soft">— {selectedSize}</span>}
+                  {axis1Label}
+                  {selectedSize && <span className="ml-1 font-normal normal-case text-ink-soft">— {selectedSize}</span>}
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="grid grid-cols-3 gap-3">
                   {sizes.map((s) => {
                     const selected = selectedSize === s.label
                     const disabled = s.stock_count <= 0
                     return (
                       <button
                         key={s.label}
+                        type="button"
                         onClick={() => setSelectedSize(s.label)}
                         disabled={disabled}
                         aria-pressed={selected}
-                        className={`flex h-11 min-w-11 items-center justify-center rounded-btn border px-4 text-sm font-semibold transition-colors duration-fast disabled:cursor-not-allowed disabled:border-line disabled:text-ink-faint disabled:opacity-60 disabled:line-through ${
-                          selected
-                            ? 'border-ink bg-ink text-paper'
-                            : 'border-line text-ink hover:border-ink/60 hover:bg-ink/[0.03]'
+                        className={`flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-btn border p-3 transition-colors duration-fast disabled:cursor-not-allowed disabled:opacity-60 ${
+                          selected ? 'border-2 border-accent bg-surface-2' : 'border-line hover:border-accent/50'
                         }`}
                       >
-                        {s.label}
+                        <span className={`font-label text-label-md text-ink ${disabled ? 'text-ink-faint line-through' : ''}`}>{s.label}</span>
+                        {/* The real per-option delta, never a placeholder —
+                            omitted entirely when it's 0. */}
+                        {s.price_delta !== 0 && (
+                          <span className="text-label-sm text-ink-soft">
+                            +{currency}
+                            {s.price_delta.toFixed(2)}
+                          </span>
+                        )}
                       </button>
                     )
                   })}
                 </div>
-                {!selectedSize && <p className="mt-2.5 text-xs text-ink-soft">Choose a size to continue.</p>}
+                {!selectedSize && <p className="mt-2.5 text-xs text-ink-soft">Choose a {axis1Label.toLowerCase()} to continue.</p>}
               </div>
             )}
+
+            {/* Variant picker (POD-UI4.md §5 C.4 / P5, POD-V2.md §3.1/§3.3
+                decision #9) — labelled with axis2_label ("Colour" default).
+                The gallery deliberately does NOT swap on variant selection:
+                per-variant photos are POD-UI4.md §3.3 P6 / POD-V2.md §11
+                Phase 2.1, explicitly deferred because of the aspect-ratio
+                print-registration guard (POD-V2.md §3.2) — that guard is a
+                real trap and deserves its own round of tests rather than a
+                half-wired swap riding along with this visual pass. */}
+            <VariantPicker variants={variants} axisLabel={axis2Label} selected={selectedVariant} onSelect={setSelectedVariant} />
 
             {/* Quantity — non-customizable products only; stays visible on
                 mobile even though the primary CTA button itself moves into
                 the sticky bar below, since this is the only place it can
-                live before checkout. */}
+                live before checkout. POD-UI4.md §5 C.6 / P8 — min_order_qty
+                is the floor here, not 1; the server enforces the real
+                guarantee (`below_min_order_qty`), this is the affordance. */}
             {!product.is_customizable && (
-              <div className="mb-5 flex items-center gap-3">
-                <span className="text-xs font-semibold uppercase tracking-wide text-ink">Qty</span>
-                <div className="flex h-11 items-center overflow-hidden rounded-btn border border-line">
-                  <button
-                    onClick={() => setQty(Math.max(1, qty - 1))}
-                    className="flex h-11 w-11 items-center justify-center text-ink transition-colors duration-fast hover:bg-ink/5 active:scale-90"
-                    aria-label="Decrease quantity"
-                  >
-                    −
-                  </button>
-                  <span className="min-w-[2rem] text-center text-sm tabular-nums text-ink">{qty}</span>
-                  <button
-                    onClick={() => setQty(Math.min(Math.max(displayStock, 1), qty + 1))}
-                    className="flex h-11 w-11 items-center justify-center text-ink transition-colors duration-fast hover:bg-ink/5 active:scale-90"
-                    aria-label="Increase quantity"
-                  >
-                    +
-                  </button>
+              <div className="mb-5">
+                {product.min_order_qty > 1 && (
+                  <p className="mb-2 text-xs text-ink-soft">Minimum order: {product.min_order_qty} units</p>
+                )}
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-ink">Qty</span>
+                  <div className="flex h-11 items-center overflow-hidden rounded-btn border border-line">
+                    <button
+                      onClick={() => setQty(Math.max(product.min_order_qty, qty - 1))}
+                      disabled={qty <= product.min_order_qty}
+                      className="flex h-11 w-11 items-center justify-center text-ink transition-colors duration-fast hover:bg-ink/5 active:scale-90 disabled:cursor-not-allowed disabled:opacity-30 disabled:active:scale-100"
+                      aria-label="Decrease quantity"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-[2rem] text-center text-sm tabular-nums text-ink">{qty}</span>
+                    <button
+                      onClick={() => setQty(Math.min(Math.max(displayStock, 1), qty + 1))}
+                      className="flex h-11 w-11 items-center justify-center text-ink transition-colors duration-fast hover:bg-ink/5 active:scale-90"
+                      aria-label="Increase quantity"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -641,11 +869,11 @@ export default function ProductPage() {
                 generic rather than making product-specific claims. */}
             <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-ink-soft">
               <span className="inline-flex items-center gap-1.5">
-                <ShieldCheckIcon />
+                <Icon name="verified" size={16} />
                 Secure payment
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <RefreshIcon />
+                <Icon name="autorenew" size={16} />
                 Easy returns
               </span>
             </div>
@@ -655,6 +883,66 @@ export default function ProductPage() {
           </div>
         </div>
       </div>
+
+      {/* "You may also like" (POD-UI4.md §5 C.7 / §3.3 P11) — the honest
+          substitute for the comp's "Frequently bought together": there is
+          no co-purchase data anywhere in this schema to base that claim
+          on, so this is same-category browsing instead. `ProductRail`
+          renders nothing itself when `relatedProducts` is empty (covers
+          "no category" too, since the query stays disabled then), and it
+          owns its own full-width section container — it isn't nested
+          inside this page's `max-w-5xl` column above. */}
+      <ProductRail
+        title="You may also like"
+        viewAllHref={product.category ? `/shop?category=${encodeURIComponent(product.category)}` : undefined}
+      >
+        {relatedProducts.map((p) => (
+          <div key={p.id} className="w-40 shrink-0 snap-start sm:w-48">
+            <ProductCard
+              id={p.id}
+              name={p.name}
+              price={p.base_price}
+              compare_price={p.compare_price}
+              image_url={p.front_image ?? ''}
+              back_image_url={p.back_image}
+              currency={currency}
+              is_customizable={p.is_customizable}
+              min_order_qty={p.min_order_qty}
+              lowest_break={p.lowest_break}
+              onAddToCart={() => handleQuickAddToCart({ id: p.id, name: p.name, base_price: p.base_price, image_url: p.front_image })}
+            />
+          </div>
+        ))}
+      </ProductRail>
+
+      {/* "Recently viewed" (POD-UI4.md §5 C.8 / P12) — `ProductRail` again
+          renders nothing when there are zero resolved ids. */}
+      <ProductRail title="Recently viewed">
+        {recentlyViewedProducts.map((p) => {
+          const frontImage = p.sides?.find((s) => s.side === 'front')?.image_url ?? null
+          // ProductDetail (unlike the list endpoint's ProductSummary) has no
+          // precomputed `lowest_break` — it has the full `price_breaks`
+          // array instead, already ordered `min_qty ASC` by the worker, so
+          // the first entry IS the lowest tier.
+          const lowestBreak = p.price_breaks?.[0] ?? null
+          return (
+            <div key={p.id} className="w-40 shrink-0 snap-start sm:w-48">
+              <ProductCard
+                id={p.id}
+                name={p.name}
+                price={p.base_price}
+                compare_price={p.compare_price}
+                image_url={frontImage ?? ''}
+                currency={currency}
+                is_customizable={p.is_customizable}
+                min_order_qty={p.min_order_qty}
+                lowest_break={lowestBreak}
+                onAddToCart={() => handleQuickAddToCart({ id: p.id, name: p.name, base_price: p.base_price, image_url: frontImage })}
+              />
+            </div>
+          )
+        })}
+      </ProductRail>
 
       {/* Sticky bottom action bar — mobile only. Price + single primary CTA.
           Stacked *above* the app-wide bottom tab bar (App.tsx's

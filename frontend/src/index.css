@@ -10,77 +10,153 @@
 
 /*
  * ESPOD design system — single source of truth for color, type,
- * radius, elevation and motion (POD-UI.md §2.1 — AUTHORITATIVE SPEC).
+ * radius, elevation and motion (POD-UI4.md §2 — AUTHORITATIVE SPEC).
  *
- * Tailwind v4 is CSS-first: every `--color-*` / `--font-*` / `--radius-*` /
- * `--shadow-*` / `--ease-*` / `--animate-*` token declared inside `@theme`
- * automatically becomes a matching utility class (bg-ink, text-accent-soft,
- * rounded-card, shadow-lift, font-display, ease-spring, animate-fade-up, …).
- * Components consume the palette through ordinary Tailwind classes /
- * arbitrary values instead of inline styles, so there is exactly one place
- * the look of the store is defined.
+ * Tailwind v4 is CSS-first: every `--color-*` / `--font-*` / `--text-*` /
+ * `--radius-*` / `--shadow-*` / `--ease-*` / `--animate-*` token declared
+ * inside `@theme` automatically becomes a matching utility class (bg-ink,
+ * text-accent-soft, text-headline-lg, rounded-card, shadow-lift,
+ * font-display, ease-spring, animate-fade-up, ...). Components consume the
+ * palette through ordinary Tailwind classes / arbitrary values instead of
+ * inline styles, so there is exactly one place the look of the store is
+ * defined.
  *
- * IMPORTANT — verified empirically (see A1 verification): Tailwind v4 has
- * no `--duration-*` theme namespace, so `--dur-fast` / `--dur-base` /
- * `--dur-slow` do NOT auto-generate a bare `dur-fast` or `duration-fast`
- * utility the way radius/shadow/ease/animate tokens do. They are exposed
- * two ways instead: (1) as plain CSS custom properties, usable anywhere
- * via `var(--dur-fast)` or Tailwind arbitrary values like
- * `duration-[var(--dur-fast)]`; and (2) as first-class utilities
- * (`duration-fast` / `duration-base` / `duration-slow`, participating in
- * variants like `hover:` and breakpoints) via the `@utility` at-rule below
- * — the standard Tailwind v4 mechanism for custom utilities.
+ * IMPORTANT — verified empirically: Tailwind v4 has no `--duration-*` theme
+ * namespace, so `--dur-fast` / `--dur-base` / `--dur-slow` do NOT
+ * auto-generate a bare `dur-fast` or `duration-fast` utility the way
+ * radius/shadow/ease/animate tokens do. They are exposed two ways instead:
+ * (1) as plain CSS custom properties, usable anywhere via `var(--dur-fast)`
+ * or Tailwind arbitrary values like `duration-[var(--dur-fast)]`; and (2) as
+ * first-class utilities (`duration-fast` / `duration-base` /
+ * `duration-slow`, participating in variants like `hover:` and breakpoints)
+ * via the `@utility` at-rule below — the standard Tailwind v4 mechanism for
+ * custom utilities.
  *
- * Direction (POD-UI.md §2 "Bold editorial, design-tool confidence"): a
- * cool, high-separation neutral base with ONE accent — indigo — reserved
- * for primary actions and active states (Add to cart, Customize, Place
- * order). No second accent.
+ * Direction (POD-UI4.md §2): the palette, type and radius scale are lifted
+ * from the reference comps in `referance/` — blue-tinted Material-3-shaped
+ * neutrals, BLACK as the primary button/heading ground, and exactly ONE
+ * chromatic accent (teal `#006A61`) for links, focus rings, selected
+ * borders and active states, with mint `#86F2E4` as its tint. Black is
+ * neutral, not a second accent, so the "one accent" rule still holds.
+ *
+ * TOKEN NAMES ARE DELIBERATELY UNCHANGED from the pre-POD-UI4 system even
+ * where their values are not (POD-UI4.md §2.1 / decisions log): `ink`,
+ * `paper`, `accent`, `line` etc. are referenced across ~60 files, so
+ * re-pointing values here re-skins the whole app atomically with no chance
+ * of a missed call site. The genuinely new tokens (`surface-3..5`,
+ * `primary*`, `on-accent-soft`, `inverse-*`, `star`, the `--text-*` scale)
+ * are additive.
  */
 @theme {
-  /* Neutrals — cool, high separation */
-  --color-paper: #F7F7F9; /* page ground */
+  /* ── Neutrals — blue-tinted, Material-3 surface ladder ────────────── */
+  --color-paper: #F8F9FF; /* page ground */
   --color-surface: #FFFFFF; /* cards, sheets, inputs */
-  --color-surface-2: #F1F1F4; /* subtle fills, skeletons */
-  --color-ink: #101014; /* primary text */
-  --color-ink-soft: #6A6A77; /* secondary text */
-  --color-ink-faint: #9B9BA6; /* tertiary, placeholders */
-  --color-line: #E4E4EA; /* borders, dividers */
+  --color-surface-2: #EFF4FF; /* tile grounds, subtle fills, skeletons */
+  --color-surface-3: #E5EEFF; /* nested fills, segmented-control troughs */
+  --color-surface-4: #DCE9FF; /* icon circles, chip grounds */
+  --color-surface-5: #D3E4FE; /* footer ground, heaviest surface */
+  --color-surface-dim: #CBDBF5; /* disabled tiles */
+  --color-ink: #0B1C30; /* primary text */
+  --color-ink-soft: #45464D; /* secondary text */
+  --color-ink-faint: #76777D; /* tertiary text, placeholders */
+  --color-line: #C6C6CD; /* borders, dividers */
 
-  /* The one accent */
-  --color-accent: #4F46E5;
-  --color-accent-dark: #4338CA; /* hover/press */
-  --color-accent-soft: #EEF2FF; /* tint backgrounds, active chips */
+  /* ── Primary: black. Weight and hierarchy, not colour. ───────────── */
+  --color-primary: #000000;
+  --color-on-primary: #FFFFFF;
+  --color-primary-container: #131B2E; /* deep navy — primary hover/press, avatars */
+
+  /* ── The one accent: teal ─────────────────────────────────────────── */
+  --color-accent: #006A61;
+  --color-accent-dark: #005049; /* hover/press */
+  --color-accent-soft: #86F2E4; /* mint — active nav, price pills, chips */
+  --color-on-accent-soft: #006F66; /* text/icon on accent-soft */
   --color-on-accent: #FFFFFF;
 
-  /* Status */
+  /* ── Inverse (toasts, tooltips) ───────────────────────────────────── */
+  --color-inverse-surface: #213145;
+  --color-inverse-on-surface: #EAF1FF;
+
+  /* ── Status — never decorative ────────────────────────────────────── */
   --color-success: #15803D;
-  --color-warning: #B45309;
-  --color-danger: #DC2626;
+  --color-success-soft: #D3F4E4;
+  --color-warning: #D95F00;
+  --color-warning-soft: #FFDBCA;
+  --color-danger: #BA1A1A;
+  --color-danger-soft: #FFDAD6;
+  --color-on-danger-soft: #93000A;
 
-  /* Type */
-  --font-display: 'Space Grotesk', 'Segoe UI', system-ui, sans-serif;
+  /* Ratings only. Not part of the accent system. */
+  --color-star: #FFD700;
+
+  /* ── Type — three families ────────────────────────────────────────── */
+  --font-display: 'Hanken Grotesk', 'Segoe UI', system-ui, sans-serif;
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-label: 'Geist', 'Inter', system-ui, sans-serif;
 
-  /* Radius */
-  --radius-btn: 0.625rem;
-  --radius-card: 1rem;
-  --radius-sheet: 1.5rem;
+  /* Named scale steps. Each `--text-<name>` gets its line-height, weight
+     and tracking from the matching `--text-<name>--*` companions, so a
+     single `text-headline-lg` carries all four properties. */
+  --text-headline-xl: 48px;
+  --text-headline-xl--line-height: 56px;
+  --text-headline-xl--letter-spacing: -0.02em;
+  --text-headline-xl--font-weight: 700;
 
-  /* Elevation — soft, neutral, never black */
-  --shadow-card: 0 1px 2px rgb(16 16 20 / 0.04), 0 4px 16px rgb(16 16 20 / 0.06);
-  --shadow-lift: 0 2px 4px rgb(16 16 20 / 0.06), 0 12px 32px rgb(16 16 20 / 0.10);
-  --shadow-sheet: 0 -4px 24px rgb(16 16 20 / 0.12);
+  --text-headline-lg: 32px;
+  --text-headline-lg--line-height: 40px;
+  --text-headline-lg--letter-spacing: -0.01em;
+  --text-headline-lg--font-weight: 600;
 
-  /* Motion */
+  --text-headline-md: 24px;
+  --text-headline-md--line-height: 32px;
+  --text-headline-md--font-weight: 600;
+
+  --text-body-lg: 18px;
+  --text-body-lg--line-height: 28px;
+  --text-body-lg--font-weight: 400;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 24px;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 20px;
+  --text-body-sm--font-weight: 400;
+
+  --text-label-md: 14px;
+  --text-label-md--line-height: 16px;
+  --text-label-md--letter-spacing: 0.02em;
+  --text-label-md--font-weight: 500;
+
+  --text-label-sm: 12px;
+  --text-label-sm--line-height: 14px;
+  --text-label-sm--font-weight: 600;
+
+  /* ── Radius — deliberately flat 2/4/8/12 (POD-UI4.md §2.4) ────────── */
+  --radius-xs: 0.125rem; /*  2px */
+  --radius-sm: 0.25rem; /*  4px */
+  --radius-btn: 0.5rem; /*  8px */
+  --radius-card: 0.5rem; /*  8px */
+  --radius-lg: 0.75rem; /* 12px */
+  --radius-sheet: 0.75rem; /* 12px */
+  --radius-pill: 9999px;
+
+  /* ── Elevation — soft, tinted with the ink hue, never black ───────── */
+  --shadow-card: 0 1px 2px rgb(11 28 48 / 0.04), 0 2px 8px rgb(11 28 48 / 0.05);
+  --shadow-lift: 0 2px 4px rgb(11 28 48 / 0.06), 0 10px 28px rgb(11 28 48 / 0.1);
+  --shadow-sheet: 0 -4px 24px rgb(11 28 48 / 0.12);
+  --shadow-canvas: 0 4px 20px -2px rgb(15 23 42 / 0.08); /* admin preview canvas */
+
+  /* ── Motion (unchanged) ───────────────────────────────────────────── */
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --dur-fast: 150ms;
   --dur-base: 240ms;
   --dur-slow: 360ms;
 
-  /* Keyframe-driven animation utilities (§A3). Each is also usable directly
-     via `animation: <name> ...` for cases (e.g. staggered entrances) that
-     need a per-element `animation-delay` the bare utility can't parameterize. */
+  /* Keyframe-driven animation utilities. Each is also usable directly via
+     `animation: <name> ...` for cases (e.g. staggered entrances) that need
+     a per-element `animation-delay` the bare utility can't parameterize. */
   --animate-fade-in: fade-in 0.25s ease-out;
   --animate-fade-up: fade-up var(--dur-slow) var(--ease-out-soft) both;
   --animate-scale-in: scale-in var(--dur-base) var(--ease-spring) both;
@@ -110,6 +186,28 @@
    Workstream B's grid entrances consume this. */
 @utility stagger-delay {
   animation-delay: calc(var(--stagger-index, 0) * 40ms);
+}
+
+/* Horizontal rails (POD-UI4.md §4.3 `ProductRail`, the comps' snap-scroll
+   product carousels) scroll natively but must not show a scrollbar — the
+   affordance is the hover arrows and the snap itself. Declared once here
+   rather than repeating the three vendor-prefixed arbitrary values at every
+   call site. */
+@utility hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* The admin preview workspace's ground (POD-UI4.md §4 A3): a faint dot
+   grid so artwork and print-area overlays read against something that is
+   clearly a canvas rather than a page. */
+@utility dot-grid {
+  background-image: radial-gradient(var(--color-primary-container) 1px, transparent 1px);
+  background-size: 24px 24px;
+  background-position: 0 0;
 }
 
 @keyframes fade-in {
@@ -201,6 +299,30 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+}
+
+/* Material Symbols Outlined (POD-UI4.md §2.6). The font is loaded SUBSETTED
+   from Google Fonts via `icon_names=` in index.html — see
+   components/ui/iconNames.ts, which is the single source of truth for that
+   list and is enforced against every `<Icon name>` literal by
+   components/ui/__tests__/iconNames.test.ts.
+   `font-variation-settings` pins the four axes; the FILL axis is overridden
+   per-glyph by Icon.tsx's `fill` prop. `line-height: 1` keeps a glyph from
+   inflating the line box of the button it sits in. */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
 ::selection {

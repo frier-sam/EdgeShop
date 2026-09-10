@@ -5,6 +5,7 @@ import { adminFetch } from './lib/adminFetch'
 import { showToast } from './Toast'
 import Field from '../components/Field'
 import Button from '../components/Button'
+import Icon from '../components/ui/Icon'
 import type { ProductSide } from '../lib/types'
 import type { PrintRect } from './types'
 
@@ -187,6 +188,7 @@ export default function ProductSideCard({
         onUploadComplete={({ url, width, height }) => {
           setDraft((d) => ({ ...d, imageUrl: url, imageW: width, imageH: height }))
         }}
+        onRemove={() => setDraft((d) => ({ ...d, imageUrl: '', imageW: 0, imageH: 0 }))}
       />
 
       {productIsCustomizable ? (
@@ -240,7 +242,7 @@ export default function ProductSideCard({
           </div>
 
           {side === 'back' && frontSide && (
-            <Button type="button" variant="secondary" size="sm" onClick={handleCopyFromFront}>
+            <Button type="button" variant="secondary" size="sm" leftIcon={<Icon name="content_copy" size={16} />} onClick={handleCopyFromFront}>
               Copy from front
             </Button>
           )}

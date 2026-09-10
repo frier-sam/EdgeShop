@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { NavItem } from '../lib/storeConfig'
 import { FOOTER_COLUMNS } from '../lib/storeConfig'
+import Icon from './ui/Icon'
+import type { IconName } from './ui/iconNames'
 
 interface FooterProps {
   storeName: string
@@ -16,7 +18,7 @@ interface FooterProps {
 
 function PaymentBadge({ label }: { label: string }) {
   return (
-    <span className="flex h-7 items-center rounded-[4px] border border-paper/15 bg-paper/5 px-2 text-[11px] font-semibold tracking-wide text-paper/70">
+    <span className="flex h-7 items-center rounded-sm border border-line bg-surface px-2 text-[11px] font-semibold tracking-wide text-ink-soft">
       {label}
     </span>
   )
@@ -48,33 +50,80 @@ function XIcon() {
   )
 }
 
-const SOCIAL_LINKS = [
-  { label: 'Instagram', href: '#', Icon: InstagramIcon },
-  { label: 'Facebook', href: '#', Icon: FacebookIcon },
-  { label: 'X (Twitter)', href: '#', Icon: XIcon },
+// Brand marks (POD-UI4.md §5 A.5): Material Symbols has no Instagram/
+// Facebook/X glyphs, so these three stay hand-rolled inline SVG — the one
+// deliberate exception to "everything through <Icon>" this round.
+const BRAND_SOCIAL_LINKS = [
+  { label: 'Instagram', href: '#', Svg: InstagramIcon },
+  { label: 'Facebook', href: '#', Svg: FacebookIcon },
+  { label: 'X (Twitter)', href: '#', Svg: XIcon },
 ]
+
+// The one Material Symbol that *does* exist for the social row: a generic
+// "visit our site" glyph pointing at the real homepage route, alongside
+// the brand marks above — the comp's own footer pairs a `language` glyph
+// with the brand icons the same way.
+const SITE_LINK = { label: 'Visit our homepage', href: '/', iconName: 'public' as const }
 
 const PAYMENT_METHODS = ['Visa', 'Mastercard', 'RuPay', 'UPI', 'Cash on Delivery']
 
-/** One footer column of links — `href="#"` entries render as inert text (POD-UI2.md §3/E6 note) instead of a dead link. */
+// 44px floor (POD-UI4.md §6) — was a 36px box; these are real interactive
+// controls (even if a couple are `href="#"` placeholders), not decoration.
+const SOCIAL_ICON_CLASSES =
+  'flex h-11 w-11 items-center justify-center rounded-pill border border-line text-ink-soft transition-colors duration-fast hover:border-ink/30 hover:text-ink'
+
+/** `mailto:`/`tel:` need a real browser navigation, not client-side routing — see the comment on the Contact column below. Doubles as which entries earn an icon prefix. */
+function externalContactIcon(href: string): IconName | null {
+  if (href.startsWith('tel:')) return 'phone_in_talk'
+  if (href.startsWith('mailto:')) return 'mail'
+  return null
+}
+
+/**
+ * One footer column of links. `href="#"` entries render as inert text
+ * (POD-UI2.md §3/E6 note) instead of a dead link. `mailto:`/`tel:` entries
+ * (the Contact column, plus "Contact Us" under Help) render as a plain
+ * `<a>` rather than react-router's `Link` — `Link`'s `to` prop resolves
+ * scheme-prefixed strings as an in-app relative path (there is no
+ * "mailto:…" route), which silently turned every email/phone entry into a
+ * broken client-side navigation instead of opening the mail/dial handler.
+ * Those two get a small `mail`/`phone_in_talk` glyph (POD-UI4.md §5 A.5).
+ */
 function FooterColumn({ title, links }: { title: string; links: NavItem[] }) {
   return (
     <div>
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-paper/50">{title}</h3>
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">{title}</h3>
       <ul className="flex flex-col gap-2.5">
-        {links.map((link) =>
-          link.href === '#' ? (
-            <li key={link.label} title="Coming soon" className="text-sm text-paper/40">
-              {link.label}
-            </li>
-          ) : (
-            <li key={link.label}>
-              <Link to={link.href} className="text-sm text-paper/70 transition-colors hover:text-paper">
+        {links.map((link) => {
+          if (link.href === '#') {
+            return (
+              <li key={link.label} title="Coming soon" className="text-sm text-ink-faint">
                 {link.label}
-              </Link>
+              </li>
+            )
+          }
+          const iconName = externalContactIcon(link.href)
+          const rowClasses = 'flex items-center gap-2 text-sm text-ink-soft transition-colors hover:text-ink'
+          const content = (
+            <>
+              {iconName && <Icon name={iconName} size={16} className="shrink-0 text-ink-faint" />}
+              <span>{link.label}</span>
+            </>
+          )
+          return (
+            <li key={link.label}>
+              {iconName ? (
+                <a href={link.href} className={rowClasses}>
+                  {content}
+                </a>
+              ) : (
+                <Link to={link.href} className={rowClasses}>
+                  {content}
+                </Link>
+              )}
             </li>
-          ),
-        )}
+          )
+        })}
       </ul>
     </div>
   )
@@ -100,7 +149,7 @@ function NewsletterForm() {
 
   if (state === 'submitted') {
     return (
-      <p className="rounded-btn border border-paper/15 bg-paper/5 px-3.5 py-2.5 text-sm text-paper/80">
+      <p className="rounded-btn border border-line bg-surface px-3.5 py-2.5 text-sm text-ink-soft">
         Thanks — newsletter signups are coming soon. We haven&apos;t saved your email anywhere yet.
       </p>
     )
@@ -118,11 +167,11 @@ function NewsletterForm() {
         value={email}
         onChange={(e) => setEmail(e.target.value)}
         placeholder="you@example.com"
-        className="h-11 min-w-0 flex-1 rounded-btn border border-paper/20 bg-paper/5 px-3.5 text-sm text-paper placeholder:text-paper/40 focus:outline-none focus:ring-2 focus:ring-paper/30"
+        className="h-11 min-w-0 flex-1 rounded-btn border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-ink-faint transition-colors duration-fast focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
       />
       <button
         type="submit"
-        className="h-11 shrink-0 rounded-btn bg-paper px-4 text-sm font-semibold text-ink transition-colors duration-fast hover:bg-paper/90 active:bg-paper/80"
+        className="h-11 shrink-0 rounded-btn bg-primary px-4 text-sm font-semibold text-on-primary transition-colors duration-fast hover:bg-primary-container active:scale-95"
       >
         Sign up
       </button>
@@ -138,23 +187,26 @@ export default function Footer({ storeName, links = [] }: FooterProps) {
   )
 
   return (
-    <footer className="mt-20 border-t border-ink/10 bg-ink text-paper">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-8 md:py-16">
+    // POD-UI4.md §3.1 C5 / §5 A.5 — the comp's footer is a light, heavy
+    // surface (`surface-container-highest`), not ESPOD's old dark
+    // ink-on-ink treatment, so this swaps to `surface-5` (the heaviest
+    // neutral) with ordinary `ink`/`ink-soft`/`ink-faint` text instead of
+    // opacity-thinned `paper/NN`.
+    <footer className="mt-20 border-t border-line bg-surface-5 text-ink">
+      <div className="mx-auto max-w-7xl px-4 py-12 md:px-10 md:py-16">
         <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-5">
           <div className="col-span-2 md:col-span-1">
-            <p className="font-display text-lg font-bold uppercase tracking-tight">{storeName}</p>
-            <p className="mt-2 max-w-[22ch] text-sm text-paper/50">Made to order, printed with care.</p>
+            <p className="font-display text-lg font-bold uppercase tracking-tight text-ink">{storeName}</p>
+            <p className="mt-2 max-w-[22ch] text-sm text-ink-soft">Made to order, printed with care.</p>
             <div className="mt-5 flex items-center gap-2">
-              {SOCIAL_LINKS.map(({ label, href, Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  aria-label={label}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-paper/15 text-paper/70 transition-colors duration-fast hover:border-paper/40 hover:text-paper"
-                >
-                  <Icon />
+              {BRAND_SOCIAL_LINKS.map(({ label, href, Svg }) => (
+                <a key={label} href={href} aria-label={label} className={SOCIAL_ICON_CLASSES}>
+                  <Svg />
                 </a>
               ))}
+              <Link to={SITE_LINK.href} aria-label={SITE_LINK.label} className={SOCIAL_ICON_CLASSES}>
+                <Icon name={SITE_LINK.iconName} size={18} />
+              </Link>
             </div>
           </div>
 
@@ -163,16 +215,16 @@ export default function Footer({ storeName, links = [] }: FooterProps) {
           ))}
         </div>
 
-        <div className="mt-12 border-t border-paper/10 pt-8">
+        <div className="mt-12 border-t border-line pt-8">
           <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
             <div>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-paper/50">Stay in the loop</h3>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">Stay in the loop</h3>
               <div className="max-w-sm">
                 <NewsletterForm />
               </div>
             </div>
             <div>
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-paper/50 md:text-right">We accept</h3>
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint md:text-right">We accept</h3>
               <div className="flex flex-wrap gap-2 md:justify-end">
                 {PAYMENT_METHODS.map((m) => (
                   <PaymentBadge key={m} label={m} />
@@ -182,7 +234,7 @@ export default function Footer({ storeName, links = [] }: FooterProps) {
           </div>
         </div>
 
-        <p className="mt-10 text-xs text-paper/40">
+        <p className="mt-10 text-xs text-ink-faint">
           © {new Date().getFullYear()} {storeName}. All rights reserved.
         </p>
       </div>

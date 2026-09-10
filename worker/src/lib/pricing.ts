@@ -16,12 +16,25 @@ export interface PricingProduct {
   base_price: number
   status: string
   is_customizable: number
+  // POD-V2.md §5, §11 Phase 3.3 — merchant-configured purchase floor,
+  // enforced below independently of (and well before) Phase 3's bulk tier
+  // pricing. Defaults to 1 at the schema level, so every pre-existing
+  // fixture/order that never set it stays unaffected.
+  min_order_qty: number
 }
 
 export interface PricingSize {
   label: string
   price_delta: number
   stock_count: number
+}
+
+// POD-V2.md §3.1 — axis 2 (colour/finish/material). Deliberately just a
+// label: axis 2 carries no price delta by design, so this is the entire
+// shape computeLine needs to validate a variant claim and echo it back —
+// nothing here ever feeds into unit_price/line_total.
+export interface PricingVariant {
+  label: string
 }
 
 export interface PricingSide {
@@ -41,6 +54,10 @@ export interface LineInput {
   product_id: number
   quantity: number
   size?: string | null
+  // POD-V2.md §3.1 / POD-UI4.md §4.1 — axis 2's label, validated the same
+  // way `size` is (a non-empty value must resolve to a real row) but never
+  // priced — see PricingVariant and the invalid_variant check below.
+  variant?: string | null
   design_id?: string | null
 }
 
@@ -57,6 +74,9 @@ export interface ResolvedLineItem {
   product_id: number
   name: string
   size: string | null
+  // POD-V2.md §3.1 — carried for display/fulfilment only (which blank the
+  // merchant pulls); never read by any money computation in this file.
+  variant: string | null
   quantity: number
   base_price: number
   size_delta: number
@@ -76,6 +96,8 @@ export interface ComputeLineArgs {
   product: PricingProduct | null
   /** The matching product_sizes row for `input.size`, or null if no size was requested or none matched. */
   size: PricingSize | null
+  /** The matching product_variants row for `input.variant`, or null if no variant was requested or none matched. */
+  variant: PricingVariant | null
   /** Every product_sides row for the product (needed to validate a design's claimed sides and look up their fees). */
   sides: PricingSide[]
   /** The designs row for `input.design_id`, or null if none was requested or none matched. */
@@ -97,7 +119,7 @@ export function round2(n: number): number {
  * (POD.md §7.3 — "a customer could claim a front-only design and be
  * charged one fee while submitting art for both, or vice versa").
  */
-export function computeLine({ input, product, size, sides, design, previewJson }: ComputeLineArgs): LineResult {
+export function computeLine({ input, product, size, variant, sides, design, previewJson }: ComputeLineArgs): LineResult {
   if (!Number.isFinite(input.product_id) || input.product_id <= 0) {
     return { ok: false, error: 'invalid_line' }
   }
@@ -107,8 +129,24 @@ export function computeLine({ input, product, size, sides, design, previewJson }
   if (!product || product.status !== 'active') {
     return { ok: false, error: 'product_not_found' }
   }
+  // POD-V2.md §5, §11 Phase 3.3 — merchant purchase floor. Lands
+  // independently of (and well before) Phase 3's bulk tier pricing, which
+  // is NOT part of this change: this is a pure quantity-floor check, not a
+  // price computation. Placed right after the generic >=1 integer sanity
+  // check above and the product resolution just above it, per spec.
+  if (input.quantity < product.min_order_qty) {
+    return { ok: false, error: 'below_min_order_qty' }
+  }
   if (input.size && !size) {
     return { ok: false, error: 'invalid_size' }
+  }
+  // POD-V2.md §3.1 — exactly mirrors the invalid_size rule above: a
+  // non-empty claimed variant that didn't resolve to a real
+  // product_variants row is rejected the same way a bad size is. Never
+  // touches pricing — axis 2 has no price_delta to look up in the first
+  // place (see PricingVariant).
+  if (input.variant && !variant) {
+    return { ok: false, error: 'invalid_variant' }
   }
 
   let designId: string | null = null
@@ -157,6 +195,9 @@ export function computeLine({ input, product, size, sides, design, previewJson }
 
   const sizeDelta = size?.price_delta ?? 0
   const printFeeTotal = printFees.reduce((sum, f) => sum + f.fee, 0)
+  // POD-V2.md §3.1 — deliberately no variant term here. Axis 2 was designed
+  // to carry no price difference so it could stay out of this function
+  // entirely; `variant` below is pass-through display data only.
   const unitPrice = round2(product.base_price + sizeDelta + printFeeTotal)
   const lineTotal = round2(unitPrice * input.quantity)
   const frontOrFirstPreview = previews.front ?? Object.values(previews)[0] ?? ''
@@ -167,6 +208,7 @@ export function computeLine({ input, product, size, sides, design, previewJson }
       product_id: product.id,
       name: product.name,
       size: input.size ?? null,
+      variant: input.variant ?? null,
       quantity: input.quantity,
       base_price: product.base_price,
       size_delta: sizeDelta,

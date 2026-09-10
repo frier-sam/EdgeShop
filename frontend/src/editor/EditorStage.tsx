@@ -12,7 +12,7 @@ import {
   positionCanvasWrapper,
   setCanvasInteractive,
 } from './fabric/canvas'
-import { computeStageGeometry, type NormalizedRect, type StageGeometry } from './geometry'
+import { computeFlatStageGeometry, type NormalizedRect, type StageGeometry } from './geometry'
 import { HANDLE_GUTTER_PX, gutteredCanvasSize, gutteredWrapperOrigin, gutterViewportTransform } from './canvasGutter'
 import type { EditorMode, EditorSideName } from './types'
 
@@ -62,19 +62,69 @@ export interface EditorStageProps {
    * `canvas.getWidth()`.
    */
   onBleedSizeChange?: (width: number, height: number) => void
+  /**
+   * POD-V2.md §6.6 — opens the "browse ready-made designs" drawer
+   * (TemplateDrawer.tsx, owned by CustomizerEditor). Wired to the "Start
+   * from a design" half of the empty-state prompt below. Optional so this
+   * component's existing tests/stories that don't care about templates
+   * don't all need updating just to satisfy a required prop.
+   */
+  onOpenDesigns?: () => void
 }
 
 /**
- * POD.md §5.2 / §6.2 — the two-layer stage. This is the single most
- * important component in the customizer:
+ * POD.md §5.2 / §6.2 as amended by POD-UI3.md §3.1 / §4.4 — the DESIGN
+ * surface. This is the single most important component in the customizer:
  *
- *   <div class="stage">          <- fits the viewport, ResizeObserver'd
- *     <img>                      <- plain DOM <img>, object-fit: contain
- *     <div class="scrim">        <- dims the area OUTSIDE the bleed rect
+ *   <div class="stage">          <- fits the viewport, ResizeObserver'd, bg-surface-2
+ *     <div class="plane">        <- paper-tinted card AT the bleed rect (the trim ring)
+ *     <div class="sheet">        <- pure white fill AT the true print rect
  *     <canvas>                   <- absolutely positioned; its box IS the bleed rect
+ *     <div class="gutter-scrim"> <- translucent PAPER band over the handle gutter
  *     <div class="safe-guide">   <- dashed inner outline, pure CSS
  *     <div class="print-guide">  <- solid outline at the true print rect
+ *     <img>                      <- static ~80px mockup thumbnail, top-right
  *   </div>
+ *
+ * WHAT USED TO BE HERE, AND WHY IT ISN'T (POD-UI3.md §1.1): a full-stage
+ * mockup <img> (object-fit: contain) under a `scrim` div whose
+ * `0 0 0 9999px rgba(16,16,20,0.45)` box-shadow dimmed everything outside
+ * the bleed rect. Both are deleted. A tee's print area is only ~35% of the
+ * mockup's width, so the mockup squeezed the design canvas to ~150px on a
+ * 390px phone, and the scrim's undimmed hole read as a hard-edged box
+ * floating on a dark photo — the reported "large bounding box". With no
+ * mockup there is nothing left to dim, so the scrim goes with it, and the
+ * same print area now renders ~262px wide. Placement context comes from
+ * the static thumbnail (purely decorative, `aria-hidden`); the REAL check
+ * is preview mode, which composites the artwork into the mockup and shades
+ * it with the garment's own folds (POD-UI3.md §3.2).
+ *
+ * The plane is always WHITE, never sampled from the garment (POD-UI3.md
+ * §3.1): a colour clash (black art on a black tee) is what Preview is for,
+ * and sampling would make the design surface depend on mockup pixels that
+ * `design_json` deliberately doesn't reference.
+ *
+ * This component only ever renders the design surface. Preview mode is an
+ * opaque sibling overlay ABOVE it (components/PreviewStage.tsx, POD-UI3.md
+ * §4.6), and this component deliberately stays mounted and laid out
+ * underneath — it owns the live Fabric canvas and the per-side snapshot
+ * cache, so unmounting it on a mode change would destroy the shopper's
+ * design. `mode` therefore still does exactly two things here: it
+ * cross-fades the guides (and the thumbnail), and it flips
+ * `setCanvasInteractive`. The prop interface is unchanged: `mockupUrl` is
+ * still required (the thumbnail uses it) and `printRect` still drives
+ * every rect.
+ *
+ * Geometry comes from `computeFlatStageGeometry(…, padding:
+ * HANDLE_GUTTER_PX)` instead of `computeStageGeometry` — the same
+ * normalized `print_*` fractions and the same frozen bleed/safe maths, but
+ * fitting the BLEED RECT to the stage rather than fitting a photo and
+ * taking whatever slice of it the print area happens to be. It still
+ * returns a real (if synthetic) `containBox` at provably the same aspect
+ * ratio as the canonical reference geometry (geometry.ts, POD-UI3.md §4.1
+ * guarantee 3 — the invariant that keeps `rescaleFabricSnapshot` from
+ * stretching a stored design onto this stage), so nothing else in this
+ * file or downstream of it needed to change.
  *
  * We deliberately do NOT use Fabric clipPath: the canvas element cannot
  * paint outside itself, so clipping is free and exact, the export IS the
@@ -126,6 +176,24 @@ export interface EditorStageProps {
  * into the gutter still reads as "will be trimmed" while handles — drawn
  * by Fabric outside the scrim's stacking, and always `pointer-events:
  * none` on the scrim itself — remain visible and grabbable through it.
+ *
+ * That band is now the WORKSPACE GROUND's own colour at 72% —
+ * `rgba(241,241,244,0.72)`, i.e. `--color-surface-2`, the container's
+ * background — where it used to be `rgba(16,16,20,0.4)` (POD-UI3.md
+ * §1.1/§3.1). It is the one overlay deliberately NOT faded by `mode` (see
+ * its own comment below), so on a light workspace a 64px dark band was the
+ * only thing left on screen in preview: a picture frame drawn around the
+ * print area, which is half of the "large bounding box" report.
+ *
+ * Matching the ground EXACTLY is the point, and it is why this is not
+ * `--color-paper`: a band whose colour differs from what it sits on is
+ * visible as a band even at low alpha — which is the very artifact being
+ * removed. Ground-coloured, it disappears over the workspace and does its
+ * only real job, muting art dragged past the trim edge 72% of the way back
+ * to the ground, so off-plane art reads as "this part fades away" instead
+ * of looking fully kept. Alpha, not hue, is what does the muting, so this
+ * loses nothing. Everything else about it is unchanged, `pointer-events:
+ * none` included.
  */
 export default function EditorStage({
   fabric,
@@ -145,6 +213,7 @@ export default function EditorStage({
   onSnapshotCached,
   objectCount,
   onBleedSizeChange,
+  onOpenDesigns,
 }: EditorStageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasElRef = useRef<HTMLCanvasElement | null>(null)
@@ -222,7 +291,17 @@ export default function EditorStage({
     let cancelled = false
 
     async function run() {
-      const geo = computeStageGeometry({
+      // POD-UI3.md §4.1/§4.4 — the ONLY thing that changed for the flat
+      // design surface. `computeFlatStageGeometry` fits the BLEED rect to
+      // the stage (minus HANDLE_GUTTER_PX on every side, so handles at the
+      // plane's edge aren't clipped by the stage's overflow:hidden) instead
+      // of fitting a mockup photo and taking whatever slice of it the print
+      // area happens to be. It returns the identical `StageGeometry` shape,
+      // derived from the same normalized `print_*` fractions through the
+      // same frozen helpers, at provably the same aspect ratio as the
+      // canonical reference geometry — so every line below, and every
+      // consumer of `onBleedSizeChange`, is untouched by the swap.
+      const geo = computeFlatStageGeometry({
         stageW: containerSize.w,
         stageH: containerSize.h,
         imageNaturalW,
@@ -230,6 +309,7 @@ export default function EditorStage({
         printRect,
         bleedPercent,
         safePercent,
+        padding: HANDLE_GUTTER_PX,
       })
       const targetW = Math.max(1, Math.round(geo.bleedRectPx.w))
       const targetH = Math.max(1, Math.round(geo.bleedRectPx.h))
@@ -330,23 +410,57 @@ export default function EditorStage({
       style={{ touchAction: 'pinch-zoom' }}
       data-testid="editor-stage"
     >
-      <img
-        src={mockupUrl}
-        alt=""
-        draggable={false}
-        className="pointer-events-none absolute inset-0 h-full w-full object-contain"
-      />
-
+      {/* POD-UI3.md §4.4 layers 2-3 — the flat design plane, in place of
+          the deleted mockup <img> + dark scrim. Two stacked fills, both
+          BELOW the Fabric canvas wrapper in DOM order (nothing here sets a
+          z-index, so DOM order is paint order) so the shopper's artwork
+          always draws on top of them:
+            - the plane card at the BLEED rect: a diagonal HATCH, lifted
+              off the workspace by `shadow-lift`. The hatch is doing real
+              work, not decoration. Every flat fill available here —
+              `bg-paper` on a `bg-surface-2` ground — puts
+              the trim ring within ~6 RGB levels of the workspace, so a
+              shopper cannot tell where the sheet ends and, worse, cannot
+              tell that the ring is the part that gets trimmed. A hatch is
+              the standard, self-explanatory notation for "margin, will be
+              cut", and it survives any future change to the ground
+              colour. Square corners deliberately: the bleed rect IS the
+              exported area (it is exactly what `toDataURL` returns), and
+              rounding it would misrepresent the export boundary.
+            - the print sheet at the TRUE print rect: `bg-surface`, i.e.
+              pure white — the paper the art actually lands on. Covers the
+              hatch inside the print area, so the hatch remains visible
+              only in the bleed ring, which is precisely the region it
+              describes.
+          Neither is gated by `mode`. In preview mode PreviewStage's opaque
+          overlay covers them anyway, and a plane that flickered out from
+          under the artwork mid-cross-fade would look like a bug. */}
       {guidesReady && geometry && (
         <div
-          className={`scrim ${guideTransitionCls}`}
+          className="pointer-events-none absolute shadow-lift"
           style={{
             left: geometry.bleedRectPx.x,
             top: geometry.bleedRectPx.y,
             width: geometry.bleedRectPx.w,
             height: geometry.bleedRectPx.h,
-            boxShadow: '0 0 0 9999px rgba(16,16,20,0.45)',
+            backgroundColor: 'var(--color-paper)',
+            backgroundImage:
+              'repeating-linear-gradient(45deg, var(--color-line) 0 1px, transparent 1px 7px)',
           }}
+          data-testid="design-plane"
+        />
+      )}
+
+      {guidesReady && geometry && (
+        <div
+          className="pointer-events-none absolute bg-surface"
+          style={{
+            left: geometry.printRectPx.x,
+            top: geometry.printRectPx.y,
+            width: geometry.printRectPx.w,
+            height: geometry.printRectPx.h,
+          }}
+          data-testid="print-sheet"
         />
       )}
 
@@ -369,9 +483,20 @@ export default function EditorStage({
           Deliberately NOT gated by `guidesVisible`/edit-vs-preview like
           the other guides below — in preview mode the canvas element is
           still the gutter-inclusive size (only interactivity is
-          disabled), so without this the scrim fading out would let
-          off-print art show through unclipped exactly when a shopper is
-          reviewing what they're about to buy. */}
+          disabled), so fading this out would let off-print art show
+          through unclipped exactly when a shopper is reviewing what
+          they're about to buy.
+
+          POD-UI3.md §1.1/§3.1 — tinted `rgba(247,247,249,0.72)`
+          (`--color-paper` at 72%) rather than the old
+          `rgba(16,16,20,0.4)`. Because it is un-faded by mode, the dark
+          version was the ONLY overlay left on screen in preview: a 64px
+          dark band around the print area, i.e. exactly the "large
+          bounding box" being removed. Paper-coloured and translucent it
+          still mutes what will be trimmed without drawing a frame. This
+          is the one literal rgba() in the file: it needs the token's
+          value at a specific alpha inside a `box-shadow` spread, which no
+          `bg-*`/`shadow-*` utility can express. */}
       {guidesReady && geometry && (
         <div
           className="pointer-events-none absolute"
@@ -380,7 +505,7 @@ export default function EditorStage({
             top: geometry.bleedRectPx.y,
             width: geometry.bleedRectPx.w,
             height: geometry.bleedRectPx.h,
-            boxShadow: `0 0 0 ${HANDLE_GUTTER_PX}px rgba(16,16,20,0.4)`,
+            boxShadow: `0 0 0 ${HANDLE_GUTTER_PX}px rgba(241,241,244,0.72)`,
           }}
           data-testid="gutter-scrim"
         />
@@ -400,8 +525,26 @@ export default function EditorStage({
             height: geometry.printRectPx.h,
           }}
         >
-          <p className="rounded-btn bg-surface/80 px-3 py-2 text-xs font-medium text-ink-soft shadow-card">
-            Tap + to add text or an image
+          {/* POD-UI3.md §4.4 — `bg-surface/80` (its pre-flat-plane value)
+              was designed to sit on a dark scrim. On the white print sheet
+              it is invisible, leaving a bare floating label; a tinted fill
+              with a real border keeps it reading as a chip.
+
+              POD-V2.md §6.6 — the chip itself gets `pointer-events-auto`
+              (its wrapper above stays `pointer-events-none` so the rest of
+              the print area is still draggable/tappable) so "Start from a
+              design" is a real, clickable trigger for the template drawer
+              while "or start blank" stays plain descriptive text — tapping
+              + on the tool rail is still how a shopper does that half. */}
+          <p className="pointer-events-auto rounded-btn border border-line bg-surface-2 px-3 py-2 text-xs font-medium text-ink-soft">
+            <button
+              type="button"
+              onClick={() => onOpenDesigns?.()}
+              className="font-semibold text-ink underline underline-offset-2 hover:text-accent"
+            >
+              Start from a design
+            </button>
+            , or start blank
           </p>
         </div>
       )}
@@ -428,6 +571,42 @@ export default function EditorStage({
             height: geometry.printRectPx.h,
           }}
         />
+      )}
+
+      {/* POD-UI3.md §3.1/§4.4 layer 9 — static mockup thumbnail. The stage
+          no longer shows the garment, so this is the only on-stage answer
+          to "where does this land?". It needs NO geometry call: the stored
+          `print_*` values are normalized fractions of the mockup's OWN
+          box, and this wrapper is exactly the <img>'s box (width-driven,
+          height from the intrinsic aspect), so `left: print_x * 100%` etc.
+          is exact at any thumbnail size and stays exact if the size ever
+          changes. Static by design — no artwork is composited into it, so
+          it never re-renders and costs nothing beyond the mockup fetch the
+          preview compositor warms anyway. Purely decorative: `aria-hidden`
+          + `alt=""` keep it out of the accessibility tree (Preview is the
+          real check, and it is reachable by its own button), and
+          `draggable={false}` stops a drag-to-desktop gesture from
+          interrupting a design drag. Fades with `mode` on the same
+          transition as the guides. */}
+      {guidesReady && (
+        <div
+          aria-hidden
+          className={`right-3 top-3 w-20 overflow-hidden rounded-card border border-line bg-surface shadow-card ${guideTransitionCls}`}
+          data-testid="mockup-thumbnail"
+        >
+          <div className="relative">
+            <img src={mockupUrl} alt="" draggable={false} className="block w-full select-none" />
+            <div
+              className="absolute border border-accent"
+              style={{
+                left: `${printRect.x * 100}%`,
+                top: `${printRect.y * 100}%`,
+                width: `${printRect.w * 100}%`,
+                height: `${printRect.h * 100}%`,
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   )

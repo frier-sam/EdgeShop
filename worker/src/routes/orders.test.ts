@@ -16,7 +16,7 @@ describe('buildPreviewLines', () => {
     ])
     const lines = buildPreviewLines('ORD-123-ABCDEF12', itemsJson)
     expect(lines).toEqual([
-      { key: 'ORD-123-ABCDEF12:0', name: 'Classic Tee', size: 'M', quantity: 2, preview_url: '/img/designs/dsn_9f3c/front.webp', design_id: 'dsn_9f3c' },
+      { key: 'ORD-123-ABCDEF12:0', name: 'Classic Tee', size: 'M', variant: null, quantity: 2, preview_url: '/img/designs/dsn_9f3c/front.webp', design_id: 'dsn_9f3c' },
     ])
   })
 
@@ -37,7 +37,17 @@ describe('buildPreviewLines', () => {
     expect(line.design_id).toBeNull()
   })
 
-  it('never leaks a smuggled PII-shaped field — only the five allow-listed keys ever appear on a line', () => {
+  it("carries axis 2's variant label, and nulls it when the stored line has none", () => {
+    const withVariant = JSON.stringify([{ name: 'Bottle', size: '500ml', variant: 'Steel', quantity: 1 }])
+    expect(buildPreviewLines('ORD-1', withVariant)[0].variant).toBe('Steel')
+    // A line stored before axis 2 existed, and one whose variant is a
+    // non-string, must both read as "no variant" rather than leaking the
+    // raw value into the response.
+    expect(buildPreviewLines('ORD-1', JSON.stringify([{ name: 'Tee' }]))[0].variant).toBeNull()
+    expect(buildPreviewLines('ORD-1', JSON.stringify([{ name: 'Tee', variant: 42 }]))[0].variant).toBeNull()
+  })
+
+  it('never leaks a smuggled PII-shaped field — only the allow-listed keys ever appear on a line', () => {
     const itemsJson = JSON.stringify([
       {
         name: 'Tee',
@@ -48,7 +58,7 @@ describe('buildPreviewLines', () => {
       },
     ])
     const [line] = buildPreviewLines('ORD-1', itemsJson)
-    expect(Object.keys(line).sort()).toEqual(['design_id', 'key', 'name', 'preview_url', 'quantity', 'size'])
+    expect(Object.keys(line).sort()).toEqual(['design_id', 'key', 'name', 'preview_url', 'quantity', 'size', 'variant'])
   })
 
   it('degrades to an empty array for malformed JSON instead of throwing', () => {

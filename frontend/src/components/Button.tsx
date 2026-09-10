@@ -5,33 +5,42 @@ import { cn } from '../lib/cn'
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
-// The one accent fills `primary`; `secondary` is surface + border; `ghost`
-// is transparent; `danger` is reserved for destructive actions (delete,
-// remove). Disabled styling keys off `aria-disabled` rather than the
-// `:disabled` pseudo-class because this component can render as an <a>,
-// which has no native disabled state.
+// POD-UI4.md §2/§5 A.1 — `primary` is the black ground (weight, not a
+// second accent); `secondary` is the comp's teal *outline* button (filling
+// solid on hover, matching the reference's bordered CTAs — the variant
+// name stays `secondary` for backward compatibility even though visually
+// it's what the comp would call "outline"); `ghost` stays quiet/neutral;
+// `danger` is reserved for destructive actions (delete, remove). Disabled
+// styling keys off `aria-disabled` rather than the `:disabled` pseudo-class
+// because this component can render as an <a>, which has no native
+// disabled state.
 // Exported so IconButton (ui/IconButton.tsx) and SegmentedControl can reuse
 // the exact same variant treatment instead of redeclaring it.
 export const BUTTON_VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    'bg-accent text-on-accent hover:bg-accent-dark active:bg-accent-dark ' +
-    'aria-disabled:bg-accent/40',
+    'bg-primary text-on-primary hover:bg-primary-container active:bg-primary-container ' +
+    'aria-disabled:bg-primary/40',
   secondary:
-    'bg-surface text-ink border border-line hover:border-ink/30 active:bg-surface-2 ' +
-    'aria-disabled:opacity-40 aria-disabled:hover:border-line',
+    'border border-accent bg-transparent text-accent hover:bg-accent hover:text-on-accent ' +
+    'active:bg-accent-dark active:text-on-accent ' +
+    'aria-disabled:border-line aria-disabled:text-ink-faint aria-disabled:hover:bg-transparent aria-disabled:hover:text-ink-faint',
   ghost:
-    'bg-transparent text-ink hover:bg-ink/5 active:bg-ink/10 aria-disabled:opacity-40 ' +
+    'bg-transparent text-ink hover:bg-surface-2 active:bg-surface-3 aria-disabled:opacity-40 ' +
     'aria-disabled:hover:bg-transparent',
   danger:
-    'bg-danger text-white hover:bg-danger/90 active:bg-danger/80 aria-disabled:bg-danger/40',
+    'bg-danger text-on-primary hover:bg-danger/90 active:bg-danger/80 aria-disabled:bg-danger/40',
 }
 const VARIANT_CLASSES = BUTTON_VARIANT_CLASSES
 
 // sm = 36px, md = 44px, lg = 52px. md and lg clear the 44px touch floor.
+// Text size is deliberately NOT part of this table any more (POD-UI4.md
+// §2.3/§5 A.1): the comps set every button — CTA-sized or not — in
+// `font-label-md`/`text-label-md`, so BASE below carries one label size
+// for all three, and only height/padding vary by size.
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: 'h-9 px-3.5 text-xs',
-  md: 'h-11 px-5 text-sm',
-  lg: 'h-[52px] px-7 text-base',
+  sm: 'h-9 px-3.5',
+  md: 'h-11 px-5',
+  lg: 'h-[52px] px-7',
 }
 
 const GAP_CLASSES: Record<ButtonSize, string> = {
@@ -47,10 +56,10 @@ const SPINNER_SIZE: Record<ButtonSize, string> = {
 }
 
 const BASE =
-  'relative inline-flex items-center justify-center rounded-btn font-semibold ' +
-  'tracking-wide select-none whitespace-nowrap ' +
+  'relative inline-flex items-center justify-center rounded-btn font-label text-label-md ' +
+  'select-none whitespace-nowrap ' +
   'transition-[background-color,border-color,color,transform] duration-fast ease-out-soft ' +
-  'active:scale-[0.97] aria-disabled:cursor-not-allowed aria-disabled:active:scale-100 ' +
+  'active:scale-95 aria-disabled:cursor-not-allowed aria-disabled:active:scale-100 ' +
   'aria-disabled:pointer-events-none ' +
   'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2'
 

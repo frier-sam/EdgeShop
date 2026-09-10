@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import Badge from './ui/Badge'
 import IconButton from './ui/IconButton'
+import type { LowestPriceBreak } from '../lib/types'
 
 interface ProductCardProps {
   id: number
@@ -11,15 +12,21 @@ interface ProductCardProps {
   /**
    * Optional second-side mockup, swapped in on hover (desktop only — opacity
    * transitions are inert on touch, which is fine since there's no hover to
-   * trigger them there). `GET /api/products` (worker/src/routes/products.ts,
-   * frozen this round) only returns a single `front_image` per row, so no
-   * current caller has a back image to pass — this stays plumbed and ready
-   * for whenever that becomes available rather than wiring it in with
-   * fabricated data.
+   * trigger them there). POD-UI4.md §4.1 E.2 finally gives this real data —
+   * `GET /api/products` now returns `back_image` via a second LEFT JOIN — so
+   * this is no longer a plumbed-but-unused prop; HomePage's rails pass it
+   * straight from `ProductSummary.back_image`.
    */
   back_image_url?: string | null
   currency: string
   is_customizable?: number | boolean
+  /**
+   * POD-UI4.md §4.1/§4.5 — real merchandising signals, both optional so
+   * ShopPage (another lane) keeps compiling against whatever shape it
+   * builds independently. See the price-break pill's honesty rule below.
+   */
+  min_order_qty?: number
+  lowest_break?: LowestPriceBreak | null
   onAddToCart: () => void
 }
 
@@ -41,10 +48,31 @@ export default function ProductCard({
   back_image_url,
   currency,
   is_customizable,
+  min_order_qty,
+  lowest_break,
   onAddToCart,
 }: ProductCardProps) {
   const onSale = compare_price != null && compare_price > price
   const customizable = !!is_customizable
+
+  // Whole-percent discount, only shown once it rounds to at least 1% — a
+  // `compare_price` a paisa above `price` is not a claim worth making.
+  const discountPct = onSale ? Math.round((1 - price / compare_price!) * 100) : 0
+  const showDiscount = onSale && discountPct >= 1
+
+  // POD-UI4.md §4.5 — the price-break pill is a hard honesty rule, not a
+  // style choice: it must never claim a bulk price checkout won't actually
+  // charge, and never a quantity nobody configured.
+  //   1. A real `lowest_break` → "BUY {min_qty} @ {currency}{unit_price}".
+  //   2. No tiers, but a real `min_order_qty > 1` → "MIN {n} UNITS" — still
+  //      a true constraint the shopper will hit at checkout.
+  //   3. Neither → render nothing. Never a fabricated quantity, and never
+  //      `price` dressed up as a bulk rate.
+  const priceBreakLabel = lowest_break
+    ? `BUY ${lowest_break.min_qty} @ ${currency}${lowest_break.unit_price.toFixed(2)}`
+    : min_order_qty && min_order_qty > 1
+      ? `MIN ${min_order_qty} UNITS`
+      : null
 
   function handleAddToCart(e: React.MouseEvent) {
     e.preventDefault()
@@ -57,15 +85,20 @@ export default function ProductCard({
         to={`/product/${id}`}
         className="relative block aspect-square overflow-hidden rounded-card bg-surface-2 ring-1 ring-line transition-shadow duration-base ease-out-soft group-hover:shadow-lift"
       >
-        <div className="absolute left-2.5 top-2.5 z-10 flex gap-1.5">
+        <div className="absolute left-2.5 top-2.5 z-10 flex flex-wrap gap-1.5">
+          {priceBreakLabel && (
+            <span className="rounded-pill bg-accent-soft px-3 py-1 text-label-sm text-on-accent-soft shadow-card">
+              {priceBreakLabel}
+            </span>
+          )}
           {customizable && (
             <Badge variant="accent" size="sm" className="uppercase">
               Customizable
             </Badge>
           )}
-          {onSale && (
-            <Badge className="bg-accent text-on-accent uppercase" size="sm">
-              Sale
+          {showDiscount && (
+            <Badge className="bg-accent text-on-accent" size="sm">
+              {discountPct}% OFF
             </Badge>
           )}
         </div>

@@ -6,14 +6,15 @@
 -- name — see DEPLOY.md's "Naming note" for why.)
 -- ────────────────────────────────────────────────────────────
 -- This is the target schema for the print-on-demand build
--- (see /POD.md §6.1). It is safe to paste directly into an
--- empty D1 database's Console — it creates all 8 tables, their
--- indexes, the migration bookkeeping table, and seeds default
--- settings in one shot.
+-- (see /POD.md §6.1, and /POD-V2.md §1.1/§3/§5/§6 for the option-axis-2,
+-- bulk-pricing and design-template tables added on top of it). It is safe
+-- to paste directly into an empty D1 database's Console — it creates all
+-- 14 tables, their indexes, the migration bookkeeping table, and seeds
+-- default settings in one shot.
 --
 -- For an EXISTING (pre-POD) deployment, do not run this file —
 -- the worker's own migration runner (worker/src/lib/migrate.ts,
--- migration 0013_pod_reset.sql) converges the live schema onto
+-- migration 0013_pod_reset.sql onward) converges the live schema onto
 -- this same shape without losing data.
 -- ────────────────────────────────────────────────────────────
 
@@ -32,6 +33,20 @@ CREATE TABLE IF NOT EXISTS products (
   status          TEXT    NOT NULL DEFAULT 'active',   -- active | draft
   is_customizable INTEGER NOT NULL DEFAULT 0,
   stock_count     INTEGER NOT NULL DEFAULT 0,          -- used only when no sizes exist
+  -- POD-V2.md §1.1 — the two option axes are fixed in number but
+  -- merchant-nameable: a bottle merchant renames these to "Volume" /
+  -- "Cap colour" from the admin form, and every admin + storefront label
+  -- reads these two columns rather than hard-coding "Size"/"Colour".
+  axis1_label     TEXT    NOT NULL DEFAULT 'Size',     -- section header for product_sizes
+  axis2_label     TEXT    NOT NULL DEFAULT 'Colour',   -- section header for product_variants
+  -- POD-V2.md §5 — a flat-goods product (visiting cards, stickers) can
+  -- require a minimum order quantity below which checkout must reject,
+  -- independent of whether bulk price breaks are configured at all.
+  min_order_qty   INTEGER NOT NULL DEFAULT 1,
+  -- POD-UI4.md §4.1 / P2 — newline-separated bullet lines rendered as the
+  -- product page's "Key Features" box when non-empty. Opaque merchant copy,
+  -- never parsed beyond splitting on newlines client-side.
+  highlights      TEXT    NOT NULL DEFAULT '',
   seo_title       TEXT    DEFAULT '',
   seo_description TEXT    DEFAULT '',
   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -41,6 +56,13 @@ CREATE TABLE IF NOT EXISTS product_sides (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
   product_id     INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   side           TEXT    NOT NULL CHECK (side IN ('front','back')),
+  -- POD-V2.md §8 / §11 1.2 — relabel, don't restructure: `side` stays the
+  -- fixed 'front'/'back' identity that design_json, sides_used, pricing
+  -- validation and print-file naming all key off. `label` is a purely
+  -- cosmetic override ('Wrap', 'Lid') for admin + storefront display;
+  -- '' means "fall back to the side name" (front/back are never shown
+  -- verbatim to a shopper unless the merchant hasn't relabelled them).
+  label          TEXT    NOT NULL DEFAULT '',
   image_url      TEXT    NOT NULL,                     -- '/img/mockups/<uuid>.webp'
   image_w        INTEGER NOT NULL,                     -- natural px
   image_h        INTEGER NOT NULL,
@@ -65,6 +87,53 @@ CREATE TABLE IF NOT EXISTS product_sizes (
   UNIQUE (product_id, label)
 );
 
+-- POD-V2.md §3.1 — option axis 2 (colour / finish / material). Deliberately
+-- carries no price column: axis 2 never bears a price delta, which is what
+-- keeps it out of lib/pricing.ts's computeLine entirely — it stays a pure
+-- presentation-and-fulfilment attribute, never a pricing input. The first
+-- time a merchant wants "+₹50 for the metallic finish", the answer is a
+-- separate product, not a price-bearing column here.
+CREATE TABLE IF NOT EXISTS product_variants (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  label      TEXT    NOT NULL,                         -- opaque: 'Navy', 'Matte', 'Steel'
+  -- Nullable on purpose, not just optional-with-a-fallback: a finish like
+  -- matte/glossy has no colour at all, so this is real substrate-agnostic
+  -- data, not merely unset. The storefront picker must degrade to a plain
+  -- labelled pill when this is NULL rather than assume every option is a
+  -- colour swatch (§3.1, §9 decision #9).
+  swatch_hex TEXT    DEFAULT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  UNIQUE (product_id, label)
+);
+
+-- POD-V2.md §3.2 — per-option mockup override, wired up in Phase 2. The
+-- print rect stays solely on product_sides (shared by every option); this
+-- table only overrides the *photo* an option shows, so a photo-less option
+-- falls back to product_sides.image_url and never blocks on being shot.
+CREATE TABLE IF NOT EXISTS product_side_images (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  side_id    INTEGER NOT NULL REFERENCES product_sides(id) ON DELETE CASCADE,
+  variant_id INTEGER NOT NULL REFERENCES product_variants(id) ON DELETE CASCADE,
+  image_url  TEXT    NOT NULL,
+  image_w    INTEGER NOT NULL,
+  image_h    INTEGER NOT NULL,
+  UNIQUE (side_id, variant_id)
+);
+
+-- POD-V2.md §5 — bulk quantity price breaks. Absolute, all-in unit price
+-- (§9 decision #1): the tier replaces base_price + print fees rather than
+-- discounting off them, which is what makes "250 cards = ₹8 each" possible
+-- as a merchant-facing number. Phase 3 wires this into the (still
+-- untouched, per this phase's scope) pricing engine.
+CREATE TABLE IF NOT EXISTS product_price_breaks (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  min_qty    INTEGER NOT NULL,
+  unit_price REAL    NOT NULL,
+  UNIQUE (product_id, min_qty)
+);
+
 -- ────────────────────────────────────────────────────────────
 -- Designs
 -- ────────────────────────────────────────────────────────────
@@ -81,6 +150,41 @@ CREATE TABLE IF NOT EXISTS designs (
 );
 CREATE INDEX IF NOT EXISTS idx_designs_orphan ON designs(created_at) WHERE order_id IS NULL;
 CREATE INDEX IF NOT EXISTS idx_designs_customer ON designs(customer_id);
+
+-- ────────────────────────────────────────────────────────────
+-- Design templates ("browse designs" — POD-V2.md §6)
+--
+-- A separate pair of tables, deliberately NOT a flagged `designs` row:
+-- gc.ts's orphan-design GC deletes `designs` where order_id IS NULL past
+-- the retention window, and a template is by definition never attached to
+-- an order. Storing templates as `designs` rows would have the nightly
+-- cron quietly eat the merchant's whole template library after
+-- design_retention_days. gc.ts only ever queries the `designs` table, so
+-- these are already outside its reach — see migrate.test.ts /
+-- gc.test.ts for the pin.
+-- ────────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS template_collections (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT    NOT NULL,                          -- 'Birthday', 'Corporate', 'Minimal'
+  category   TEXT    NOT NULL DEFAULT '',                -- '' = every category
+  status     TEXT    NOT NULL DEFAULT 'active',
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS design_templates (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  collection_id INTEGER NOT NULL REFERENCES template_collections(id) ON DELETE CASCADE,
+  name          TEXT    NOT NULL,
+  design_json   TEXT    NOT NULL,                        -- one side, as a StoredSideSnapshot
+  canvas_w      REAL    NOT NULL,                         -- the bleed rect it was authored at
+  canvas_h      REAL    NOT NULL,
+  preview_url   TEXT    NOT NULL DEFAULT '',
+  tags          TEXT    NOT NULL DEFAULT '',
+  status        TEXT    NOT NULL DEFAULT 'active',
+  sort_order    INTEGER NOT NULL DEFAULT 0,
+  created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 
 -- ────────────────────────────────────────────────────────────
 -- Sales
@@ -171,7 +275,9 @@ INSERT OR IGNORE INTO _migrations (name) VALUES
   ('0012_rewrite_image_urls.sql'),
   ('0013_pod_reset.sql'),
   ('0014_design_retention_setting.sql'),
-  ('0015_espod_rename.sql');
+  ('0015_espod_rename.sql'),
+  ('0016_v2_options_bulk_templates.sql'),
+  ('0017_product_highlights.sql');
 
 -- ────────────────────────────────────────────────────────────
 -- Seed default settings

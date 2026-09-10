@@ -206,7 +206,7 @@ const Sheet = forwardRef<HTMLDivElement, SheetProps>(function Sheet(
           onPointerCancel={endDrag}
           className="flex shrink-0 touch-none select-none flex-col items-center gap-2 pb-1 pt-2.5 cursor-grab active:cursor-grabbing"
         >
-          <span className="h-1.5 w-10 rounded-full bg-line" aria-hidden="true" />
+          <span className="h-1.5 w-10 rounded-pill bg-line" aria-hidden="true" />
           {title && (
             <h2 id={titleId} className="w-full px-5 pb-1 text-left font-display text-base font-semibold text-ink">
               {title}

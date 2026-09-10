@@ -11,7 +11,7 @@ interface SkeletonProps {
 export function Skeleton({ className = '' }: SkeletonProps) {
   return (
     <div
-      className={`animate-shimmer rounded bg-surface-2 bg-[length:200%_100%] bg-gradient-to-r from-surface-2 via-line to-surface-2 ${className}`}
+      className={`animate-shimmer rounded-sm bg-surface-2 bg-[length:200%_100%] bg-gradient-to-r from-surface-2 via-line to-surface-2 ${className}`}
     />
   )
 }

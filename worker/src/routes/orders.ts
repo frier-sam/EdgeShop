@@ -30,6 +30,7 @@ const orders = new Hono<{ Bindings: Env }>()
 interface StoredOrderItem {
   name?: unknown
   size?: unknown
+  variant?: unknown
   quantity?: unknown
   design_id?: unknown
   image_url?: unknown
@@ -40,6 +41,15 @@ export interface OrderPreviewLine {
   key: string
   name: string
   size: string | null
+  // POD-V2.md §3.1 / POD-UI4.md §4.1 — axis 2's label. Safe to expose on
+  // this unauthenticated route for exactly the same reason `size` is: it
+  // is an opaque product-option label the shopper themselves chose, not a
+  // sibling PII column off the `orders` row. Without it, a shopper who
+  // hard-refreshes the confirmation page sees their line lose its colour /
+  // finish, while the router-state path from checkout still shows it — the
+  // same field appearing and disappearing depending on how the page was
+  // reached.
+  variant: string | null
   quantity: number
   preview_url: string | null
   design_id: string | null
@@ -72,6 +82,7 @@ export function buildPreviewLines(orderId: string, itemsJson: string): OrderPrev
     key: `${orderId}:${index}`,
     name: typeof item.name === 'string' ? item.name : '',
     size: typeof item.size === 'string' ? item.size : null,
+    variant: typeof item.variant === 'string' ? item.variant : null,
     quantity: typeof item.quantity === 'number' && Number.isFinite(item.quantity) ? item.quantity : 1,
     preview_url: firstPreviewUrl(item),
     design_id: typeof item.design_id === 'string' ? item.design_id : null,

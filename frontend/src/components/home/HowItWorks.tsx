@@ -13,6 +13,13 @@ import { ShirtIcon, DesignIcon, ParcelIcon } from './icons'
 // The rest of the homepage's imagery is unaffected: category tiles and the
 // hero composition both read merchant-uploaded product photos through the
 // API, which do exist in production once the catalogue has products.
+//
+// POD-UI4.md §2.6 makes Material Symbols a first-class icon system, but
+// these three stay hand-drawn SVG rather than switching to `<Icon>`: there
+// is no subsetted glyph for "garment on a hanger" / "pen signing a design" /
+// "sealed parcel" in `ICON_NAMES`, and the R2-404 risk above only applies to
+// *images*, not to glyphs from a webfont — so switching would trade a
+// deploy-safety property for icons that don't actually exist in the set.
 const STEP_ICONS = [ShirtIcon, DesignIcon, ParcelIcon]
 
 function StepIcon({ index }: { index: number }) {
@@ -39,10 +46,8 @@ function StepIcon({ index }: { index: number }) {
 export default function HowItWorks() {
   return (
     <section id="how-it-works" className="border-y border-line bg-paper">
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-8 md:py-20">
-        <h2 className="mb-8 text-center font-display text-[1.25rem] font-semibold text-ink md:mb-14 md:text-[1.75rem]">
-          How it works
-        </h2>
+      <div className="mx-auto max-w-7xl px-4 py-10 md:px-10 md:py-16">
+        <h2 className="mb-8 text-center font-display text-headline-md text-ink md:mb-14">How it works</h2>
 
         {/* Mobile / tablet: compact snap-scroll cards. */}
         <div

@@ -4,11 +4,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adminFetch } from '../lib/adminFetch'
 import { fetchJsonWith } from '../../lib/api'
 import { useEditorSettings } from '../../editor/useEditorSettings'
+import AdminPageHeader from '../AdminPageHeader'
 import OrderDesignPanel from '../OrderDesignPanel'
 import { collectRenderableSides, renderOrderSide } from '../print/orderPrintFiles'
 import { downloadAllPrintFiles } from '../print/downloadPrintFiles'
 import type { AdminOrderLineItem } from '../types'
 import Button from '../../components/Button'
+import Icon from '../../components/ui/Icon'
 import Badge, { type BadgeVariant } from '../../components/ui/Badge'
 
 interface EmailLog {
@@ -257,22 +259,30 @@ export default function AdminOrderDetail() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      {/* Back + header */}
-      <div className="mb-6">
-        <Link
-          to="/admin/orders"
-          className="mb-3 inline-flex items-center text-sm text-ink-soft transition-colors duration-fast hover:text-ink"
-        >
-          &larr; Back to Orders
-        </Link>
-        <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-mono font-display text-lg font-bold text-ink sm:text-xl">
-            {order.id}
-          </h1>
-          <StatusBadge label={order.order_status} />
-          <StatusBadge label={order.payment_status} />
-          <span className="ml-auto text-sm text-ink-faint">{formatDate(order.created_at)}</span>
-        </div>
+      {/* POD-UI4.md §5 D.2 (A2) — the order's own status is the header
+          chip; payment status + date, which the shared header has no
+          second slot for, sit on a line right underneath instead of being
+          dropped. */}
+      <AdminPageHeader
+        title={order.id}
+        backTo="/admin/orders"
+        status={{ label: order.order_status, tone: statusVariant[order.order_status] ?? 'neutral' }}
+        actions={
+          renderableSideCount > 0 ? (
+            <Button
+              size="sm"
+              loading={downloadingAll}
+              leftIcon={<Icon name="download" size={16} />}
+              onClick={handleDownloadAll}
+            >
+              Download all print files ({renderableSideCount})
+            </Button>
+          ) : undefined
+        }
+      />
+      <div className="-mt-3 mb-6 flex flex-wrap items-center gap-3">
+        <StatusBadge label={order.payment_status} />
+        <span className="text-sm text-ink-faint">{formatDate(order.created_at)}</span>
       </div>
 
       {/* Two-column layout */}
@@ -516,15 +526,12 @@ export default function AdminOrderDetail() {
 
       {/* Design files — POD.md §4.2/§8.3: per-line size/qty/price, per-side
           flattened preview + print dimensions/effective-DPI readout, and a
-          Download print file button per side, plus a whole-order zip. */}
+          Download print file button per side, plus a whole-order zip (the
+          zip download itself is now the page header's action, per
+          POD-UI4.md §5 D.2). */}
       <section className="mb-6 overflow-hidden rounded-card border border-line bg-surface shadow-card">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
+        <div className="border-b border-line px-4 py-3">
           <h2 className="text-sm font-semibold text-ink">Items &amp; Design Files</h2>
-          {renderableSideCount > 0 && (
-            <Button size="sm" loading={downloadingAll} onClick={handleDownloadAll}>
-              Download all print files ({renderableSideCount})
-            </Button>
-          )}
         </div>
         {downloadAllError && (
           <p className="px-4 pt-3 text-xs text-danger">{downloadAllError}</p>

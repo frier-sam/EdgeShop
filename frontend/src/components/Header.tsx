@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { useAuthStore } from '../store/authStore'
 import { fetchJson } from '../lib/api'
 import { useSettings } from '../lib/useSettings'
 import { currencySymbol } from '../lib/storeConfig'
 import type { ProductSummary } from '../lib/types'
+import type { StorefrontCategory } from './home/ShopByCategory'
+import Icon from './ui/Icon'
 import IconButton from './ui/IconButton'
 import Badge from './ui/Badge'
 import Sheet from './ui/Sheet'
+import Skeleton from './ui/Skeleton'
 import AnnouncementBar from './AnnouncementBar'
 
 export interface NavItem {
@@ -27,74 +30,23 @@ interface ProductsResponse {
   products: ProductSummary[]
 }
 
-// POD-UI2.md §7.1 — backend-driven categories. `name` is the raw
-// `products.category` value and doubles as the `?category=` filter value
-// (the worker matches it case-sensitively, see worker/src/routes/
-// products.ts), not a slugified/title-cased derivation of it.
-interface StorefrontCategory {
-  name: string
-  count: number
-  image: string | null
-}
-
 interface CategoriesResponse {
   categories: StorefrontCategory[]
 }
 
-function CartIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <path d="M16 10a4 4 0 0 1-8 0" />
-    </svg>
-  )
-}
+const SEARCH_DEBOUNCE_MS = 250
+const SEARCH_RESULT_LIMIT = 6
 
-function AccountIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  )
-}
-
-function SearchIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="7" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  )
-}
-
-function MenuIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-      <line x1="1" y1="1" x2="11" y2="11" />
-      <line x1="11" y1="1" x2="1" y2="11" />
-    </svg>
-  )
-}
-
-/** Functional affordance (not decorative) — the standard "this opens a menu" glyph, matching ShopPage.tsx's sort-select chevron. */
-function ChevronDownIcon({ className = '' }: { className?: string }) {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={className}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  )
+/** Delays reflecting a fast-changing value by `delayMs` — used to turn every
+ * keystroke in the search field into one `?q=` request every 250ms instead
+ * of one per keystroke (POD-UI4.md §4/A.4). */
+function useDebouncedValue<T>(value: T, delayMs: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(value), delayMs)
+    return () => window.clearTimeout(id)
+  }, [value, delayMs])
+  return debounced
 }
 
 /**
@@ -142,7 +94,7 @@ function CartButton({
   return (
     <div className="relative">
       <IconButton variant="ghost" aria-label={`Open cart${cartCount > 0 ? `, ${cartCount} items` : ''}`} onClick={onCartOpen}>
-        <CartIcon />
+        <Icon name="shopping_cart" size={22} />
       </IconButton>
       <CartCountBadge count={cartCount} />
     </div>
@@ -150,104 +102,153 @@ function CartButton({
 }
 
 /**
- * Live-filtered product search, shared by the desktop overlay and the
- * mobile Sheet. There is no search API endpoint — `worker/src/routes/
- * products.ts` only supports pagination + an exact category match, no
- * free-text query — so this fetches the product list once (lazily, only
- * once the panel is opened) and filters it client-side in memory. That's
- * a documented limitation for a visual round, not a stand-in for a real
- * feature: see POD-UI2.md §3/E3.
+ * Search results — shared by the desktop row-2 dropdown and the mobile
+ * Sheet (POD-UI4.md §4/A.4). Four explicit states, never a bare spinner:
+ * an untouched field shows a quiet prompt (no request has even been made,
+ * since the query below is `enabled` only once there's text), a query
+ * mid-debounce or in flight shows shimmer rows, a settled query with no
+ * hits says so by name, and a hit list reuses the same thumb/name/price
+ * row POD-UI2's client-side filter used. "See all results" only appears
+ * once we know there's something to see — for the true empty case it
+ * would just relink to the same "nothing matched" outcome on /shop.
  */
-function SearchPanel({
-  query,
-  onQueryChange,
-  products,
-  isLoading,
+function SearchResultsList({
+  trimmedQuery,
+  pending,
+  results,
   currency,
   onNavigate,
-  inputRef,
 }: {
-  query: string
-  onQueryChange: (v: string) => void
-  products: ProductSummary[]
-  isLoading: boolean
+  trimmedQuery: string
+  pending: boolean
+  results: ProductSummary[]
   currency: string
   onNavigate: () => void
-  inputRef: React.RefObject<HTMLInputElement>
 }) {
-  const trimmed = query.trim().toLowerCase()
-  const results = trimmed ? products.filter((p) => p.name.toLowerCase().includes(trimmed)) : []
+  if (!trimmedQuery) {
+    return <p className="px-1 py-6 text-center text-sm text-ink-soft">Start typing to search the catalog.</p>
+  }
+
+  if (pending) {
+    return (
+      <ul className="flex flex-col gap-1 p-1">
+        {[0, 1, 2].map((i) => (
+          <li key={i} className="flex items-center gap-3 p-2">
+            <Skeleton shape="rect" width={48} height={48} className="rounded-btn" />
+            <span className="flex-1">
+              <Skeleton shape="text" width="70%" />
+              <Skeleton shape="text" width="35%" className="mt-1.5" />
+            </span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
+  if (results.length === 0) {
+    return <p className="px-1 py-6 text-center text-sm text-ink-soft">No products match &ldquo;{trimmedQuery}&rdquo;.</p>
+  }
 
   return (
-    <div>
-      <div className="flex items-center gap-2 rounded-btn border border-line bg-paper px-3.5">
-        <SearchIcon />
-        <input
-          ref={inputRef}
-          type="search"
-          value={query}
-          onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Search products…"
-          className="h-11 w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
-        />
-      </div>
-
-      <div className="mt-3 max-h-[60vh] overflow-y-auto sm:max-h-80">
-        {!trimmed && <p className="px-1 py-6 text-center text-sm text-ink-soft">Start typing to search the catalog.</p>}
-        {trimmed && isLoading && <p className="px-1 py-6 text-center text-sm text-ink-soft">Loading products…</p>}
-        {trimmed && !isLoading && results.length === 0 && (
-          <p className="px-1 py-6 text-center text-sm text-ink-soft">No products match &ldquo;{query}&rdquo;.</p>
-        )}
-        {results.length > 0 && (
-          <ul className="flex flex-col gap-1">
-            {results.map((p) => (
-              <li key={p.id}>
-                <Link
-                  to={`/product/${p.id}`}
-                  onClick={onNavigate}
-                  className="flex items-center gap-3 rounded-btn p-2 transition-colors duration-fast hover:bg-surface-2"
-                >
-                  <span className="h-12 w-12 shrink-0 overflow-hidden rounded-btn bg-surface-2 ring-1 ring-line">
-                    {p.front_image && (
-                      // eslint-disable-next-line jsx-a11y/alt-text -- decorative, name is the adjacent text
-                      <img src={p.front_image} alt="" className="h-full w-full object-cover" />
-                    )}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium text-ink">{p.name}</span>
-                    <span className="block text-xs text-ink-soft">
-                      {currency}
-                      {p.base_price}
-                    </span>
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+    <ul className="flex flex-col gap-1">
+      {results.map((p) => (
+        <li key={p.id}>
+          <Link
+            to={`/product/${p.id}`}
+            onClick={onNavigate}
+            className="flex items-center gap-3 rounded-btn p-2 transition-colors duration-fast hover:bg-surface-2"
+          >
+            <span className="h-12 w-12 shrink-0 overflow-hidden rounded-btn bg-surface-2 ring-1 ring-line">
+              {p.front_image && (
+                // eslint-disable-next-line jsx-a11y/alt-text -- decorative, name is the adjacent text
+                <img src={p.front_image} alt="" className="h-full w-full object-cover" />
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-ink">{p.name}</span>
+              <span className="block text-xs text-ink-soft">
+                {currency}
+                {p.base_price}
+              </span>
+            </span>
+          </Link>
+        </li>
+      ))}
+      <li>
+        <Link
+          to={`/shop?q=${encodeURIComponent(trimmedQuery)}`}
+          onClick={onNavigate}
+          className="block rounded-btn px-2 py-2.5 text-center font-label text-label-md text-accent transition-colors duration-fast hover:bg-surface-2"
+        >
+          See all results for &ldquo;{trimmedQuery}&rdquo;
+        </Link>
+      </li>
+    </ul>
   )
 }
 
+const CATEGORY_GRID_COLS: Record<2 | 3 | 4, string> = {
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+  4: 'grid-cols-4',
+}
+
+/** 2-4 columns depending on how many categories there are to lay out — more categories, more columns, capped at 4 (the comp's widest menu). */
+function categoryColumnCount(count: number): 2 | 3 | 4 {
+  if (count <= 6) return 2
+  if (count <= 12) return 3
+  return 4
+}
+
 /**
- * Desktop "Categories" dropdown (POD-UI2.md §7.1) — replaces the old
- * one-nav-link-per-category list with a single menu populated from
- * `GET /api/categories`. Renders nothing while loading, on a fetch error,
- * or when the catalogue has no active categories at all — never an empty
- * menu shell.
+ * Desktop mega-menu (POD-UI4.md §3.1 C3 / §5 A.3) — replaces the old
+ * 256px single-column "Categories" dropdown with a wide multi-column
+ * panel carrying each category's thumbnail and product count, matching
+ * the comp's hover mega-menus.
  *
- * Keyboard/ARIA: `aria-haspopup="menu"` + `aria-expanded` on the trigger,
- * `role="menu"`/`role="menuitem"` on the panel/items, Escape closes and
- * returns focus to the trigger, Up/Down arrows move between items (with
- * wraparound) and plain Tab order also works since every item is a real
- * focusable link. A `pointerdown` listener outside the menu closes it.
+ * IMPORTANT: `GET /api/categories` returns a FLAT list — one row per
+ * distinct `products.category` value, no parent/child relationship. The
+ * grid below is purely a *layout* device that chunks that flat list into
+ * 2-4 columns by count (`categoryColumnCount`); it is NOT rendering a
+ * category tree, and the columns don't correspond to groups of anything.
+ * A real subcategory hierarchy is schema work, deferred per §3.1/§3.5.
+ *
+ * Opens on hover (matching the comp's `group-hover`) *and* on click/Enter
+ * for keyboard and touch, where hover events don't fire. The close-on-
+ * mouseleave is delayed slightly rather than immediate: the panel sits
+ * `mt-2` below the trigger, so a mouse travelling diagonally into the
+ * panel crosses a sliver of unrelated page between the two for a few
+ * milliseconds — closing on that instant would make the menu unusable by
+ * mouse. Re-entering the trigger or the panel within the delay cancels
+ * the pending close.
+ *
+ * Autofocusing the first item on open is gated on the trigger already
+ * being focused — otherwise a hover-open (which never touches focus)
+ * would yank keyboard focus into the menu the instant a mouse passed
+ * over the trigger, which is not what hovering does anywhere else.
+ *
+ * Every other accessibility behaviour carries over unchanged:
+ * `aria-haspopup`/`aria-expanded` on the trigger, `role="menu"`/
+ * `"menuitem"` on the panel/items, Escape closes and restores focus to
+ * the trigger, Up/Down arrows move between items with wraparound, and an
+ * outside `pointerdown` closes it. Renders nothing at all — never an
+ * empty panel shell — when there are no categories.
  */
 function CategoriesMenu({ categories }: { categories: StorefrontCategory[] }) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const itemRefs = useRef<(HTMLAnchorElement | null)[]>([])
+  const closeTimeoutRef = useRef<number | undefined>(undefined)
+
+  const clearPendingClose = () => {
+    if (closeTimeoutRef.current !== undefined) {
+      window.clearTimeout(closeTimeoutRef.current)
+      closeTimeoutRef.current = undefined
+    }
+  }
+
+  useEffect(() => () => clearPendingClose(), [])
 
   useEffect(() => {
     if (!open) return
@@ -282,45 +283,76 @@ function CategoriesMenu({ categories }: { categories: StorefrontCategory[] }) {
   }, [open])
 
   useEffect(() => {
-    if (open) requestAnimationFrame(() => itemRefs.current[0]?.focus())
+    if (open && document.activeElement === triggerRef.current) {
+      requestAnimationFrame(() => itemRefs.current[0]?.focus())
+    }
   }, [open])
 
   if (categories.length === 0) return null
 
+  const columns = categoryColumnCount(categories.length)
+  const rows = Math.ceil(categories.length / columns)
+
+  function handleMouseEnter() {
+    clearPendingClose()
+    setOpen(true)
+  }
+  function handleMouseLeave() {
+    clearPendingClose()
+    closeTimeoutRef.current = window.setTimeout(() => setOpen(false), 150)
+  }
+
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
       <button
         ref={triggerRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 whitespace-nowrap text-sm font-medium text-ink-soft transition-colors duration-fast hover:text-ink"
+        className="flex min-h-11 items-center gap-1 whitespace-nowrap font-label text-label-md text-ink-soft transition-colors duration-fast hover:text-ink"
       >
         Categories
-        <ChevronDownIcon className={`transition-transform duration-fast ${open ? 'rotate-180' : ''}`} />
+        <Icon name="expand_more" size={18} className={`transition-transform duration-fast ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div
           role="menu"
           aria-label="Categories"
-          className="animate-fade-in absolute left-0 top-full z-50 mt-2 w-64 rounded-card border border-line bg-surface p-2 shadow-lift"
+          className="animate-fade-in absolute left-1/2 top-full z-50 mt-2 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-card border border-line bg-surface p-6 shadow-lift"
         >
-          {categories.map((cat, i) => (
-            <Link
-              key={cat.name}
-              ref={(el) => {
-                itemRefs.current[i] = el
-              }}
-              role="menuitem"
-              to={`/shop?category=${encodeURIComponent(cat.name)}`}
-              onClick={() => setOpen(false)}
-              className="flex min-h-11 items-center justify-between gap-3 rounded-btn px-3 py-2 text-sm text-ink transition-colors duration-fast hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
-            >
-              <span className="truncate font-medium">{cat.name}</span>
-              <span className="shrink-0 text-xs text-ink-faint">{cat.count}</span>
-            </Link>
-          ))}
+          <div
+            className={`grid gap-x-8 gap-y-1 ${CATEGORY_GRID_COLS[columns]}`}
+            style={{ gridAutoFlow: 'column', gridTemplateRows: `repeat(${rows}, minmax(0, auto))` }}
+          >
+            {categories.map((cat, i) => (
+              <Link
+                key={cat.name}
+                ref={(el) => {
+                  itemRefs.current[i] = el
+                }}
+                role="menuitem"
+                to={`/shop?category=${encodeURIComponent(cat.name)}`}
+                onClick={() => setOpen(false)}
+                className="flex min-h-11 w-48 items-center gap-3 rounded-btn px-3 py-2 text-ink transition-colors duration-fast hover:bg-surface-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-2"
+              >
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-btn bg-surface-2 ring-1 ring-line">
+                  {cat.image ? (
+                    // eslint-disable-next-line jsx-a11y/alt-text -- decorative, name is the adjacent text
+                    <img src={cat.image} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <Icon name="image" size={20} className="text-ink-faint" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-label text-label-md">{cat.name}</span>
+                  <span className="block text-xs text-ink-faint">
+                    {cat.count} {cat.count === 1 ? 'item' : 'items'}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -329,13 +361,11 @@ function CategoriesMenu({ categories }: { categories: StorefrontCategory[] }) {
 
 export default function Header({ storeName, cartCount, onCartOpen, navItems }: HeaderProps) {
   const token = useAuthStore((s) => s.token)
+  const navigate = useNavigate()
   const { currency: storeCurrency } = useSettings()
   const currency = currencySymbol(storeCurrency)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [searchOpen, setSearchOpen] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
   const [condensed, setCondensed] = useState(false)
-  const searchInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const onScroll = () => setCondensed(window.scrollY > 24)
@@ -344,31 +374,81 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Tracks the `sm` breakpoint (640px, matching Tailwind) so the search UI
-  // renders as exactly one dialog at a time — the desktop overlay OR the
-  // mobile Sheet, never both mounted-and-open together (which would fight
-  // over Escape/focus-trap and register as two modals to a screen reader).
-  const [isDesktopViewport, setIsDesktopViewport] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 640px)').matches,
-  )
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 640px)')
-    const handler = () => setIsDesktopViewport(mq.matches)
-    handler()
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
+  // Shared by the desktop row-2 field and the mobile Sheet's field — only
+  // one of the two is ever visible/reachable at a given viewport (the
+  // other is `sm:hidden`/`hidden sm:flex`), so one query and one piece of
+  // state avoids firing the request twice and keeps a query typed on one
+  // surface visible if the viewport changes mid-search.
+  const [searchQuery, setSearchQuery] = useState('')
+  const trimmedQuery = searchQuery.trim()
+  const debouncedQuery = useDebouncedValue(trimmedQuery, SEARCH_DEBOUNCE_MS)
 
-  // Lazy — only fetched once the search UI is actually opened, and cached
-  // under its own key so it doesn't collide with other pages' `/api/products`
-  // queries (different limit/pagination).
-  const { data: searchData, isLoading: searchLoading } = useQuery<ProductsResponse>({
-    queryKey: ['products', 'header-search'],
-    queryFn: () => fetchJson<ProductsResponse>('/api/products?page=1&limit=100'),
-    enabled: searchOpen,
-    staleTime: 5 * 60 * 1000,
+  // POD-UI2.md §3/E3 documented the old client-side-filter-100-rows
+  // stopgap; `?q=` is the real endpoint now (POD-UI4.md §3.1 C2 / §4.1).
+  // `enabled` gates the request on the *debounced* value, and it's also
+  // the query key, so a request never fires per keystroke and React
+  // Query naturally dedupes/caches per distinct search term.
+  const { data: searchData, isFetching: searchFetching } = useQuery<ProductsResponse>({
+    queryKey: ['products', 'header-search', debouncedQuery],
+    queryFn: () =>
+      fetchJson<ProductsResponse>(`/api/products?page=1&limit=${SEARCH_RESULT_LIMIT}&q=${encodeURIComponent(debouncedQuery)}`),
+    enabled: debouncedQuery.length > 0,
+    staleTime: 30 * 1000,
   })
-  const searchProducts = searchData?.products ?? []
+  const searchResults = searchData?.products ?? []
+  // "Pending" covers both legs of the wait: still inside the 250ms debounce
+  // window (trimmedQuery hasn't caught up to debouncedQuery yet) and the
+  // request itself in flight — so the shimmer never has a gap where it's
+  // neither loading nor showing a result.
+  const searchPending = trimmedQuery.length > 0 && (trimmedQuery !== debouncedQuery || searchFetching)
+
+  const [desktopResultsOpen, setDesktopResultsOpen] = useState(false)
+  const desktopSearchContainerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!desktopResultsOpen) return
+    function onPointerDown(e: PointerEvent) {
+      if (desktopSearchContainerRef.current && !desktopSearchContainerRef.current.contains(e.target as Node)) {
+        setDesktopResultsOpen(false)
+      }
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setDesktopResultsOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [desktopResultsOpen])
+
+  function navigateToFullResults(q: string) {
+    const query = q.trim()
+    if (!query) return
+    navigate(`/shop?q=${encodeURIComponent(query)}`)
+  }
+
+  function handleDesktopSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return
+    setDesktopResultsOpen(false)
+    navigateToFullResults(searchQuery)
+  }
+
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  function openMobileSearch() {
+    setMobileSearchOpen(true)
+  }
+  function closeMobileSearch() {
+    setMobileSearchOpen(false)
+    setSearchQuery('')
+  }
+  function handleMobileSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key !== 'Enter') return
+    const query = searchQuery.trim()
+    closeMobileSearch()
+    if (query) navigateToFullResults(query)
+  }
 
   // POD-UI2.md §7.1 — one "Categories" menu, backend-driven, instead of a
   // hand-maintained per-category nav link list. 5-minute staleTime matches
@@ -380,85 +460,110 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
   })
   const categories = categoriesData?.categories ?? []
 
-  function openSearch() {
-    setSearchOpen(true)
-    // Autofocus once the panel/sheet has mounted.
-    requestAnimationFrame(() => searchInputRef.current?.focus())
-  }
-  function closeSearch() {
-    setSearchOpen(false)
-    setSearchQuery('')
-  }
-
-  useEffect(() => {
-    if (!searchOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeSearch()
-    }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
-  }, [searchOpen])
-
   return (
     <>
       <AnnouncementBar />
 
-      <header
-        className={`sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur-sm transition-[height] duration-base ease-out-soft ${
-          condensed ? 'h-14' : 'h-16'
-        }`}
-      >
-        {/* Mobile row — hamburger + wordmark left, search + cart right.
-            True 3-zone centering (desktop) doesn't apply here; this is a
-            simple 2-group flex row instead. */}
-        <div className="mx-auto flex h-full max-w-6xl items-center justify-between gap-2 px-4 sm:hidden">
+      <header className="sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur-sm">
+        {/* Mobile — single row, unchanged from before the two-row split
+            (POD-UI4.md §5 A.2): hamburger + wordmark left, search icon +
+            cart right. True 3-zone centering doesn't apply here; this is a
+            simple 2-group flex row. */}
+        <div
+          className={`mx-auto flex items-center justify-between gap-2 px-4 transition-[height] duration-base ease-out-soft sm:hidden ${
+            condensed ? 'h-14' : 'h-16'
+          }`}
+        >
           <div className="flex min-w-0 items-center gap-0.5">
             {(navItems.length > 0 || categories.length > 0) && (
               <IconButton variant="ghost" aria-label="Open menu" onClick={() => setMobileOpen(true)}>
-                <MenuIcon />
+                <Icon name="menu" size={22} />
               </IconButton>
             )}
             <Wordmark storeName={storeName} className="text-base" />
           </div>
           <div className="flex shrink-0 items-center gap-0.5">
-            <IconButton variant="ghost" aria-label="Search products" onClick={openSearch}>
-              <SearchIcon />
+            <IconButton variant="ghost" aria-label="Search products" onClick={openMobileSearch}>
+              <Icon name="search" size={22} />
             </IconButton>
             <CartButton cartCount={cartCount} onCartOpen={onCartOpen} />
           </div>
         </div>
 
-        {/* Desktop row — left category nav / centred wordmark / right actions,
-            via a 3-column grid so the wordmark is centred on the header
-            itself rather than merely between two unequal-width groups. */}
-        <div className="mx-auto hidden h-full max-w-6xl grid-cols-[1fr_auto_1fr] items-center gap-4 px-8 sm:grid">
-          <nav className="flex min-w-0 items-center gap-6 justify-self-start">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                to={item.href}
-                className="whitespace-nowrap text-sm font-medium text-ink-soft transition-colors duration-fast hover:text-ink"
+        {/* Desktop — two rows (POD-UI4.md §3.1 C1 / §5 A.2): row 1 is
+            wordmark / mega-menu nav / account+cart, matching the comp's
+            three-zone flex layout exactly (brand fixed-width left, nav
+            centred in the remaining space, actions fixed-width right —
+            no CSS-grid centering trick needed since, unlike the old
+            single-row layout, the wordmark no longer has to be optically
+            centred on the whole bar). Row 2 is the "persistent" pill
+            search field the comp names it — persistent means it does NOT
+            collapse away on scroll, so condensing only tightens the
+            vertical padding on both rows instead of hiding row 2 the way
+            the old single-row header shrank its one fixed height. */}
+        <div className="mx-auto hidden max-w-7xl flex-col px-4 sm:flex md:px-10">
+          <div
+            className={`flex items-center gap-6 transition-[padding] duration-base ease-out-soft ${
+              condensed ? 'py-2' : 'py-3'
+            }`}
+          >
+            <Wordmark storeName={storeName} className="shrink-0 text-lg" />
+
+            <nav className="flex min-w-0 flex-1 items-center justify-center gap-6">
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  to={item.href}
+                  className="flex min-h-11 items-center whitespace-nowrap font-label text-label-md text-ink-soft transition-colors duration-fast hover:text-ink"
+                >
+                  {item.label}
+                </Link>
+              ))}
+              <CategoriesMenu categories={categories} />
+            </nav>
+
+            <div className="flex shrink-0 items-center justify-end gap-1">
+              <IconButton
+                variant="ghost"
+                aria-label={token ? 'My account' : 'Log in'}
+                onClick={() => navigate(token ? '/account/orders' : '/account/login')}
               >
-                {item.label}
-              </Link>
-            ))}
-            <CategoriesMenu categories={categories} />
-          </nav>
+                <Icon name="person" size={22} />
+              </IconButton>
+              <CartButton cartCount={cartCount} onCartOpen={onCartOpen} />
+            </div>
+          </div>
 
-          <Wordmark storeName={storeName} className="justify-self-center text-lg" />
-
-          <div className="flex items-center justify-end gap-1 justify-self-end">
-            <IconButton variant="ghost" aria-label="Search products" onClick={openSearch}>
-              <SearchIcon />
-            </IconButton>
-            <Link
-              to={token ? '/account/orders' : '/account/login'}
-              className="inline-flex h-11 items-center gap-1.5 px-2 text-sm font-medium text-ink-soft transition-colors duration-fast hover:text-ink"
-            >
-              <AccountIcon />
-              {token ? 'Account' : 'Login'}
-            </Link>
-            <CartButton cartCount={cartCount} onCartOpen={onCartOpen} />
+          <div
+            ref={desktopSearchContainerRef}
+            className={`relative transition-[padding] duration-base ease-out-soft ${condensed ? 'pb-2' : 'pb-3'}`}
+          >
+            <Icon
+              name="search"
+              size={20}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink-faint"
+            />
+            <input
+              type="search"
+              aria-label="Search products"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setDesktopResultsOpen(true)}
+              onKeyDown={handleDesktopSearchKeyDown}
+              placeholder="Search products…"
+              className="h-11 w-full rounded-pill border border-line bg-surface-2 pl-11 pr-4 text-sm text-ink placeholder:text-ink-faint transition-colors duration-fast focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+            {desktopResultsOpen && (
+              <div className="animate-fade-in absolute inset-x-0 top-full z-50 mt-2 max-h-[70vh] overflow-y-auto rounded-card border border-line bg-surface p-2 shadow-lift">
+                <SearchResultsList
+                  trimmedQuery={trimmedQuery}
+                  pending={searchPending}
+                  results={searchResults}
+                  currency={currency}
+                  onNavigate={() => setDesktopResultsOpen(false)}
+                />
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -482,7 +587,7 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
           <div className="flex items-center justify-between border-b border-line px-5 py-4">
             <Wordmark storeName={storeName} className="text-base" />
             <IconButton variant="ghost" size="sm" aria-label="Close menu" onClick={() => setMobileOpen(false)}>
-              <CloseIcon />
+              <Icon name="close" size={18} />
             </IconButton>
           </div>
           <nav className="flex-1 overflow-y-auto py-2">
@@ -491,7 +596,7 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
               <Link
                 key={item.href}
                 to={item.href}
-                className="flex min-h-11 items-center px-5 py-3 text-sm font-medium text-ink transition-colors duration-fast hover:bg-surface-2"
+                className="flex min-h-11 items-center px-5 py-3 font-label text-label-md text-ink transition-colors duration-fast hover:bg-surface-2"
                 onClick={() => setMobileOpen(false)}
               >
                 {item.label}
@@ -504,7 +609,7 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
                   <Link
                     key={cat.name}
                     to={`/shop?category=${encodeURIComponent(cat.name)}`}
-                    className="flex min-h-11 items-center justify-between px-5 py-3 text-sm font-medium text-ink transition-colors duration-fast hover:bg-surface-2"
+                    className="flex min-h-11 items-center justify-between px-5 py-3 font-label text-label-md text-ink transition-colors duration-fast hover:bg-surface-2"
                     onClick={() => setMobileOpen(false)}
                   >
                     <span>{cat.name}</span>
@@ -516,13 +621,13 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
             <div className="mx-5 my-2 border-t border-line" />
             <Link
               to={token ? '/account/orders' : '/account/login'}
-              className="flex min-h-11 items-center px-5 py-3 text-sm font-medium text-ink transition-colors duration-fast hover:bg-surface-2"
+              className="flex min-h-11 items-center px-5 py-3 font-label text-label-md text-ink transition-colors duration-fast hover:bg-surface-2"
               onClick={() => setMobileOpen(false)}
             >
               {token ? 'My Account' : 'Login'}
             </Link>
             <button
-              className="flex min-h-11 w-full items-center px-5 py-3 text-left text-sm font-medium text-ink transition-colors duration-fast hover:bg-surface-2"
+              className="flex min-h-11 w-full items-center px-5 py-3 text-left font-label text-label-md text-ink transition-colors duration-fast hover:bg-surface-2"
               onClick={() => {
                 setMobileOpen(false)
                 onCartOpen()
@@ -534,48 +639,32 @@ export default function Header({ storeName, cartCount, onCartOpen, navItems }: H
         </div>
       </div>
 
-      {/* Search — desktop overlay (command-palette style, centred near the
-          top so it doesn't need exact header-height math for condensed vs
-          full state) OR mobile Sheet — exactly one mounted-and-open at a
-          time, gated on the tracked viewport rather than CSS visibility. */}
-      {searchOpen && isDesktopViewport && (
-        <div className="fixed inset-0 z-[70]">
-          <div onClick={closeSearch} className="absolute inset-0 animate-fade-in bg-ink/40" aria-hidden="true" />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Search"
-            className="absolute inset-x-0 top-24 mx-auto w-full max-w-xl animate-scale-in rounded-card bg-surface p-5 shadow-lift"
-          >
-            <div className="mb-1 flex items-center justify-between">
-              <h2 className="font-display text-base font-semibold text-ink">Search</h2>
-              <IconButton variant="ghost" size="sm" aria-label="Close search" onClick={closeSearch}>
-                <CloseIcon />
-              </IconButton>
-            </div>
-            <SearchPanel
-              query={searchQuery}
-              onQueryChange={setSearchQuery}
-              products={searchProducts}
-              isLoading={searchLoading}
-              currency={currency}
-              onNavigate={closeSearch}
-              inputRef={searchInputRef}
-            />
-          </div>
+      {/* Mobile search — bottom Sheet (POD-UI4.md §5 A.2/A.4), the desktop
+          row-2 field's counterpart on small viewports. Same debounced
+          `?q=` query and result list as the desktop dropdown, just a
+          different chrome around it. */}
+      <Sheet open={mobileSearchOpen} onClose={closeMobileSearch} title="Search" initialSnap="full" fullHeight="90vh">
+        <div className="flex items-center gap-2 rounded-btn border border-line bg-surface-2 px-3.5 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20">
+          <Icon name="search" size={20} className="text-ink-faint" />
+          <input
+            type="search"
+            aria-label="Search products"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleMobileSearchKeyDown}
+            placeholder="Search products…"
+            className="h-11 w-full bg-transparent text-sm text-ink placeholder:text-ink-faint focus:outline-none"
+          />
         </div>
-      )}
-
-      <Sheet open={searchOpen && !isDesktopViewport} onClose={closeSearch} title="Search" initialSnap="full" fullHeight="90vh">
-        <SearchPanel
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
-          products={searchProducts}
-          isLoading={searchLoading}
-          currency={currency}
-          onNavigate={closeSearch}
-          inputRef={searchInputRef}
-        />
+        <div className="mt-3 max-h-[60vh] overflow-y-auto sm:max-h-80">
+          <SearchResultsList
+            trimmedQuery={trimmedQuery}
+            pending={searchPending}
+            results={searchResults}
+            currency={currency}
+            onNavigate={closeMobileSearch}
+          />
+        </div>
       </Sheet>
     </>
   )

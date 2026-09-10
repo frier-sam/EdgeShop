@@ -13,11 +13,18 @@
 //   2. An allow-list of key PREFIXES. This is the check that actually
 //      matters: even if (1) were bypassed (e.g. a percent-encoded
 //      '%2e%2e' that never becomes a literal '..' before this function
-//      sees it), a key that doesn't start with one of the three prefixes
-//      this app ever writes to is rejected outright — there is no path
-//      by which /img/* can be used to fetch an R2 object outside
-//      mockups/, uploads/, or designs/.
-export const IMG_ALLOWED_PREFIXES = ['mockups/', 'uploads/', 'designs/'] as const
+//      sees it), a key that doesn't start with one of the prefixes this
+//      app ever writes to is rejected outright — there is no path by
+//      which /img/* can be used to fetch an R2 object outside mockups/,
+//      uploads/, designs/, or templates/.
+//
+// 'templates/' added for POD-V2.md §11 Phase 4.4/4's admin template
+// preview upload (PUT /api/admin/templates/:id/preview,
+// routes/admin/templates.ts), which — same as design previews — is served
+// back same-origin through this exact /img/* proxy so the customizer's
+// "Designs" drawer can draw preview thumbnails into a <canvas> without
+// tainting it.
+export const IMG_ALLOWED_PREFIXES = ['mockups/', 'uploads/', 'designs/', 'templates/'] as const
 
 export function isAllowedImgKey(key: string | null | undefined): boolean {
   if (!key) return false

@@ -32,11 +32,17 @@ function FullScreenLoader() {
  * `GET /api/designs/:id` and hands it to the editor to rehydrate both
  * sides before the shopper sees anything. `?size=` still works alongside
  * it, since size lives on the cart line / order, not on the design row.
+ *
+ * `?variant=` (POD-UI4.md §5 C.10 / §4.2) works the same way as `?size=`:
+ * ProductPage's Customize link appends it when a variant is selected, and
+ * it's threaded straight through as `initialVariant` — axis 2 lives on the
+ * cart line, not the design row, exactly like size.
  */
 export default function CustomizePage() {
   const { productId } = useParams<{ productId: string }>()
   const [searchParams] = useSearchParams()
   const size = searchParams.get('size')
+  const variant = searchParams.get('variant')
   const designId = searchParams.get('design')
 
   const {
@@ -75,7 +81,7 @@ export default function CustomizePage() {
 
   return (
     <Suspense fallback={<FullScreenLoader />}>
-      <CustomizerEditor product={product} initialSize={size} initialDesign={usableDesign} />
+      <CustomizerEditor product={product} initialSize={size} initialVariant={variant} initialDesign={usableDesign} />
     </Suspense>
   )
 }

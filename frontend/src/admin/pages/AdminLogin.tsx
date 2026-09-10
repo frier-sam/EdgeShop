@@ -56,7 +56,7 @@ export default function AdminLogin() {
     <div className="flex min-h-screen items-center justify-center bg-paper px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <p className="font-display text-2xl font-bold tracking-tight text-ink">Admin Login</p>
+          <p className="font-display text-headline-md text-primary">Admin Login</p>
           <p className="mt-2 text-sm text-ink-soft">Sign in to access the admin panel</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 rounded-card border border-line bg-surface p-6 shadow-card">

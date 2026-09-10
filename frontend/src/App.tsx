@@ -20,6 +20,8 @@ import AdminDashboard from './admin/pages/AdminDashboard'
 import AdminOrderDetail from './admin/pages/AdminOrderDetail'
 import AdminCustomers from './admin/pages/AdminCustomers'
 import AdminProductEdit from './admin/pages/AdminProductEdit'
+import AdminTemplates from './admin/pages/AdminTemplates'
+import AdminTemplateEdit from './admin/pages/AdminTemplateEdit'
 import LoginPage from './pages/account/LoginPage'
 import RegisterPage from './pages/account/RegisterPage'
 import AccountOrdersPage from './pages/account/AccountOrdersPage'
@@ -72,11 +74,19 @@ export default function App() {
           <Route path="/account/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/account/reset-password" element={<ResetPasswordPage />} />
           <Route path="/admin/login" element={<AdminLogin />} />
+          {/* POD-V2.md §11 Phase 4.3 — a sibling of the /admin layout route,
+              not nested inside it: CustomizerEditor's root is a hard
+              `h-[100dvh]` full-viewport tool (same as the shopper's
+              /customize/:productId), which doesn't compose with
+              AdminLayout's padded, sidebar'd <main>. See the header
+              comment in AdminTemplateEdit.tsx for the full reasoning. */}
+          <Route path="/admin/templates/new" element={<AdminTemplateEdit />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<Navigate to="/admin/products" replace />} />
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/:id" element={<AdminProductEdit />} />
+            <Route path="templates" element={<AdminTemplates />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="orders/:id" element={<AdminOrderDetail />} />
             <Route path="customers" element={<AdminCustomers />} />
