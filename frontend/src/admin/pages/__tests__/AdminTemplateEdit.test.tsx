@@ -40,7 +40,7 @@ function product(partial: Partial<ProductDetail>): ProductDetail {
     id: 1, name: 'Mock Mug', slug: 'mock-mug', description: '', base_price: 100, compare_price: null,
     category: 'Mugs', status: 'active', is_customizable: 1, stock_count: 0, seo_title: '', seo_description: '',
     sides: [side({})], sizes: [], axis1_label: 'Size', axis2_label: 'Colour', min_order_qty: 1,
-    variants: [], price_breaks: [], highlights: '', ...partial,
+    variants: [], price_breaks: [], images: [], highlights: '', ...partial,
   }
 }
 

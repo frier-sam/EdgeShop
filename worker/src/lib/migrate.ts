@@ -441,6 +441,23 @@ export const MIGRATIONS: readonly Migration[] = [
       [`ALTER TABLE orders ADD COLUMN vendor_id INTEGER REFERENCES vendors(id)`],
     ],
   },
+  {
+    // Storefront product photos, distinct from product_sides mockups. Also
+    // in schema.sql, so only existing databases run this.
+    name: '0019_product_images.sql',
+    phases: [
+      [
+        `CREATE TABLE IF NOT EXISTS product_images (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          image_url  TEXT    NOT NULL,
+          image_w    INTEGER NOT NULL DEFAULT 0,
+          image_h    INTEGER NOT NULL DEFAULT 0,
+          sort_order INTEGER NOT NULL DEFAULT 0
+        )`,
+      ],
+    ],
+  },
 ]
 
 export async function runMigrations(db: D1Database): Promise<void> {

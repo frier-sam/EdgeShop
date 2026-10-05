@@ -166,7 +166,10 @@ adminProducts.get('/', async (c) => {
       // has no `sides` on this list payload to work it out for itself.
       // An EXISTS subquery keeps this one query and one row per product.
       `SELECT p.id, p.name, p.slug, p.base_price, p.compare_price, p.category, p.status, p.is_customizable, p.stock_count,
-              ps.image_url AS front_image,
+              COALESCE(
+                (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1),
+                ps.image_url
+              ) AS front_image,
               EXISTS (
                 SELECT 1 FROM product_sides s
                 WHERE s.product_id = p.id AND s.customizable = 1 AND s.print_w > 0 AND s.print_h > 0
@@ -257,6 +260,9 @@ adminProducts.get('/:id', async (c) => {
   const { results: sides } = await c.env.DB.prepare(
     'SELECT * FROM product_sides WHERE product_id = ? ORDER BY sort_order ASC'
   ).bind(id).all()
+  const { results: images } = await c.env.DB.prepare(
+    'SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC'
+  ).bind(id).all()
   const { results: sizes } = await c.env.DB.prepare(
     'SELECT * FROM product_sizes WHERE product_id = ? ORDER BY sort_order ASC'
   ).bind(id).all()
@@ -267,7 +273,7 @@ adminProducts.get('/:id', async (c) => {
     'SELECT * FROM product_price_breaks WHERE product_id = ? ORDER BY min_qty ASC'
   ).bind(id).all()
 
-  return c.json({ ...product, sides, sizes, variants, price_breaks })
+  return c.json({ ...product, sides, images, sizes, variants, price_breaks })
 })
 
 // ── Update basics (partial) ─────────────────────────────────────
@@ -349,6 +355,7 @@ adminProducts.delete('/:id', async (c) => {
       'DELETE FROM product_side_images WHERE side_id IN (SELECT id FROM product_sides WHERE product_id = ?)'
     ).bind(id),
     c.env.DB.prepare('DELETE FROM product_sides WHERE product_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM product_images WHERE product_id = ?').bind(id),
     c.env.DB.prepare('DELETE FROM product_sizes WHERE product_id = ?').bind(id),
     c.env.DB.prepare('DELETE FROM product_variants WHERE product_id = ?').bind(id),
     c.env.DB.prepare('DELETE FROM product_price_breaks WHERE product_id = ?').bind(id),
@@ -456,6 +463,40 @@ adminProducts.delete('/:id/sides/:side', async (c) => {
   }
   await c.env.DB.prepare('DELETE FROM product_sides WHERE product_id = ? AND side = ?').bind(id, side).run()
   return c.json({ ok: true })
+})
+
+// ── Product images (storefront photos; bulk replace, ordered) ────
+const MAX_PRODUCT_IMAGES = 8
+adminProducts.put('/:id/images', async (c) => {
+  const id = Number(c.req.param('id'))
+  if (isNaN(id)) return c.json({ error: 'Invalid id' }, 400)
+  const product = await c.env.DB.prepare('SELECT id FROM products WHERE id = ?').bind(id).first()
+  if (!product) return c.json({ error: 'Product not found' }, 404)
+
+  const body = await c.req.json<{ images?: Array<{ image_url?: string; image_w?: number; image_h?: number }> }>()
+  const images = Array.isArray(body.images) ? body.images : null
+  if (!images) return c.json({ error: 'images must be an array' }, 400)
+  if (images.length > MAX_PRODUCT_IMAGES) {
+    return c.json({ error: `At most ${MAX_PRODUCT_IMAGES} product images` }, 400)
+  }
+  for (const img of images) {
+    if (typeof img.image_url !== 'string' || !img.image_url.startsWith('/img/mockups/')) {
+      return c.json({ error: 'Each image needs an uploaded image_url' }, 400)
+    }
+  }
+
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM product_images WHERE product_id = ?').bind(id),
+    ...images.map((img, i) =>
+      c.env.DB.prepare(
+        'INSERT INTO product_images (product_id, image_url, image_w, image_h, sort_order) VALUES (?, ?, ?, ?, ?)'
+      ).bind(id, img.image_url, Math.max(0, Math.round(Number(img.image_w) || 0)), Math.max(0, Math.round(Number(img.image_h) || 0)), i)
+    ),
+  ])
+  const { results } = await c.env.DB.prepare(
+    'SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC'
+  ).bind(id).all()
+  return c.json({ images: results })
 })
 
 // ── Sizes (bulk replace) ─────────────────────────────────────────

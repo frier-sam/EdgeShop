@@ -129,8 +129,14 @@ products.get('/', async (c) => {
       `SELECT
          p.id, p.name, p.slug, p.base_price, p.compare_price, p.category, p.is_customizable,
          p.min_order_qty,
-         psf.image_url AS front_image,
-         psb.image_url AS back_image,
+         COALESCE(
+           (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1),
+           psf.image_url
+         ) AS front_image,
+         COALESCE(
+           (SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1 OFFSET 1),
+           CASE WHEN EXISTS (SELECT 1 FROM product_images x WHERE x.product_id = p.id) THEN NULL ELSE psb.image_url END
+         ) AS back_image,
          lb.min_qty AS lowest_break_min_qty,
          lb.unit_price AS lowest_break_unit_price
        FROM products p
@@ -176,6 +182,10 @@ products.get('/:id', async (c) => {
       'SELECT * FROM product_sides WHERE product_id = ? ORDER BY sort_order ASC'
     ).bind(product.id).all<ProductSide>()
 
+    const { results: images } = await c.env.DB.prepare(
+      'SELECT * FROM product_images WHERE product_id = ? ORDER BY sort_order ASC, id ASC'
+    ).bind(product.id).all()
+
     const { results: sizes } = await c.env.DB.prepare(
       'SELECT * FROM product_sizes WHERE product_id = ? ORDER BY sort_order ASC'
     ).bind(product.id).all<ProductSize>()
@@ -194,7 +204,7 @@ products.get('/:id', async (c) => {
 
     // `product` is a `SELECT *`, so it already carries `highlights` — see
     // POD-UI4.md §4.1's ProductDetail contract — no separate query needed.
-    return c.json({ ...product, sides, sizes, variants, price_breaks })
+    return c.json({ ...product, sides, images, sizes, variants, price_breaks })
   } catch (err) {
     console.error('Product detail error:', err)
     return c.json({ error: 'Failed to load product' }, 500)

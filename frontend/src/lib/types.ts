@@ -55,6 +55,14 @@ export interface ProductVariant {
 // POD-V2.md §5 — an opaque quantity tier. `unit_price` is the ABSOLUTE,
 // all-in price per unit at this tier (§9 decision 7) — it already
 // includes printing, it does not add on top of base_price + print fees.
+export interface ProductImage {
+  id: number
+  image_url: string
+  image_w: number
+  image_h: number
+  sort_order: number
+}
+
 export interface ProductPriceBreak {
   id: number
   min_qty: number
@@ -121,6 +129,9 @@ export interface ProductDetail {
   min_order_qty: number
   variants: ProductVariant[]
   price_breaks: ProductPriceBreak[]
+  // Storefront photos, separate from `sides` (the customizer mockups). When
+  // empty the gallery falls back to the side mockups.
+  images: ProductImage[]
   // POD-UI4.md §4.1 / P2 — newline-separated bullet lines, rendered as the
   // product page's "Key Features" box. Opaque merchant copy: never parsed
   // beyond splitting on newlines, and the box is simply not rendered when

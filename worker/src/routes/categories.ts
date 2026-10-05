@@ -26,7 +26,10 @@ import { shapeCategoryRows, type RawCategoryRow } from '../lib/categories'
 const CATEGORIES_QUERY = `
   SELECT p.category AS name,
          COUNT(*) AS count,
-         MAX(CASE WHEN ps.side = 'front' THEN ps.image_url END) AS image
+         COALESCE(
+           MAX((SELECT pi.image_url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1)),
+           MAX(CASE WHEN ps.side = 'front' THEN ps.image_url END)
+         ) AS image
   FROM products p
   LEFT JOIN product_sides ps ON ps.product_id = p.id AND ps.side = 'front'
   WHERE p.status = 'active' AND p.category IS NOT NULL AND TRIM(p.category) != ''

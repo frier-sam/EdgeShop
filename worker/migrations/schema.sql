@@ -201,6 +201,18 @@ CREATE TABLE IF NOT EXISTS vendors (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Storefront photos, separate from product_sides (the front/back MOCKUPS the
+-- customizer draws on). Ordered; when a product has none, the storefront
+-- falls back to its side mockups.
+CREATE TABLE IF NOT EXISTS product_images (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  image_url  TEXT    NOT NULL,
+  image_w    INTEGER NOT NULL DEFAULT 0,
+  image_h    INTEGER NOT NULL DEFAULT 0,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS orders (
   id                  TEXT PRIMARY KEY,
   customer_id         INTEGER REFERENCES customers(id),
@@ -290,7 +302,8 @@ INSERT OR IGNORE INTO _migrations (name) VALUES
   ('0015_espod_rename.sql'),
   ('0016_v2_options_bulk_templates.sql'),
   ('0017_product_highlights.sql'),
-  ('0018_vendors.sql');
+  ('0018_vendors.sql'),
+  ('0019_product_images.sql');
 
 -- ────────────────────────────────────────────────────────────
 -- Seed default settings

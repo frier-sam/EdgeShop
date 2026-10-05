@@ -10,6 +10,7 @@ import ProductSideCard from '../ProductSideCard'
 import ProductSizesEditor from '../ProductSizesEditor'
 import ProductVariantsEditor from '../ProductVariantsEditor'
 import ProductPriceBreaksEditor from '../ProductPriceBreaksEditor'
+import ProductImagesEditor from '../ProductImagesEditor'
 import CategoryCombobox from '../CategoryCombobox'
 import { PRODUCT_PRESETS, type ProductPreset } from '../productPresets'
 import Field from '../../components/Field'
@@ -18,7 +19,7 @@ import SegmentedControl from '../../components/ui/SegmentedControl'
 import Icon from '../../components/ui/Icon'
 import type { IconName } from '../../components/ui/iconNames'
 import { Skeleton } from '../../components/Skeleton'
-import type { ProductDetail, ProductSide, ProductSize, ProductVariant, ProductPriceBreak } from '../../lib/types'
+import type { ProductDetail, ProductSide, ProductSize, ProductVariant, ProductPriceBreak, ProductImage } from '../../lib/types'
 
 const DEFAULT_PRINT_FEE_FALLBACK = 99
 const MAX_HIGHLIGHTS_LENGTH = 2000
@@ -724,11 +725,34 @@ function EditProductForm({ id }: { id: string }) {
             />
           </Section>
 
-          {/* 5. Product images — front/back photos. Always visible: a
-              non-customizable product still needs its photos, and these
-              cards already hide the print-area controls themselves when
-              the product-level Customizable flag is off. */}
+          {/* 5. Product images — the website photos. Separate from the
+              front/back customization mockups below. */}
           <Section title="Product images" icon="image">
+            <ProductImagesEditor
+              productId={numericId}
+              images={product.images ?? []}
+              onSaved={(images: ProductImage[]) =>
+                qc.setQueryData<ProductDetail | undefined>(['product', id], (old) => (old ? { ...old, images } : old))
+              }
+            />
+          </Section>
+
+          {/* 6. Customization — the product-level flag. Saved the moment it
+              is toggled (it used to wait for "Save basics", so a merchant
+              who ticked it and left never got a Customize button on the
+              storefront). Per-side print areas live in the cards above. */}
+          <Section
+            title="Customization"
+            icon="design_services"
+            toggle={{
+              checked: basics.is_customizable,
+              onChange: handleToggleCustomizable,
+              hint: 'Lets a customer print their own design on this product. Saves immediately. Set each side\'s mockup and print area below.',
+            }}
+          >
+            <p className="px-1 text-xs text-ink-soft">
+              Customization mockups: the blank front/back the customizer draws on. Not shown as product photos.
+            </p>
             <div className="space-y-4">
               <ProductSideCard
                 productId={numericId}
@@ -761,24 +785,6 @@ function EditProductForm({ id }: { id: string }) {
                 </button>
               )}
             </div>
-          </Section>
-
-          {/* 6. Customization — the product-level flag. Saved the moment it
-              is toggled (it used to wait for "Save basics", so a merchant
-              who ticked it and left never got a Customize button on the
-              storefront). Per-side print areas live in the cards above. */}
-          <Section
-            title="Customization"
-            icon="design_services"
-            toggle={{
-              checked: basics.is_customizable,
-              onChange: handleToggleCustomizable,
-              hint: 'Lets a customer print their own design on this product. Saves immediately. Set each side\'s print area in Product images above.',
-            }}
-          >
-            <p className="px-1 text-xs text-ink-soft">
-              Customers will see a Customize button. Enable "This side is customizable" and draw the print area on each side above.
-            </p>
           </Section>
         </div>
 

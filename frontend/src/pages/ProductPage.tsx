@@ -121,6 +121,12 @@ export function VariantPicker({ variants, axisLabel, selected, onSelect }: Varia
   )
 }
 
+interface GalleryItem {
+  key: string
+  image_url: string | null
+  label: string
+}
+
 /**
  * Swipeable product gallery — a horizontally scroll-snapping track (no JS
  * carousel library, per POD-UI.md §B4). Dot indicators track the active
@@ -130,11 +136,11 @@ export function VariantPicker({ variants, axisLabel, selected, onSelect }: Varia
  * since it's just native overflow scroll underneath.
  */
 function ProductGallery({
-  sides,
+  items,
   productName,
   onActiveChange,
 }: {
-  sides: ProductSide[]
+  items: GalleryItem[]
   productName: string
   onActiveChange?: (index: number) => void
 }) {
@@ -152,10 +158,10 @@ function ProductGallery({
   useEffect(() => {
     setActive(0)
     trackRef.current?.scrollTo({ left: 0 })
-    // Only reset when the set of sides actually changes (e.g. a different
+    // Only reset when the set of images actually changes (e.g. a different
     // product loads) — `setActive` is stable-ish but not worth chasing here.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sides])
+  }, [items])
 
   const handleScroll = useCallback(() => {
     const track = trackRef.current
@@ -171,7 +177,7 @@ function ProductGallery({
     track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' })
   }
 
-  if (sides.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="flex aspect-square w-full items-center justify-center rounded-card bg-surface text-sm text-ink-soft ring-1 ring-line">
         No image
@@ -186,10 +192,10 @@ function ProductGallery({
         onScroll={handleScroll}
         className="flex aspect-square w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-card bg-surface ring-1 ring-line [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {sides.map((s) => (
-          <div key={s.side} className="h-full w-full shrink-0 snap-center snap-always">
+        {items.map((s) => (
+          <div key={s.key} className="h-full w-full shrink-0 snap-center snap-always">
             {s.image_url ? (
-              <img src={s.image_url} alt={`${productName} — ${s.side}`} className="h-full w-full object-cover" draggable={false} />
+              <img src={s.image_url} alt={`${productName} — ${s.label}`} className="h-full w-full object-cover" draggable={false} />
             ) : (
               <div className="flex h-full w-full items-center justify-center text-sm text-ink-soft">No image</div>
             )}
@@ -197,7 +203,7 @@ function ProductGallery({
         ))}
       </div>
 
-      {sides.length > 1 && (
+      {items.length > 1 && (
         <>
           {/* Arrow buttons — pointer-only affordance layered over the same
               swipeable track; opacity is gated on hover so it never fights
@@ -228,8 +234,8 @@ function ProductGallery({
               variant="secondary"
               size="sm"
               aria-label="Next image"
-              onClick={() => scrollToIndex(Math.min(sides.length - 1, activeIdx + 1))}
-              disabled={activeIdx === sides.length - 1}
+              onClick={() => scrollToIndex(Math.min(items.length - 1, activeIdx + 1))}
+              disabled={activeIdx === items.length - 1}
               className="bg-surface/90 opacity-0 shadow-card backdrop-blur-sm transition-opacity duration-fast group-hover/gallery:opacity-100"
             >
               <Icon name="chevron_right" size={18} />
@@ -240,12 +246,12 @@ function ProductGallery({
               takes over as the "which image am I on" affordance at `sm`+,
               matching the comp (POD-UI4.md §5 C.1 / P1). */}
           <div className="mt-3 flex items-center justify-center gap-1.5 sm:hidden" role="tablist" aria-label="Product images">
-            {sides.map((s, i) => (
+            {items.map((s, i) => (
               <button
-                key={s.side}
+                key={s.key}
                 role="tab"
                 aria-selected={i === activeIdx}
-                aria-label={`Show ${s.side} image`}
+                aria-label={`Show ${s.label} image`}
                 onClick={() => scrollToIndex(i)}
                 className={`h-2 rounded-full transition-all duration-fast ${i === activeIdx ? 'w-6 bg-ink' : 'w-2 bg-ink/20 hover:bg-ink/40'}`}
               />
@@ -256,14 +262,14 @@ function ProductGallery({
               horizontally with `hide-scrollbar` should it ever hold more
               thumbnails than fit; today it holds at most 2 (front/back). */}
           <div className="mt-3 hidden gap-3 overflow-x-auto hide-scrollbar sm:flex">
-            {sides.map((s, i) => {
+            {items.map((s, i) => {
               const active = i === activeIdx
               return (
                 <button
-                  key={s.side}
+                  key={s.key}
                   type="button"
                   onClick={() => scrollToIndex(i)}
-                  aria-label={`Show ${s.side} image`}
+                  aria-label={`Show ${s.label} image`}
                   aria-current={active}
                   className={`h-24 w-24 shrink-0 overflow-hidden rounded-sm transition-opacity duration-fast ${
                     active ? 'border-2 border-accent' : 'border border-line opacity-70 hover:opacity-100'
@@ -461,7 +467,13 @@ export default function ProductPage() {
   const sides = product.sides ?? []
   const sizes = product.sizes ?? []
   const variants = product.variants ?? []
-  const activeSide = sides[activeSideIdx] ?? sides[0]
+  // Storefront photos win; a product with none shows its customization
+  // mockups (the blank front/back) instead.
+  const galleryItems: GalleryItem[] =
+    (product.images ?? []).length > 0
+      ? product.images.map((im, i) => ({ key: `img-${im.id}`, image_url: im.image_url, label: `photo ${i + 1}` }))
+      : sides.map((sd) => ({ key: sd.side, image_url: sd.image_url, label: sd.side }))
+  const activeImage = galleryItems[activeSideIdx] ?? galleryItems[0]
   const selectedSizeRow = sizes.find((s) => s.label === selectedSize) ?? null
 
   // POD-V2.md §1.1 — "Size"/"Colour" are t-shirt words; a bottle merchant
@@ -520,7 +532,7 @@ export default function ProductPage() {
   // Variants never enter this calculation either — axis 2 carries no
   // price by design (POD-V2.md §3.1).
   const anyInStock = needsSize ? sizes.some((s) => s.stock_count > 0) : product.stock_count > 0
-  const absoluteImageUrls = sides
+  const absoluteImageUrls = galleryItems
     .map((s) => s.image_url)
     .filter((url): url is string => !!url)
     .map((url) => new URL(url, window.location.origin).toString())
@@ -547,7 +559,7 @@ export default function ProductPage() {
       size: selectedSize,
       variant: selectedVariant,
       design_id: null,
-      preview_url: activeSide?.image_url ?? null,
+      preview_url: activeImage?.image_url ?? null,
       base_price: product.base_price,
       size_delta: selectedSizeRow?.price_delta ?? 0,
       print_fees: [],
@@ -682,7 +694,7 @@ export default function ProductPage() {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:gap-16">
           {/* Gallery */}
           <div>
-            <ProductGallery sides={sides} productName={product.name} onActiveChange={setActiveSideIdx} />
+            <ProductGallery items={galleryItems} productName={product.name} onActiveChange={setActiveSideIdx} />
           </div>
 
           {/* Info */}
