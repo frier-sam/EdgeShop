@@ -606,7 +606,7 @@ export default function ProductPage() {
     {
       id: 'description',
       title: 'Description',
-      content: <p>{product.description || 'No additional description has been added for this product yet.'}</p>,
+      content: <p className="whitespace-pre-line">{product.description || 'No additional description has been added for this product yet.'}</p>,
     },
     ...(needsSize
       ? [
@@ -753,6 +753,30 @@ export default function ProductPage() {
                 {/* % OFF badge (POD-UI4.md §5 C.3 / P3) — computed, never a
                     static claim, and only shown when it rounds to ≥1%. */}
                 {discountPercent >= 1 && <span className="font-label text-label-sm text-accent">{discountPercent}% OFF</span>}
+              </div>
+            )}
+
+            {/* Bulk pricing tiers — rendered whenever the product has
+                price_breaks rows (the admin "Bulk pricing" checkbox is only a
+                disclosure control; the rows are the source of truth). Tier
+                prices are absolute, all-in per-unit prices. */}
+            {(product.price_breaks ?? []).length > 0 && (
+              <div className="mb-6 rounded-card border border-line bg-surface p-4 sm:p-5">
+                <p className="mb-2 font-label text-label-sm uppercase tracking-widest text-accent">Bulk pricing</p>
+                <ul className="divide-y divide-line/70 text-sm">
+                  {product.price_breaks.map((b, i, all) => {
+                    const next = all[i + 1]
+                    return (
+                      <li key={b.id} className="flex items-baseline justify-between py-1.5 text-ink-soft">
+                        <span>{next ? `${b.min_qty}–${next.min_qty - 1} units` : `${b.min_qty}+ units`}</span>
+                        <span className="font-semibold text-ink">
+                          {currency}
+                          {b.unit_price.toFixed(2)} <span className="font-normal text-ink-soft">each</span>
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
               </div>
             )}
 

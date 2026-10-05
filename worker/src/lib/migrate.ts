@@ -419,6 +419,28 @@ export const MIGRATIONS: readonly Migration[] = [
     name: '0017_product_highlights.sql',
     phases: [[`ALTER TABLE products ADD COLUMN highlights TEXT NOT NULL DEFAULT ''`]],
   },
+  {
+    // Vendor enrollment — admin-managed list of outside producers an order
+    // can be assigned to. Like 0016/0017, schema.sql already carries the
+    // table, the column and this name, so a fresh database never runs this
+    // entry; it only upgrades an existing database.
+    name: '0018_vendors.sql',
+    phases: [
+      [
+        `CREATE TABLE IF NOT EXISTS vendors (
+          id         INTEGER PRIMARY KEY AUTOINCREMENT,
+          name       TEXT    NOT NULL,
+          contact    TEXT    NOT NULL DEFAULT '',
+          email      TEXT    NOT NULL DEFAULT '',
+          phone      TEXT    NOT NULL DEFAULT '',
+          notes      TEXT    NOT NULL DEFAULT '',
+          active     INTEGER NOT NULL DEFAULT 1,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`,
+      ],
+      [`ALTER TABLE orders ADD COLUMN vendor_id INTEGER REFERENCES vendors(id)`],
+    ],
+  },
 ]
 
 export async function runMigrations(db: D1Database): Promise<void> {

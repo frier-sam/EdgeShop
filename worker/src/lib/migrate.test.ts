@@ -61,14 +61,14 @@ CREATE TABLE IF NOT EXISTS bar (id INTEGER);
     }
   })
 
-  it('produces exactly the 19 statements schema.sql defines, in order', () => {
+  it('produces exactly the 20 statements schema.sql defines, in order', () => {
     // 14 pre-POD-V2 statements + 5 new CREATE TABLEs (product_variants,
     // product_side_images, product_price_breaks, template_collections,
     // design_templates — POD-V2.md §1.1/§3/§5/§6). The new columns on
     // products/product_sides don't add statements — they're added inside
     // those tables' existing CREATE TABLE statement.
     const statements = splitSqlStatements(BASE_SCHEMA_SQL)
-    expect(statements).toHaveLength(19)
+    expect(statements).toHaveLength(20)
     expect(statements[0]).toMatch(/^CREATE TABLE IF NOT EXISTS products\b/)
     expect(statements.at(-1)).toMatch(/^INSERT OR IGNORE INTO settings\b/)
     // Every statement must be non-empty after trimming (already implied by

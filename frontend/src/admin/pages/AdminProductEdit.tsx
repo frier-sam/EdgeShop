@@ -440,6 +440,16 @@ function EditProductForm({ id }: { id: string }) {
     onError: (err: Error) => setBasicsError(err.message),
   })
 
+  // The Customization checkbox persists on its own PATCH so it can't be
+  // silently lost by leaving the page without pressing "Save basics".
+  function handleToggleCustomizable(next: boolean) {
+    setBasics((b) => (b ? { ...b, is_customizable: next } : b))
+    basicsMutation.mutate(
+      { is_customizable: next ? 1 : 0 },
+      { onError: () => setBasics((b) => (b ? { ...b, is_customizable: !next } : b)) },
+    )
+  }
+
   function handleSaveBasics() {
     if (!basics) return
     if (!basics.name.trim()) { setBasicsError('Name is required.'); return }
@@ -714,22 +724,12 @@ function EditProductForm({ id }: { id: string }) {
             />
           </Section>
 
-          {/* 5. Customization — mockups and print areas, gated on the same
-              is_customizable flag Basics already saves. Unticking hides this
-              whole block (still without deleting any uploaded mockup or
-              print-area data — see Section's comment). The live preview
-              itself has moved into the workspace pane on the right. */}
-          <Section
-            title="Customization"
-            icon="design_services"
-            toggle={{
-              checked: basics.is_customizable,
-              onChange: (v) => setBasics({ ...basics, is_customizable: v }),
-              hint: 'Lets a customer print their own design on this product. Controls mockups and print areas below — saved together with Basics.',
-            }}
-          >
+          {/* 5. Product images — front/back photos. Always visible: a
+              non-customizable product still needs its photos, and these
+              cards already hide the print-area controls themselves when
+              the product-level Customizable flag is off. */}
+          <Section title="Product images" icon="image">
             <div className="space-y-4">
-              <h2 className="px-1 font-display font-semibold text-ink">Sides</h2>
               <ProductSideCard
                 productId={numericId}
                 side="front"
@@ -761,6 +761,24 @@ function EditProductForm({ id }: { id: string }) {
                 </button>
               )}
             </div>
+          </Section>
+
+          {/* 6. Customization — the product-level flag. Saved the moment it
+              is toggled (it used to wait for "Save basics", so a merchant
+              who ticked it and left never got a Customize button on the
+              storefront). Per-side print areas live in the cards above. */}
+          <Section
+            title="Customization"
+            icon="design_services"
+            toggle={{
+              checked: basics.is_customizable,
+              onChange: handleToggleCustomizable,
+              hint: 'Lets a customer print their own design on this product. Saves immediately. Set each side\'s print area in Product images above.',
+            }}
+          >
+            <p className="px-1 text-xs text-ink-soft">
+              Customers will see a Customize button. Enable "This side is customizable" and draw the print area on each side above.
+            </p>
           </Section>
         </div>
 

@@ -165,7 +165,7 @@ adminOrders.put('/:id', async (c) => {
   }
 
   const allowed = [
-    'order_status', 'payment_status', 'tracking_number', 'internal_notes',
+    'order_status', 'payment_status', 'tracking_number', 'internal_notes', 'vendor_id',
     'customer_name', 'customer_email', 'customer_phone',
     'shipping_address', 'shipping_city', 'shipping_state', 'shipping_pincode', 'shipping_country',
   ]
@@ -179,6 +179,16 @@ adminOrders.put('/:id', async (c) => {
     if (k === 'payment_status' && !VALID_PAYMENT_STATUSES.includes(v as never)) {
       return c.json({ error: 'Invalid payment_status' }, 400)
     }
+  }
+
+  const vendorEntry = entries.find(([k]) => k === 'vendor_id')
+  if (vendorEntry && vendorEntry[1] !== null) {
+    const vid = Number(vendorEntry[1])
+    const vendor = Number.isInteger(vid)
+      ? await c.env.DB.prepare('SELECT id, name FROM vendors WHERE id = ?').bind(vid).first<{ id: number; name: string }>()
+      : null
+    if (!vendor) return c.json({ error: 'Invalid vendor_id' }, 400)
+    vendorEntry[1] = vid
   }
 
   const setClauses = entries.map(([k]) => `${k} = ?`).join(', ')
@@ -202,6 +212,11 @@ adminOrders.put('/:id', async (c) => {
       eventStmts.push(
         c.env.DB.prepare("INSERT INTO order_events (order_id, event_type, data_json) VALUES (?, 'tracking_set', ?)")
           .bind(id, JSON.stringify({ tracking_number: v }))
+      )
+    } else if (k === 'vendor_id') {
+      eventStmts.push(
+        c.env.DB.prepare("INSERT INTO order_events (order_id, event_type, data_json) VALUES (?, 'vendor_assigned', ?)")
+          .bind(id, JSON.stringify({ vendor_id: v }))
       )
     } else if (k === 'payment_status') {
       eventStmts.push(

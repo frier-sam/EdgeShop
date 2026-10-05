@@ -50,6 +50,7 @@ interface Order {
   tracking_number?: string
   customer_notes?: string
   internal_notes?: string
+  vendor_id?: number | null
   created_at: string
   razorpay_order_id?: string
   razorpay_payment_id?: string
@@ -218,6 +219,13 @@ export default function AdminOrderDetail() {
       qc.invalidateQueries({ queryKey: ['admin-order', id] })
     },
   })
+
+  const { data: vendorsData } = useQuery({
+    queryKey: ['admin-vendors'],
+    queryFn: () => fetchJsonWith<{ vendors: Array<{ id: number; name: string; active: number }> }>(adminFetch, '/api/admin/vendors'),
+    staleTime: 60 * 1000,
+  })
+  const vendors = vendorsData?.vendors ?? []
 
   const [noteText, setNoteText] = useState('')
 
@@ -637,6 +645,15 @@ export default function AdminOrderDetail() {
                 <p className="text-xs text-ink-faint">Tracking: {data.tracking_number} · {formatDate(event.created_at)}</p>
               </div>
             )
+            if (event.event_type === 'vendor_assigned') return (
+              <div key={event.id} className="relative">
+                <TimelineDot tone="info" />
+                <p className="text-xs font-medium text-ink">
+                  {data.vendor_id == null ? 'Vendor unassigned' : `Assigned to ${vendors.find((v) => v.id === Number(data.vendor_id))?.name ?? `vendor #${data.vendor_id}`}`}
+                </p>
+                <p className="text-xs text-ink-faint">{formatDate(event.created_at)}</p>
+              </div>
+            )
             if (event.event_type === 'payment_change') return (
               <div key={event.id} className="relative">
                 <TimelineDot tone="success" />
@@ -718,6 +735,26 @@ export default function AdminOrderDetail() {
               />
             ) : (
               <span className="text-sm text-ink">{order.tracking_number ?? '—'}</span>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <label htmlFor="order-vendor" className="w-32 shrink-0 text-sm text-ink-soft">Assigned vendor</label>
+            <select
+              id="order-vendor"
+              value={order.vendor_id ?? ''}
+              disabled={updateMutation.isPending}
+              onChange={(e) => updateMutation.mutate({ vendor_id: e.target.value === '' ? null : Number(e.target.value) })}
+              className={`${INPUT_CLASSES} w-64`}
+            >
+              <option value="">Unassigned</option>
+              {vendors
+                .filter((v) => v.active || v.id === order.vendor_id)
+                .map((v) => (
+                  <option key={v.id} value={v.id}>{v.name}{v.active ? '' : ' (inactive)'}</option>
+                ))}
+            </select>
+            {vendors.length === 0 && (
+              <Link to="/admin/vendors" className="text-xs text-accent hover:underline">Add a vendor</Link>
             )}
           </div>
         </div>

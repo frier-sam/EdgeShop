@@ -14,6 +14,7 @@ import account from './routes/account'
 import { requireAdmin } from './middleware/requireAdmin'
 import sitemap from './routes/sitemap'
 import adminCustomers from './routes/admin/customers'
+import adminVendors from './routes/admin/vendors'
 import designs from './routes/designs'
 import orders from './routes/orders'
 import templates from './routes/templates'
@@ -100,6 +101,7 @@ app.route('/api/auth', auth)
 app.route('/api/account', account)
 app.route('/sitemap.xml', sitemap)
 app.route('/api/admin/customers', adminCustomers)
+app.route('/api/admin/vendors', adminVendors)
 // POD-V2.md §11 Phase 4.2 — admin CRUD for template_collections +
 // design_templates. Mounted at the bare '/api/admin' base (not
 // '/api/admin/templates') because routes/admin/templates.ts defines two

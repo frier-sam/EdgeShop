@@ -16,6 +16,7 @@ const NAV_ITEMS: { to: string; label: string; icon: IconName }[] = [
   { to: '/admin/templates', label: 'Templates', icon: 'layers' },
   { to: '/admin/orders', label: 'Orders', icon: 'receipt_long' },
   { to: '/admin/customers', label: 'Customers', icon: 'group' },
+  { to: '/admin/vendors', label: 'Vendors', icon: 'storefront' },
   { to: '/admin/settings', label: 'Settings', icon: 'settings' },
 ]
 

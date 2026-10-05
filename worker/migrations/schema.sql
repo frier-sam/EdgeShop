@@ -190,6 +190,17 @@ CREATE TABLE IF NOT EXISTS design_templates (
 -- Sales
 -- ────────────────────────────────────────────────────────────
 
+CREATE TABLE IF NOT EXISTS vendors (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT    NOT NULL,
+  contact    TEXT    NOT NULL DEFAULT '',
+  email      TEXT    NOT NULL DEFAULT '',
+  phone      TEXT    NOT NULL DEFAULT '',
+  notes      TEXT    NOT NULL DEFAULT '',
+  active     INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS orders (
   id                  TEXT PRIMARY KEY,
   customer_id         INTEGER REFERENCES customers(id),
@@ -214,6 +225,7 @@ CREATE TABLE IF NOT EXISTS orders (
   tracking_number     TEXT DEFAULT '',
   customer_notes      TEXT DEFAULT '',
   internal_notes      TEXT DEFAULT '',
+  vendor_id           INTEGER REFERENCES vendors(id),
   created_at          DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -277,7 +289,8 @@ INSERT OR IGNORE INTO _migrations (name) VALUES
   ('0014_design_retention_setting.sql'),
   ('0015_espod_rename.sql'),
   ('0016_v2_options_bulk_templates.sql'),
-  ('0017_product_highlights.sql');
+  ('0017_product_highlights.sql'),
+  ('0018_vendors.sql');
 
 -- ────────────────────────────────────────────────────────────
 -- Seed default settings

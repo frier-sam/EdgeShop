@@ -19,6 +19,7 @@ import AdminSettings from './admin/pages/AdminSettings'
 import AdminDashboard from './admin/pages/AdminDashboard'
 import AdminOrderDetail from './admin/pages/AdminOrderDetail'
 import AdminCustomers from './admin/pages/AdminCustomers'
+import AdminVendors from './admin/pages/AdminVendors'
 import AdminProductEdit from './admin/pages/AdminProductEdit'
 import AdminTemplates from './admin/pages/AdminTemplates'
 import AdminTemplateEdit from './admin/pages/AdminTemplateEdit'
@@ -90,6 +91,7 @@ export default function App() {
             <Route path="orders" element={<AdminOrders />} />
             <Route path="orders/:id" element={<AdminOrderDetail />} />
             <Route path="customers" element={<AdminCustomers />} />
+            <Route path="vendors" element={<AdminVendors />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
